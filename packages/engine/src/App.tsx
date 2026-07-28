@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useKeyboard } from "@opentui/react"
 import { createForm, setValidateLanguage } from "@formily/core"
+import { observable } from "@formily/reactive"
 import type { ISchema } from "@formily/react"
 import {
   Button,
@@ -28,10 +29,13 @@ setValidateLanguage("zh-CN")
 export function App({ schema, onFinish, onCancel }: AppProps) {
   const form = useMemo(() => createForm(), [])
   const [messageApi, messageHolder] = message.useMessage()
-  // $memo：页面级可变对象，供 scope 函数存放隐藏交互状态（不进 form.values、不回传）
+  // 三个状态通道的分工：
+  // $state：响应式 UI 状态（schema.state 声明初值），表达式读取自动联动，不进 form.values、不回传
+  // $memo：非渲染状态（timer/标记位），无响应性
+  // form.values：只装用户输入，提交/Esc 时回传
   const scope = useMemo(
-    () => compileScope(schema.scope, { $form: form, $memo: {} }),
-    [schema.scope, form],
+    () => compileScope(schema.scope, { $form: form, $state: observable({ ...schema.state }), $memo: {} }),
+    [schema.scope, schema.state, form],
   )
 
   // interactive 模式：无操作栏的自包含交互页面，Esc 完成并回传当前值

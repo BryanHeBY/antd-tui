@@ -17,6 +17,9 @@
   "scope": {                        // 可选：具名表达式函数表
     "fnName": "{{ (arg) => ... }}"
   },
+  "state": {                        // 可选：响应式 UI 状态初值（$state，不回传，见第 2 节）
+    "current": 0
+  },
   "theme": {                        // 可选：主题覆盖，形状同 antd ConfigProvider
     "token": { "colorPrimary": "#722ed1" }
   },
@@ -68,13 +71,24 @@
 - 表达式必须整体包裹在 `{{ }}` 中;多语句用 block-body 箭头函数 `{{ () => { ...; ... } }}`
 - scope 函数之间可互相调用,不受定义顺序限制
 
-### 表达式可用的作用域
+### 表达式可用的作用域:三个状态通道各司其职
 
-| 名称 | 说明 |
-|---|---|
-| `$form` | Formily 表单实例。读值 `$form.values.xxx`,写值 `$form.setValuesIn('xxx', v)`(联动刷新绑定该字段的展示组件) |
-| `$memo` | 页面级可变对象,存放隐藏交互状态(如"上次按键是 ="标记)。**不进 `form.values`、不回传** |
-| scope 函数 | 按名直接调用 |
+| 名称 | 响应式 | 回传 | 用途 |
+|---|---|---|---|
+| `$form` | ✅ | ✅ | **只装用户输入**。读值 `$form.values.xxx`,写值 `$form.setValuesIn('xxx', v)` |
+| `$state` | ✅ | ❌ | 驱动渲染的 UI 状态(当前选中项、模拟负载等)。初值在信封 `state` 段声明,表达式读 `$state.xxx` 自动联动,scope 函数直接赋值 `$state.xxx = v` |
+| `$memo` | ❌ | ❌ | 非渲染状态(timer 句柄、"上次按键是 ="标记位) |
+| scope 函数 | — | — | 按名直接调用 |
+
+**纪律:不要把 UI 内部状态或静态展示数据放进 `form` 字段**——interactive 模式 Esc 回传 `form.values`,里面必须只有用户输入。静态展示值(如 Statistic 的数字)用 void 节点 + `x-component-props.value` 传入。
+
+```jsonc
+"state": { "current": 0, "cpu": 42 },
+"scope": { "addLoad": "{{ (d) => { $state.cpu = Math.min(100, $state.cpu + d) } }}" },
+"form": { ... "x-component-props": { "percent": "{{ $state.cpu }}" } ... }
+```
+
+⚠️ scope 里可用 `Function()` 求值(如计算器),第一阶段不做限制;长期会提供受控的求值助手,新 schema 尽量少依赖裸 eval。
 
 ## 3. 组件字段约定
 
@@ -153,14 +167,15 @@ bun packages/engine/src/cli.ts --schema your.schema.json --dry-run
 | 示例 | 范式 | 覆盖的知识点 |
 |---|---|---|
 | `examples/deploy-config.schema.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox(Group)/RadioGroup/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
-| `examples/service-dashboard.schema.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、scope + `$memo` 驱动交互、`x-component-props` 动态表达式、无组件的隐藏状态字段 |
+| `examples/service-dashboard.schema.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、`state` 段 + `$state` 驱动交互、`x-component-props` 动态表达式 |
 | `examples/calculator.schema.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
 
 Formily 习惯写法提示(与 @formily/antd 一致):
 
 - 字段标签用 schema `title`(FormItem 自动读取),不要写进 `x-component-props`
 - 选项用 schema `enum`(自动转组件 `options`),初始值用 `default`,必填用 `required`
-- 展示"表单值"的组件(如 Statistic、ResultText)必须挂在**数据字段**上(`type: "number"` 等),值走 `field.value`;void 节点的 `x-component-props.value` 会被 Formily 覆盖为 undefined
+- 展示"用户输入值"的组件(如 ResultText)挂在**数据字段**上,值走 `field.value`;静态展示数据(如 Statistic 的指标数字)用 void 节点 + `x-component-props.value`,动态展示用 `{{ $state.xxx }}` 表达式——不要为展示数据开真值字段(会混进回传)
 - 联动显隐用标准 `x-reactions`:`{ "dependencies": ["其他字段"], "fulfill": { "state": { "visible": "{{ $deps[0] === true }}" } } }`
+- 终端只有两类热键:单字符(匹配可见字符)与命名键(如 `backspace`),同一 schema 里两类可并存,框架按长度自动区分
 
 注意:终端无滚动,页面自然高度应控制在目标终端行数内(内容超高会被压缩变形)。

@@ -22,8 +22,14 @@ export interface PageSchema {
      */
     mode?: "form" | "interactive"
   }
-  /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$memo） */
+  /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$state/$memo） */
   scope?: Record<string, string>
+  /**
+   * 页面级响应式状态初值。运行时包装为 observable 注入 $state：
+   * 表达式读 $state.xxx 自动响应、scope 函数可写；不进 form.values、不回传。
+   * 分工：$state = 驱动渲染的 UI 状态；$memo = 非渲染状态（timer 等）；form.values = 只装用户输入。
+   */
+  state?: Record<string, unknown>
   /**
    * 主题覆盖，形状对齐 antd ConfigProvider：{ token: { colorPrimary: "#722ed1" } }。
    * 种子色（colorPrimary/colorSuccess/colorWarning/colorError）经暗色算法派生。
@@ -74,6 +80,12 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
           errors.push(`/scope/${name} 必须是 "{{ 表达式 }}" 字符串`)
         }
       }
+    }
+  }
+
+  if (root.state !== undefined) {
+    if (typeof root.state !== "object" || root.state === null || Array.isArray(root.state)) {
+      errors.push("/state 必须是对象")
     }
   }
 

@@ -52,6 +52,22 @@ describe("scope 段校验", () => {
   })
 })
 
+describe("state 段校验", () => {
+  test("合法 state：任意初值对象", () => {
+    const r = validatePageSchema(
+      base({ state: { current: 0, cpu: 42, loading: false } }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(true)
+  })
+
+  test("state 非对象报错", () => {
+    const r = validatePageSchema(base({ state: [1, 2] }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/state")
+  })
+})
+
 describe("theme 段校验", () => {
   test("合法 theme：token 覆盖种子色", () => {
     const r = validatePageSchema(

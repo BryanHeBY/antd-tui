@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createForm } from "@formily/core"
 import type { Form } from "@formily/core"
+import { observable } from "@formily/reactive"
 import { renderTui } from "@antd-tui/test-utils"
 import { ConfigProvider, FocusScope } from "@antd-tui/components"
 import { FormProvider, SchemaField, compileScope } from "../src/index"
@@ -123,6 +124,40 @@ describe("compileScope", () => {
     await t.enter()
     expect(form.values.display).toBe("3")
     expect("count" in form.values).toBe(false)
+    t.destroy()
+  })
+
+  test("$state（observable）：表达式读值响应 scope 函数写入，且不进 form.values", async () => {
+    const form = createForm()
+    const $state = observable({ cpu: 42 })
+    const scope = compileScope(
+      { addLoad: "{{ (d) => { $state.cpu += d } }}" },
+      { $form: form, $state, $memo: {} },
+    )
+    const t = await renderSchema(
+      form,
+      {
+        type: "object",
+        properties: {
+          bar: {
+            type: "void",
+            "x-component": "Progress",
+            "x-component-props": { percent: "{{ $state.cpu }}" },
+          },
+          k: {
+            type: "void",
+            "x-component": "Button",
+            "x-component-props": { children: "+10", onClick: "{{ () => addLoad(10) }}" },
+          },
+        },
+      },
+      scope,
+    )
+
+    expect(t.frame()).toContain("42%")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("52%"))
+    expect("cpu" in form.values).toBe(false)
     t.destroy()
   })
 })
