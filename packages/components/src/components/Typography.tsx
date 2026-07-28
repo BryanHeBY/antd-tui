@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -42,7 +43,7 @@ function Text({ type, strong, tuiAlign, children }: TextProps) {
         ? ("center" as const)
         : undefined
   return (
-    <text fg={color} style={alignSelf ? { alignSelf } : undefined}>
+    <text attributes={TextAttributes.BOLD} fg={color} style={alignSelf ? { alignSelf } : undefined}>
       {strong ? <b>{children}</b> : children}
     </text>
   )
@@ -56,7 +57,7 @@ function Title({ children }: TitleProps) {
   const token = useToken()
   // 对齐 antd：标题是白色粗体（colorTextHeading），不是主色
   return (
-    <text fg={token.colorText}>
+    <text attributes={TextAttributes.BOLD} fg={token.colorText}>
       <b>{children}</b>
     </text>
   )

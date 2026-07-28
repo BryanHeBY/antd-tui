@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -42,7 +43,7 @@ export function Descriptions({
 
   const content = (
     <box style={{ flexDirection: "column" }}>
-      {title ? <text fg={token.colorText}>{<b>{title}</b>}</text> : null}
+      {title ? <text attributes={TextAttributes.BOLD} fg={token.colorText}>{<b>{title}</b>}</text> : null}
       {rows.map((row, rowIndex) => (
         <box key={rowIndex} style={{ flexDirection: "row", gap: 2 }}>
           {row.map((item, colIndex) => (
@@ -50,8 +51,8 @@ export function Descriptions({
               key={item.key ?? `${rowIndex}-${colIndex}`}
               style={{ flexDirection: "row", flexGrow: 1, flexBasis: 0 }}
             >
-              <text fg={token.colorTextSecondary}>{item.label}: </text>
-              <text fg={token.colorText}>{item.children}</text>
+              <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{item.label}: </text>
+              <text attributes={TextAttributes.BOLD} fg={token.colorText}>{item.children}</text>
             </box>
           ))}
         </box>

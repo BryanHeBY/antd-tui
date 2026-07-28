@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -29,14 +30,14 @@ export function FormItem({
   return (
     <box style={{ flexDirection: "column" }}>
       {label ? (
-        <text fg={token.colorText}>
+        <text attributes={TextAttributes.BOLD} fg={token.colorText}>
           {required ? <span fg={token.colorError}>* </span> : null}
           {label}
         </text>
       ) : null}
       {children}
       {help ? (
-        <text fg={validateStatus === "error" ? token.colorError : token.colorTextSecondary}>
+        <text attributes={TextAttributes.BOLD} fg={validateStatus === "error" ? token.colorError : token.colorTextSecondary}>
           {help}
         </text>
       ) : null}

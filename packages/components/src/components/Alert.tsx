@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -51,11 +52,11 @@ export function Alert({
         flexDirection: "column",
       }}
     >
-      <text fg={color}>
+      <text attributes={TextAttributes.BOLD} fg={color}>
         {showIcon ? `${ICONS[type]} ` : ""}
         <b>{message}</b>
       </text>
-      {description ? <text fg={token.colorTextSecondary}>{description}</text> : null}
+      {description ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{description}</text> : null}
       {children}
     </box>
   )

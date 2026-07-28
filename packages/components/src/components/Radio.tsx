@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useRef, type ReactNode } from "react"
 import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
@@ -81,7 +82,7 @@ function RadioBase({
         }}
         onMouseDown={handleMouseDown}
       >
-        <text fg={textColor} bg={backgroundColor}>
+        <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
           {focused ? <b>{children}</b> : children}
         </text>
       </box>
@@ -96,7 +97,7 @@ function RadioBase({
 
   return (
     <box ref={boxRef} style={{ flexDirection: "row", minHeight: 1 }} onMouseDown={handleMouseDown}>
-      <text fg={color}>
+      <text attributes={TextAttributes.BOLD} fg={color}>
         {checked ? "(o) " : "( ) "}
         {focused ? <b>{children}</b> : children}
       </text>

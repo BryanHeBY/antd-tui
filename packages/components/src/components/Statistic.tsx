@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -47,8 +48,8 @@ export function Statistic({
 
   return (
     <box style={{ flexDirection: "column" }}>
-      {title ? <text fg={token.colorTextSecondary}>{title}</text> : null}
-      <text fg={valueColor}>
+      {title ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{title}</text> : null}
+      <text attributes={TextAttributes.BOLD} fg={valueColor}>
         {prefix ? <span>{String(prefix)}</span> : null}
         <b>{text}</b>
         {suffix ? <span>{String(suffix)}</span> : null}

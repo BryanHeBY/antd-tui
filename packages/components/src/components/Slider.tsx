@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { MouseEvent } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
@@ -108,13 +109,13 @@ export function Slider({
       }}
       onMouseDrag={handleMouse}
     >
-      <text>
+      <text attributes={TextAttributes.BOLD}>
         <span fg={trackColor}>{filled}</span>
         <span fg={focused ? "#ffffff" : trackColor}>{focused ? "◉" : "●"}</span>
         <span fg={restColor}>{rest}</span>
       </text>
       {tuiShowValue ? (
-        <text fg={disabled ? token.colorTextDisabled : token.colorText}> {String(current)}</text>
+        <text attributes={TextAttributes.BOLD} fg={disabled ? token.colorTextDisabled : token.colorText}> {String(current)}</text>
       ) : null}
     </box>
   )

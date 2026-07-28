@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useMemo, type ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -88,15 +89,15 @@ export function Table<T extends Record<string, unknown>>({
 
   return (
     <box style={{ flexDirection: "column" }}>
-      <text fg={token.colorText}>
+      <text attributes={TextAttributes.BOLD} fg={token.colorText}>
         <b>{header}</b>
       </text>
-      <text fg={token.colorBorder}>{rule}</text>
+      <text attributes={TextAttributes.BOLD} fg={token.colorBorder}>{rule}</text>
       {cells.length === 0 ? (
-        <text fg={token.colorTextSecondary}>{tuiEmptyText}</text>
+        <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{tuiEmptyText}</text>
       ) : (
         cells.map((row, rowIndex) => (
-          <text
+          <text attributes={TextAttributes.BOLD}
             key={rowKey ? String(dataSource[rowIndex]![rowKey]) : rowIndex}
             fg={token.colorText}
           >

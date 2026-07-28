@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useRef, type ReactNode } from "react"
 import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
@@ -57,7 +58,7 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
         toggle()
       }}
     >
-      <text fg={color}>
+      <text attributes={TextAttributes.BOLD} fg={color}>
         {checked ? "[x] " : "[ ] "}
         {focused ? <b>{children}</b> : children}
       </text>

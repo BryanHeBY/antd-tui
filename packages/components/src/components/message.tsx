@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
 import { useToken } from "../theme"
 
@@ -89,7 +90,7 @@ function MessageList({ items }: { items: MessageItem[] }) {
               flexDirection: "row",
             }}
           >
-            <text fg={color} bg="#1f1f1f">
+            <text attributes={TextAttributes.BOLD} fg={color} bg="#1f1f1f">
               {ICONS[item.type]} {item.content}
             </text>
           </box>

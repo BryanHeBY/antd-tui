@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useRef, type ReactNode } from "react"
 import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
@@ -93,7 +94,7 @@ export function Button({
         }}
         onMouseDown={handleMouseDown}
       >
-        <text fg={textColor} bg={backgroundColor}>
+        <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
           {focused ? <b>{children}</b> : children}
         </text>
       </box>
@@ -140,7 +141,7 @@ export function Button({
           paddingRight: block ? 0 : 2,
         }}
       >
-        <text fg={textColor} bg={isPrimary && !disabled ? fillColor : undefined}>
+        <text attributes={TextAttributes.BOLD} fg={textColor} bg={isPrimary && !disabled ? fillColor : undefined}>
           {focused ? <b>{children}</b> : children}
         </text>
       </box>

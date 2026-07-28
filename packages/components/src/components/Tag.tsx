@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 import { darkPalette } from "../color"
@@ -40,12 +41,12 @@ export function Tag({ color, bordered = true, children }: TagProps) {
 
   if (bordered) {
     // 前景文字用 hover 档（palette[6]），黑底可读性优先
-    return <text fg={palette ? palette[6] : token.colorTextSecondary}>[{children}]</text>
+    return <text attributes={TextAttributes.BOLD} fg={palette ? palette[6] : token.colorTextSecondary}>[{children}]</text>
   }
   const fill = palette ? palette[5]! : token.colorBorder
   return (
     <box style={{ backgroundColor: fill, paddingLeft: 1, paddingRight: 1, minHeight: 1 }}>
-      <text fg="#ffffff" bg={fill}>
+      <text attributes={TextAttributes.BOLD} fg="#ffffff" bg={fill}>
         {children}
       </text>
     </box>

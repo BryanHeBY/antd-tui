@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import { useToken } from "../theme"
 import { useMeasuredWidth } from "../measure"
 import { toBoxStyle, type CssLikeStyle } from "../style"
@@ -51,11 +52,11 @@ export function Progress({
       ref={boxRef}
       style={{ flexDirection: "row", minHeight: 1, width: "100%", ...toBoxStyle(style) }}
     >
-      <text>
+      <text attributes={TextAttributes.BOLD}>
         <span fg={barColor}>{"█".repeat(filledCount)}</span>
         <span fg={token.colorBorder}>{"░".repeat(Math.max(0, width - filledCount))}</span>
       </text>
-      {showInfo ? <text fg={barColor}>{info}</text> : null}
+      {showInfo ? <text attributes={TextAttributes.BOLD} fg={barColor}>{info}</text> : null}
     </box>
   )
 }
