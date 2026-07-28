@@ -4,13 +4,16 @@ import type { ReactNode } from "react"
 import {
   Button,
   Card,
+  Checkbox as TuiCheckbox,
   Col,
   FormItem as TuiFormItem,
   Input as TuiInput,
   InputNumber as TuiInputNumber,
+  Radio as TuiRadio,
   Row,
   Select as TuiSelect,
   Space,
+  Switch as TuiSwitch,
   Typography,
   type SelectOption,
 } from "@antd-tui/components"
@@ -61,6 +64,49 @@ const Select = connect(
   }),
 )
 
+// 单个 Checkbox：formily 的 onChange 桥接到 tuiOnChange（值即 boolean）
+const Checkbox = connect(
+  TuiCheckbox,
+  mapProps((props) => {
+    const { onChange, value, ...rest } = props as {
+      onChange?: (checked: boolean) => void
+      value?: boolean
+    }
+    return { ...rest, checked: value ?? false, tuiOnChange: onChange }
+  }),
+)
+
+// Checkbox.Group / Radio.Group：enum 转 options，onChange 语义与 antd 一致
+function useOptionsFromField(field: unknown) {
+  const f = field as FieldType
+  const dataSource = (f.dataSource ?? []) as Array<{ label?: string; value?: unknown }>
+  return dataSource.map((item) => ({
+    label: String(item.label ?? item.value),
+    value: item.value as string | number,
+  }))
+}
+
+const CheckboxGroup = connect(
+  TuiCheckbox.Group,
+  mapProps((props, field) => ({ ...props, options: useOptionsFromField(field) })),
+)
+
+const RadioGroup = connect(
+  TuiRadio.Group,
+  mapProps((props, field) => {
+    const { onChange, ...rest } = props as { onChange?: (value: string | number) => void }
+    return { ...rest, options: useOptionsFromField(field), tuiOnChange: onChange }
+  }),
+)
+
+const Switch = connect(
+  TuiSwitch,
+  mapProps((props) => {
+    const { value, ...rest } = props as { value?: boolean }
+    return { ...rest, checked: value ?? false }
+  }),
+)
+
 // 只读展示组件（TUI 自有，无 antd 对应）：把 field.value 渲染为高亮文本
 interface ResultTextProps {
   value?: unknown
@@ -85,6 +131,10 @@ export const schemaComponents = {
   Input,
   InputNumber,
   Select,
+  Checkbox,
+  CheckboxGroup,
+  RadioGroup,
+  Switch,
   ResultText,
   Card,
   Space,
