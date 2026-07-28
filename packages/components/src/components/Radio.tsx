@@ -55,19 +55,14 @@ function RadioBase({
   }
 
   if (tuiButtonStyle) {
-    const backgroundColor = disabled
-      ? "#262626"
-      : checked
-        ? token.colorPrimary
-        : focused
-          ? "#e6e6e6"
-          : "#373737"
+    // 对齐 antd 默认 Radio.Button：选中态是主色文字，不是实心填充
+    const backgroundColor = disabled ? "#262626" : focused ? "#e6e6e6" : "#373737"
     const textColor = disabled
       ? token.colorTextDisabled
-      : checked
-        ? "#ffffff"
-        : focused
-          ? "#141414"
+      : focused
+        ? "#141414"
+        : checked
+          ? token.colorPrimaryHover
           : "#ffffff"
     return (
       <box
@@ -83,7 +78,7 @@ function RadioBase({
         onMouseDown={handleMouseDown}
       >
         <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
-          {focused ? <b>{children}</b> : children}
+          {focused || checked ? <b>{children}</b> : children}
         </text>
       </box>
     )

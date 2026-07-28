@@ -72,7 +72,8 @@ export function Button({
   const isPrimary = type === "primary"
 
   if (tuiSize === "small") {
-    // 紧凑形态：无边框填充色块，聚焦时反色
+    // 紧凑形态：纯色块 + 白字粗体，聚焦时反色。
+    // default = 中性灰底，primary = 深灰蓝底（主基调：背景深、前景亮）
     const backgroundColor = disabled
       ? "#262626"
       : focused
@@ -95,12 +96,14 @@ export function Button({
         onMouseDown={handleMouseDown}
       >
         <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
-          {focused ? <b>{children}</b> : children}
+          {children}
         </text>
       </box>
     )
   }
 
+  // 主基调：中尺寸按钮中性透明底 + 边框，主色只做轻微点缀
+  // （primary = 主色边框 + 亮端主色文字；纯色块形态用 tuiSize: "small"）
   const borderColor = disabled
     ? token.colorTextDisabled
     : focused
@@ -108,15 +111,11 @@ export function Button({
       : isPrimary
         ? token.colorPrimary
         : token.colorBorder
-  // primary 的填充色只涂在边框内的内容行：涂满整个盒子会把圆角边框淹没成直角实心块
-  const fillColor = isPrimary && !disabled ? token.colorPrimary : "transparent"
   const textColor = disabled
     ? token.colorTextDisabled
-    : isPrimary
-      ? "#ffffff"
-      : focused
-        ? token.colorPrimaryHover
-        : token.colorText
+    : isPrimary || focused
+      ? token.colorPrimaryHover
+      : token.colorText
 
   return (
     <box
@@ -126,25 +125,18 @@ export function Button({
         borderStyle: focused ? "double" : token.borderStyle,
         borderColor,
         height: 3,
+        paddingLeft: block ? 0 : 2,
+        paddingRight: block ? 0 : 2,
+        alignItems: "center",
+        justifyContent: "center",
         ...(block ? { width: "100%" } : null),
         ...toBoxStyle(style),
       }}
       onMouseDown={handleMouseDown}
     >
-      <box
-        style={{
-          flexGrow: 1,
-          backgroundColor: fillColor,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingLeft: block ? 0 : 2,
-          paddingRight: block ? 0 : 2,
-        }}
-      >
-        <text attributes={TextAttributes.BOLD} fg={textColor} bg={isPrimary && !disabled ? fillColor : undefined}>
-          {focused ? <b>{children}</b> : children}
-        </text>
-      </box>
+      <text attributes={TextAttributes.BOLD} fg={textColor}>
+        {children}
+      </text>
     </box>
   )
 }
