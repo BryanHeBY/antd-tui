@@ -97,6 +97,15 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
+  // --stdin 场景 stdin 是管道：schema 读得进来，但渲染后键盘事件无处可来
+  if (args.useStdin && !process.stdin.isTTY) {
+    emit({
+      event: "error",
+      message: "--stdin 渲染时 stdin 不是 TTY，键盘不可用（请改用 --schema <path>，或 --dry-run 仅校验）",
+    })
+    process.exit(3)
+  }
+
   if (!process.stdout.isTTY) {
     emit({ event: "error", message: "stdout 不是 TTY，无法渲染 TUI（可用 --dry-run 仅校验）" })
     process.exit(3)

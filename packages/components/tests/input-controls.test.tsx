@@ -124,13 +124,13 @@ describe("Slider", () => {
     }
     const t = await renderTui(wrap(<Demo />), { width: 40, height: 6 })
 
-    // 轨道宽 = 40 - 8(数值区) = 32，点击末端(x=31) → 100
-    await t.raw.mockMouse.click(31, 0)
+    // 数值区按内容宽预留：点击行末（超出轨道会 clamp 到末端）→ 100
+    await t.raw.mockMouse.click(39, 0)
     await t.settle()
     expect(t.frame()).toContain("100")
 
-    // 拖到中部(x=16)：16/31 ≈ 51.6，按 step 10 对齐 → 50
-    await t.raw.mockMouse.drag(31, 0, 16, 0)
+    // 值为 100 时轨道宽 = 40 - 4 = 36，拖到 x=17：17/35 ≈ 48.6，按 step 10 对齐 → 50
+    await t.raw.mockMouse.drag(39, 0, 17, 0)
     await t.settle()
     expect(t.frame()).toContain("50")
     t.destroy()
@@ -142,7 +142,7 @@ describe("Slider", () => {
       wrap(<Slider disabled value={30} onChange={() => (called = true)} />),
       { width: 40, height: 6 },
     )
-    await t.raw.mockMouse.click(31, 0)
+    await t.raw.mockMouse.click(39, 0)
     await t.settle()
     expect(called).toBe(false)
     t.destroy()

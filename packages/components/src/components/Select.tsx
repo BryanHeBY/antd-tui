@@ -41,6 +41,15 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
     [options],
   )
 
+  // opentui select 对同一次选择会同时触发 onChange 与 onSelect，这里按值幂等去重；
+  // 与 antd 一致：重复选择当前值不触发 onChange
+  const lastEmitted = useRef<SelectOption["value"] | undefined>(undefined)
+  const emit = (next: SelectOption["value"]) => {
+    if (next === value || next === lastEmitted.current) return
+    lastEmitted.current = next
+    onChange?.(next)
+  }
+
   // 兼容 @opentui/react select 事件的不同参数形态：(index, option) 或 (option)
   const handleChange = (...args: unknown[]) => {
     let picked: { value?: SelectOption["value"] } | undefined
@@ -54,13 +63,11 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
       const idx = args.find((a) => typeof a === "number") as number | undefined
       if (idx !== undefined) picked = tuiOptions[idx]
     }
-    if (picked && picked.value !== undefined) onChange?.(picked.value)
+    if (picked && picked.value !== undefined) emit(picked.value)
   }
 
-  const selectedIndex = Math.max(
-    0,
-    options.findIndex((o) => o.value === value),
-  )
+  // value 不在 options 中时不高亮任何项（-1），而非误显示第一项
+  const selectedIndex = options.findIndex((o) => o.value === value)
 
   // showDescription=false 时每选项占 1 行，首行紧贴上边框，据此把点击 y 换算为选项下标
   const handleMouseDown = (event: MouseEvent) => {
@@ -70,7 +77,7 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
     if (!el) return
     const idx = event.y - el.y - 1
     const picked = options[idx]
-    if (picked !== undefined) onChange?.(picked.value)
+    if (picked !== undefined) emit(picked.value)
   }
 
   return (

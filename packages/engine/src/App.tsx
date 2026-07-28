@@ -44,7 +44,8 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
   // $memo：非渲染状态（timer/标记位），无响应性
   // form.values：只装用户输入，提交/Esc 时回传
   const scope = useMemo(
-    () => compileScope(schema.scope, { $form: form, $state: observable({ ...schema.state }), $memo: {} }),
+    // structuredClone：$state 可变，浅拷贝会让嵌套对象与原 schema 共享引用
+    () => compileScope(schema.scope, { $form: form, $state: observable(structuredClone(schema.state ?? {})), $memo: {} }),
     [schema.scope, schema.state, form],
   )
 

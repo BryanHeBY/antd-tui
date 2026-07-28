@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core"
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { useToken } from "../theme"
 
 /**
@@ -107,6 +107,15 @@ export function useMessage(): [MessageInstance, ReactNode] {
   const [items, setItems] = useState<MessageItem[]>([])
   const seq = useRef(0)
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
+
+  // 卸载时清空未触发的自动关闭定时器，避免 setState-after-unmount
+  useEffect(() => {
+    const map = timers.current
+    return () => {
+      for (const timer of map.values()) clearTimeout(timer)
+      map.clear()
+    }
+  }, [])
 
   const remove = useCallback((id: number, onClose?: () => void) => {
     setItems((list) => list.filter((item) => item.id !== id))

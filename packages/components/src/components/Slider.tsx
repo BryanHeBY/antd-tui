@@ -81,7 +81,9 @@ export function Slider({
     }
   })
 
-  const width = Math.max(TRACK_MIN_WIDTH, (boxWidth ?? 20) - (tuiShowValue ? 8 : 0))
+  // 数值区宽度按实际显示内容预留（长数值如 12345.5 不再溢出行宽）
+  const valueWidth = tuiShowValue ? String(current).length + 1 : 0
+  const width = Math.max(TRACK_MIN_WIDTH, (boxWidth ?? 20) - valueWidth)
   const ratio = max === min ? 0 : (current - min) / (max - min)
   const knobIndex = Math.round(ratio * (width - 1))
   const filled = "━".repeat(knobIndex)

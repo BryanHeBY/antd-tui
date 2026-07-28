@@ -74,4 +74,12 @@ describe("CLI 协议", () => {
     expect(r.events[0]?.event).toBe("error")
     expect(String(r.events[0]?.message)).toContain("TTY")
   })
+
+  test("--stdin 非 dry-run 渲染：stdin 是管道时明确报错，退出码 3", async () => {
+    const text = await Bun.file(CALC_SCHEMA).text()
+    const r = await runCli(["--stdin"], text)
+    expect(r.exitCode).toBe(3)
+    expect(r.events[0]?.event).toBe("error")
+    expect(String(r.events[0]?.message)).toContain("--stdin")
+  })
 })

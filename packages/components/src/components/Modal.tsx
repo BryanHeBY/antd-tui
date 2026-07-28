@@ -1,5 +1,5 @@
 import { type ReactNode } from "react"
-import { useKeyboard } from "@opentui/react"
+import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import { useToken } from "../theme"
 import { FocusScope, useFocusScopeState } from "../focus"
 import { Button } from "./Button"
@@ -96,12 +96,17 @@ function ModalBody({
     if (keyboard && key.name === "escape" && isActiveScope()) onCancel?.()
   })
 
+  // 水平精确居中；内容高度自适应无法预知，垂直取 1/4 处近似视觉重心
+  const dims = useTerminalDimensions()
+  const left = Math.max(0, Math.floor((dims.width - (tuiWidth ?? 50)) / 2))
+  const top = Math.max(1, Math.floor(dims.height / 4))
+
   return (
     <box
       style={{
         position: "absolute",
-        top: 2,
-        left: 2,
+        top,
+        left,
         width: tuiWidth,
         zIndex: 100,
         backgroundColor,
