@@ -47,6 +47,9 @@ export interface ValidationResult {
 
 const ACTION_TYPES = new Set(["submit", "cancel"])
 
+const BORDER_STYLES = new Set(["single", "rounded", "double", "heavy"])
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
+
 export function validatePageSchema(input: unknown, whitelist: string[]): ValidationResult {
   const errors: string[] = []
   const allow = new Set(whitelist)
@@ -78,6 +81,9 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
       for (const [name, expr] of Object.entries(root.scope as Record<string, unknown>)) {
         if (typeof expr !== "string") {
           errors.push(`/scope/${name} 必须是 "{{ 表达式 }}" 字符串`)
+        } else if (!/^\s*\{\{[\s\S]*\}\}\s*$/.test(expr)) {
+          // 未包裹的字符串不会被 Formily 编译成函数，运行时才暴雷；提前到 dry-run 报错
+          errors.push(`/scope/${name} 表达式必须整体包裹在 {{ }} 中`)
         }
       }
     }
@@ -101,6 +107,13 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
           for (const [name, value] of Object.entries(themeToken as Record<string, unknown>)) {
             if (typeof value !== "string" && typeof value !== "number") {
               errors.push(`/theme/token/${name} 必须是字符串或数字`)
+            } else if (name.startsWith("color")) {
+              // 非法 hex 会在色板派生里算出 NaN，静默渲染成 #NaNNaN；提前拦截
+              if (typeof value !== "string" || !(HEX_COLOR_RE.test(value) || value === "transparent")) {
+                errors.push(`/theme/token/${name} 必须是 #RGB / #RRGGBB 色值（或 "transparent"）`)
+              }
+            } else if (name === "borderStyle" && !BORDER_STYLES.has(value as string)) {
+              errors.push(`/theme/token/borderStyle 必须是 ${[...BORDER_STYLES].join(" / ")} 之一`)
             }
           }
         }

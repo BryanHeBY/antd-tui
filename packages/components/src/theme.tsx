@@ -74,10 +74,14 @@ export function deriveTokens(overrides: Partial<ThemeTokens> = {}): ThemeTokens 
     paddingXS: 1,
     padding: 1,
   }
-  // 种子键已参与派生，不再原样覆盖；其余键（含 colorPrimaryHover）允许直接指定
-  const rest = { ...overrides }
-  for (const key of SEED_KEYS) delete rest[key]
-  return { ...derived, ...rest }
+  // 种子键已参与派生，不再原样覆盖；其余键按 ThemeTokens 白名单过滤后允许直接指定
+  const merged = { ...derived } as Record<keyof ThemeTokens, unknown>
+  for (const key of Object.keys(derived) as Array<keyof ThemeTokens>) {
+    if ((SEED_KEYS as readonly string[]).includes(key)) continue
+    const v = overrides[key]
+    if (v !== undefined) merged[key] = v
+  }
+  return merged as ThemeTokens
 }
 
 export const defaultTokens: ThemeTokens = deriveTokens()

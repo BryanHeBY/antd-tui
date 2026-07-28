@@ -50,6 +50,13 @@ describe("scope 段校验", () => {
     expect(r.ok).toBe(false)
     expect(r.errors[0]).toContain("/scope/evaluate")
   })
+
+  test("scope 表达式未包裹 {{ }} 报错", () => {
+    const r = validatePageSchema(base({ scope: { fn: "() => 0" } }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/scope/fn")
+    expect(r.errors[0]).toContain("{{ }}")
+  })
 })
 
 describe("state 段校验", () => {
@@ -101,5 +108,26 @@ describe("theme 段校验", () => {
     )
     expect(r.ok).toBe(false)
     expect(r.errors[0]).toContain("/theme/token/colorPrimary")
+  })
+
+  test("颜色键非法 hex 报错（防 #NaNNaN 静默渲染），transparent 合法", () => {
+    const bad = validatePageSchema(
+      base({ theme: { token: { colorPrimary: "blue" } } }),
+      WHITELIST,
+    )
+    expect(bad.ok).toBe(false)
+    expect(bad.errors[0]).toContain("/theme/token/colorPrimary")
+
+    const ok = validatePageSchema(
+      base({ theme: { token: { colorPrimary: "#722ed1", colorBgContainer: "transparent" } } }),
+      WHITELIST,
+    )
+    expect(ok.ok).toBe(true)
+  })
+
+  test("borderStyle 非枚举值报错", () => {
+    const r = validatePageSchema(base({ theme: { token: { borderStyle: "dotted" } } }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/theme/token/borderStyle")
   })
 })
