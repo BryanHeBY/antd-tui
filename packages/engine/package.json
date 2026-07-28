@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/cli.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "dependencies": {
     "@antd-tui/components": "workspace:*",
