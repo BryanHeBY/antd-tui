@@ -21,6 +21,7 @@ import {
   Spin,
   Statistic,
   Switch as TuiSwitch,
+  Table,
   Tag,
   Typography,
   type SelectOption,
@@ -170,6 +171,7 @@ export const schemaComponents = {
   Statistic,
   Descriptions,
   Spin,
+  Table,
   Row,
   Col,
 } as const

@@ -31,6 +31,7 @@ export {
   type DescriptionsItem,
 } from "./components/Descriptions"
 export { Spin, type SpinProps } from "./components/Spin"
+export { Table, type TableProps, type TableColumn } from "./components/Table"
 export { Row, Col, type RowProps, type ColProps } from "./components/grid"
 export { toBoxStyle, type CssLikeStyle } from "./style"
 export { FormItem, type FormItemProps } from "./components/FormItem"
