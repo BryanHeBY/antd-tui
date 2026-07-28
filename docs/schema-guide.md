@@ -166,6 +166,8 @@ bun packages/engine/src/cli.ts --schema your.schema.json --check
 
 校验失败输出 `{"event":"invalid","errors":[...]}`(退出码 2),errors 带 JSON 路径且一次性列全,按路径逐条修复即可。
 
+想看长相或走流程:`--snapshot` 导出字符画/SVG,`--drive` 提供交互会话(点击/输入/取帧),见 `docs/driver.md`。
+
 ## 7. 示例索引:什么场景抄哪个
 
 每个示例对应一种页面范式,生成时先归类场景、再照抄对应示例的结构:
