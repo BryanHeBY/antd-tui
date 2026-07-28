@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import { useMemo, type ReactNode } from "react"
 import { useToken } from "../theme"
+import { displayWidth, truncateToWidth } from "../width"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -37,10 +38,11 @@ export interface TableProps<T = Record<string, unknown>> {
   tuiEmptyText?: string
 }
 
-/** 终端等宽单元格：按目标宽度截断或补空格 */
+/** 终端等宽单元格：按显示宽度（CJK 占 2 列）截断或补空格 */
 function fit(text: string, width: number, align: TableColumn["align"] = "left"): string {
-  if (text.length > width) return width <= 1 ? text.slice(0, width) : `${text.slice(0, width - 1)}…`
-  const pad = width - text.length
+  const w = displayWidth(text)
+  if (w > width) return truncateToWidth(text, width)
+  const pad = width - w
   if (align === "right") return " ".repeat(pad) + text
   if (align === "center") {
     const left = Math.floor(pad / 2)
@@ -75,8 +77,8 @@ export function Table<T extends Record<string, unknown>>({
       columns.map((column, columnIndex) => {
         if (column.width !== undefined) return Math.max(1, column.width)
         const contentWidth = cells.reduce(
-          (max, row) => Math.max(max, row[columnIndex]?.length ?? 0),
-          column.title.length,
+          (max, row) => Math.max(max, displayWidth(row[columnIndex] ?? "")),
+          displayWidth(column.title),
         )
         return Math.max(1, contentWidth)
       }),

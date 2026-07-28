@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import type { ReactNode } from "react"
 import { renderTui } from "@antd-tui/test-utils"
-import { ConfigProvider, Table } from "../src"
+import { ConfigProvider, Table, displayWidth } from "../src"
 
 /**
  * Table：列宽自适应 / 固定宽度截断 / 对齐 / 自定义渲染 / 空态。
+ * 注意：字符帧里宽字符只占 1 个 JS 字符，屏幕列对齐要用 displayWidth 断言。
  */
+
+/** 该行 │ 之前内容的屏幕列数（终端上竖线的真实位置） */
+function barColumn(line: string): number {
+  return displayWidth(line.slice(0, line.indexOf("│")))
+}
 
 function wrap(node: ReactNode) {
   return <ConfigProvider>{node}</ConfigProvider>
@@ -127,6 +133,60 @@ describe("Table", () => {
       height: 6,
     })
     expect(t.frame()).toContain("暂无数据")
+    t.destroy()
+  })
+
+  test("中文单元格按显示宽度对齐：各行同列竖线位置一致", async () => {
+    const t = await renderTui(
+      wrap(
+        <Table
+          bordered
+          columns={[
+            { title: "状态", dataIndex: "status", key: "s" },
+            { title: "CPU", dataIndex: "cpu", key: "c", align: "right" as const },
+          ]}
+          dataSource={[
+            { status: "运行中", cpu: "41%" },
+            { status: "ok", cpu: "8%" },
+            { status: "重启中断", cpu: "87%" },
+          ]}
+        />,
+      ),
+      { width: 40, height: 10 },
+    )
+    // 中文占 2 列：若按 length 计宽，含中文行的竖线屏幕列会整体偏移
+    const bars = t
+      .frame()
+      .split("\n")
+      .filter((l) => l.includes("│"))
+      .map(barColumn)
+    expect(bars.length).toBeGreaterThanOrEqual(4)
+    expect(new Set(bars).size).toBe(1)
+    t.destroy()
+  })
+
+  test("固定列宽截断中文不切半：宽度恒等于列宽", async () => {
+    const t = await renderTui(
+      wrap(
+        <Table
+          bordered
+          columns={[
+            { title: "描述", dataIndex: "d", key: "d", width: 7 },
+            { title: "值", dataIndex: "v", key: "v" },
+          ]}
+          dataSource={[{ d: "很长的中文描述文本", v: "x" }]}
+        />,
+      ),
+      { width: 40, height: 8 },
+    )
+    const frame = t.frame()
+    expect(frame).toContain("…")
+    // 截断后仍与表头竖线对齐（按屏幕列断言）
+    const bars = frame
+      .split("\n")
+      .filter((l) => l.includes("│"))
+      .map(barColumn)
+    expect(new Set(bars).size).toBe(1)
     t.destroy()
   })
 })

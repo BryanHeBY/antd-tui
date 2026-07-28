@@ -2,6 +2,7 @@ import { TextAttributes } from "@opentui/core"
 import { isValidElement, type ReactNode } from "react"
 import { useToken } from "../theme"
 import { useMeasuredWidth } from "../measure"
+import { displayWidth } from "../width"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -25,24 +26,6 @@ function nodeToText(node: ReactNode): string {
   if (Array.isArray(node)) return node.map(nodeToText).join("")
   if (isValidElement(node)) return nodeToText((node.props as { children?: ReactNode }).children)
   return ""
-}
-
-/** 终端排版宽度：CJK 全角字符占 2 格，JS length 会少算导致分割线溢出换行 */
-function displayWidth(text: string): number {
-  let width = 0
-  for (const ch of text) {
-    const cp = ch.codePointAt(0)!
-    const wide =
-      (cp >= 0x1100 && cp <= 0x115f) ||
-      (cp >= 0x2e80 && cp <= 0xa4cf) ||
-      (cp >= 0xac00 && cp <= 0xd7a3) ||
-      (cp >= 0xf900 && cp <= 0xfaff) ||
-      (cp >= 0xfe30 && cp <= 0xfe4f) ||
-      (cp >= 0xff00 && cp <= 0xff60) ||
-      (cp >= 0xffe0 && cp <= 0xffe6)
-    width += wide ? 2 : 1
-  }
-  return width
 }
 
 export function Divider({ dashed = false, orientation = "center", children }: DividerProps) {
