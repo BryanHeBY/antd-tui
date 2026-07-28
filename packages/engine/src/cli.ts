@@ -27,10 +27,20 @@ interface CliArgs {
   useStdin: boolean
   dryRun: boolean
   check: boolean
+  snapshot: boolean
+  format: string
+  size?: string
+  out?: string
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { useStdin: false, dryRun: false, check: false }
+  const args: CliArgs = {
+    useStdin: false,
+    dryRun: false,
+    check: false,
+    snapshot: false,
+    format: "text",
+  }
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--schema":
@@ -47,6 +57,18 @@ function parseArgs(argv: string[]): CliArgs {
         break
       case "--check":
         args.check = true
+        break
+      case "--snapshot":
+        args.snapshot = true
+        break
+      case "--format":
+        args.format = argv[++i] ?? "text"
+        break
+      case "--size":
+        args.size = argv[++i]
+        break
+      case "--out":
+        args.out = argv[++i]
         break
     }
   }
@@ -73,16 +95,12 @@ async function loadSchemaText(args: CliArgs): Promise<string> {
 }
 
 /**
- * 无头渲染检查：用测试渲染器（无需 TTY）把页面完整挂载一帧再销毁。
+ * 无头渲染检查：把页面完整挂载一帧再销毁。
  * React 19 渲染期异常不向上抛而是 console.error(Error 实例)，
  * 因此同时拦截 console.error / uncaughtException / unhandledRejection 三条通道。
  */
 async function headlessCheck(schema: PageSchema): Promise<string[]> {
-  const [{ testRender }, React, { App }] = await Promise.all([
-    import("@opentui/react/test-utils"),
-    import("react"),
-    import("./App"),
-  ])
+  const { mountHeadless } = await import("./headless")
   const collected = new Set<string>()
   const origError = console.error
   console.error = (...consoleArgs: unknown[]) => {
@@ -94,14 +112,8 @@ async function headlessCheck(schema: PageSchema): Promise<string[]> {
   process.on("uncaughtException", onUncaught)
   process.on("unhandledRejection", onRejection)
   try {
-    const setup = await testRender(
-      React.createElement(App, { schema, onFinish: () => {}, onCancel: () => {} }),
-      { width: 80, height: 40 },
-    )
-    // 让出一轮宏任务再 flush：React 异步提交与首帧布局都落地后才算通过
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    await setup.flush()
-    setup.renderer.destroy()
+    const session = await mountHeadless(schema, 80, 40)
+    session.destroy()
   } catch (err) {
     collected.add(`无头渲染失败：${(err as Error).message}`)
   } finally {
@@ -152,6 +164,13 @@ async function main(): Promise<void> {
     emit({ event: "valid" })
     process.exit(0)
   }
+
+  if (args.snapshot) {
+    const { runSnapshot } = await import("./driver")
+    await runSnapshot(parsed as unknown as PageSchema, args)
+    return
+  }
+
 
   // --stdin 场景 stdin 是管道：schema 读得进来，但渲染后键盘事件无处可来
   if (args.useStdin && !process.stdin.isTTY) {

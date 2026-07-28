@@ -24,10 +24,17 @@ async function runCli(args: string[], stdin?: string): Promise<RunResult> {
   })
   const stdout = await new Response(proc.stdout).text()
   const exitCode = await proc.exited
+  // snapshot 模式 stdout 是原始内容而非 NDJSON，非 JSON 行跳过
   const events = stdout
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line) as Record<string, unknown>]
+      } catch {
+        return []
+      }
+    })
   return { exitCode, stdout, events }
 }
 
@@ -107,5 +114,49 @@ describe("CLI 协议", () => {
     expect(r.exitCode).toBe(2)
     expect(r.events[0]?.event).toBe("invalid")
     expect(String((r.events[0]?.errors as string[])[0])).toContain("渲染期异常")
+  })
+})
+
+describe("--snapshot 帧导出", () => {
+  test("text：输出字符画到 stdout，退出码 0", async () => {
+    const r = await runCli(["--schema", CALC_SCHEMA, "--snapshot", "--size", "60x28"])
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain("TUI 计算器")
+    expect(r.stdout).toContain("AC")
+  })
+
+  test("ansi：包含 24 位色转义序列", async () => {
+    const r = await runCli([
+      "--schema",
+      CALC_SCHEMA,
+      "--snapshot",
+      "--format",
+      "ansi",
+      "--size",
+      "60x28",
+    ])
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain("\x1b[38;2;")
+  })
+
+  test("svg：输出等宽网格矢量图", async () => {
+    const r = await runCli([
+      "--schema",
+      CALC_SCHEMA,
+      "--snapshot",
+      "--format",
+      "svg",
+      "--size",
+      "60x28",
+    ])
+    expect(r.exitCode).toBe(0)
+    expect(r.stdout).toContain("<svg xmlns=")
+    expect(r.stdout).toContain("</svg>")
+  })
+
+  test("非法 format 报错，退出码 2", async () => {
+    const r = await runCli(["--schema", CALC_SCHEMA, "--snapshot", "--format", "png"])
+    expect(r.exitCode).toBe(2)
+    expect(r.events[0]?.event).toBe("error")
   })
 })
