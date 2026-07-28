@@ -273,4 +273,35 @@ describe("Select", () => {
     expect(called).toBe(false)
     t.destroy()
   })
+
+  test("父组件未接受上次值时，仍可再次选择同一选项", async () => {
+    const seen: Array<string | number | boolean> = []
+    function Demo() {
+      const [value, setValue] = useState<string | number | boolean>("a")
+      return (
+        <Select
+          value={value}
+          onChange={(next) => {
+            seen.push(next)
+            // 模拟受控父组件拒绝本次修改，value 保持为 a。
+            setValue("a")
+          }}
+          options={[
+            { label: "甲", value: "a" },
+            { label: "乙", value: "b" },
+          ]}
+        />
+      )
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 8 })
+
+    // 独立 Select 的上边框在 y=0，第二个选项在 y=2。
+    await t.raw.mockMouse.click(2, 2)
+    await t.settle()
+    await t.raw.mockMouse.click(2, 2)
+    await t.settle()
+
+    expect(seen).toEqual(["b", "b"])
+    t.destroy()
+  })
 })

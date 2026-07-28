@@ -48,6 +48,12 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
     if (next === value || next === lastEmitted.current) return
     lastEmitted.current = next
     onChange?.(next)
+    // OpenTUI 对一次用户选择可能同步触发 onChange 和 onSelect，微任务内保留
+    // 去重标记即可。若一直保留，受控父组件拒绝/回滚本次值后，用户将再也无法选择
+    // 同一个选项。
+    queueMicrotask(() => {
+      if (lastEmitted.current === next) lastEmitted.current = undefined
+    })
   }
 
   // 兼容 @opentui/react select 事件的不同参数形态：(index, option) 或 (option)
