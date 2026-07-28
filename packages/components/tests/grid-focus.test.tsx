@@ -205,3 +205,45 @@ describe("Button 热键", () => {
     t.destroy()
   })
 })
+
+describe("FocusScope suspended：键盘分区", () => {
+  test("挂起区键盘静默且组件失焦，恢复后照常响应", async () => {
+    const { useState } = await import("react")
+    const events: string[] = []
+    let toggle: (v: boolean) => void = () => {}
+    function Demo() {
+      const [suspended, setSuspended] = useState(true)
+      toggle = setSuspended
+      return (
+        <ConfigProvider>
+          <FocusScope>
+            <box style={{ flexDirection: "column" }}>
+              <Button onClick={() => events.push("host")}>宿主按钮</Button>
+              <FocusScope suspended={suspended}>
+                <box style={{ flexDirection: "column" }}>
+                  <Button onClick={() => events.push("page")}>页面按钮</Button>
+                  <Input placeholder="页面输入" />
+                </box>
+              </FocusScope>
+            </box>
+          </FocusScope>
+        </ConfigProvider>
+      )
+    }
+    const t = await renderTui(<Demo />, { width: 50, height: 14 })
+
+    // 挂起：Enter 归宿主（若页面作用域在栈顶，宿主会被圈闭静默）
+    await t.enter()
+    expect(events).toEqual(["host"])
+    // 挂起区输入框失焦：字符不会被它吞掉
+    await t.type("x")
+    expect(t.frame()).not.toContain("x")
+
+    // 恢复：页面作用域成为栈顶，Enter 归页面
+    toggle(false)
+    await t.settle()
+    await t.enter()
+    expect(events).toEqual(["host", "page"])
+    t.destroy()
+  })
+})

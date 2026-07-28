@@ -68,7 +68,17 @@ interface ScopeRegistry {
 
 const ScopeRegistryContext = createContext<ScopeRegistry | null>(null)
 
-export function FocusScope({ children }: { children?: ReactNode }) {
+export interface FocusScopeProps {
+  /**
+   * 挂起本作用域：不参与栈顶竞争（isActiveScope 恒 false）、下发的 focusedId
+   * 置空（子组件全部失焦，input 类不再吞按键）。宿主应用用它做键盘分区，
+   * 如 vibe-tui 在「输入行模式」下挂起页面画板。鼠标事件不受影响。
+   */
+  suspended?: boolean
+  children?: ReactNode
+}
+
+export function FocusScope({ suspended = false, children }: FocusScopeProps) {
   const scopeId = useId()
   const depth = useContext(FocusDepthContext) + 1
   const parentRegistry = useContext(ScopeRegistryContext)
@@ -81,15 +91,19 @@ export function FocusScope({ children }: { children?: ReactNode }) {
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedIdRef = useRef<string | null>(null)
   focusedIdRef.current = focusedId
+  const suspendedRef = useRef(suspended)
+  suspendedRef.current = suspended
 
   useEffect(() => {
+    if (suspended) return
     registry.entries.set(scopeId, { depth, seq: ++registry.counter })
     return () => {
       registry.entries.delete(scopeId)
     }
-  }, [registry, scopeId, depth])
+  }, [registry, scopeId, depth, suspended])
 
   const isActiveScope = () => {
+    if (suspendedRef.current) return false
     const mine = registry.entries.get(scopeId)
     if (!mine) return true
     for (const [id, entry] of registry.entries) {
@@ -199,7 +213,8 @@ export function FocusScope({ children }: { children?: ReactNode }) {
 
   const value = useMemo<FocusContextValue>(
     () => ({
-      focusedId,
+      // 挂起时对子组件隐藏焦点：input 类失焦不再吞按键，恢复后焦点原样回来
+      focusedId: suspended ? null : focusedId,
       register,
       focusNext: () => move(1),
       focusPrev: () => move(-1),
@@ -209,7 +224,7 @@ export function FocusScope({ children }: { children?: ReactNode }) {
       isActiveScope,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [focusedId, register, move, focusById],
+    [focusedId, register, move, focusById, suspended],
   )
 
   return (
