@@ -10,7 +10,8 @@ export interface SelectOption {
 
 export interface SelectProps {
   value?: string | number | boolean
-  onChange?: (value: SelectOption["value"]) => void
+  /** 类似 antd onChange，但不提供 option 参数 */
+  tuiOnChange?: (value: SelectOption["value"]) => void
   options?: SelectOption[]
   disabled?: boolean
 }
@@ -19,7 +20,7 @@ export interface SelectProps {
  * 选择器。终端形态为内联列表（而非浮层下拉），聚焦后用 ↑/↓ 选择，
  * 鼠标点击选项行直接选中（并把焦点转移过来）。
  */
-export function Select({ value, onChange, options = [], disabled = false }: SelectProps) {
+export function Select({ value, tuiOnChange, options = [], disabled = false }: SelectProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const { focused, requestFocus } = useFocusable({
@@ -47,7 +48,7 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
   const emit = (next: SelectOption["value"]) => {
     if (next === value || next === lastEmitted.current) return
     lastEmitted.current = next
-    onChange?.(next)
+    tuiOnChange?.(next)
     // OpenTUI 对一次用户选择可能同步触发 onChange 和 onSelect，微任务内保留
     // 去重标记即可。若一直保留，受控父组件拒绝/回滚本次值后，用户将再也无法选择
     // 同一个选项。

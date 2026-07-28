@@ -14,7 +14,7 @@ function Demo({ onApi }: { onApi: (api: ReturnType<typeof message.useMessage>[0]
       <FocusScope>
         <box style={{ flexDirection: "column" }}>
           {holder}
-          <Button onClick={() => onApi(api)}>触发</Button>
+          <Button tuiOnClick={() => onApi(api)}>触发</Button>
         </box>
       </FocusScope>
     </ConfigProvider>

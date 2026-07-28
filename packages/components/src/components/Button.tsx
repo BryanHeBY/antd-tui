@@ -26,8 +26,8 @@ export interface ButtonProps {
    * 多字符（如 "backspace" "f1"）只匹配命名键 key.name。
    */
   tuiHotkey?: string
-  /** 同 antd：点击/激活回调（终端无 DOM 事件，不提供 event 参数） */
-  onClick?: () => void
+  /** 类似 antd onClick，但终端无 DOM 事件参数 */
+  tuiOnClick?: () => void
   children?: ReactNode
 }
 
@@ -38,7 +38,7 @@ export function Button({
   tuiSize = "middle",
   style,
   tuiHotkey,
-  onClick,
+  tuiOnClick,
   children,
 }: ButtonProps) {
   const token = useToken()
@@ -46,7 +46,7 @@ export function Button({
   const { focused, getFocusedKind, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
     disabled,
-    onActivate: onClick,
+    onActivate: tuiOnClick,
     getRect: () => {
       const el = boxRef.current
       return el ? { x: el.x, y: el.y, width: el.width, height: el.height } : null
@@ -57,7 +57,7 @@ export function Button({
   const handleMouseDown = () => {
     if (disabled) return
     requestFocus()
-    onClick?.()
+    tuiOnClick?.()
   }
 
   useKeyboard((key) => {
@@ -66,7 +66,7 @@ export function Button({
     if (getFocusedKind() === "input") return
     // 单字符走可见字符（sequence），多字符走命名键（name），两套命名空间不混用
     const hit = tuiHotkey.length === 1 ? key.sequence === tuiHotkey : key.name === tuiHotkey
-    if (hit) onClick?.()
+    if (hit) tuiOnClick?.()
   })
 
   const isPrimary = type === "primary"

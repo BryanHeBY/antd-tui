@@ -47,7 +47,7 @@ describe("Modal", () => {
     const t = await renderTui(
       <ConfigProvider>
         <FocusScope>
-          <Modal open title="标题" onOk={() => events.push("ok")} onCancel={() => events.push("cancel")}>
+          <Modal open title="标题" tuiOnOk={() => events.push("ok")} tuiOnCancel={() => events.push("cancel")}>
             <text>正文</text>
           </Modal>
         </FocusScope>
@@ -65,12 +65,12 @@ describe("Modal", () => {
     t.destroy()
   })
 
-  test("Esc 触发 onCancel，keyboard=false 时不响应", async () => {
+  test("Esc 触发 tuiOnCancel，keyboard=false 时不响应", async () => {
     let cancelled = 0
     const t = await renderTui(
       <ConfigProvider>
         <FocusScope>
-          <Modal open title="标题" onCancel={() => cancelled++}>
+          <Modal open title="标题" tuiOnCancel={() => cancelled++}>
             <text>正文</text>
           </Modal>
         </FocusScope>
@@ -84,7 +84,7 @@ describe("Modal", () => {
     const noKeyboard = await renderTui(
       <ConfigProvider>
         <FocusScope>
-          <Modal open keyboard={false} title="标题" onCancel={() => cancelled++}>
+          <Modal open keyboard={false} title="标题" tuiOnCancel={() => cancelled++}>
             <text>正文</text>
           </Modal>
         </FocusScope>
@@ -122,11 +122,11 @@ describe("Modal 焦点圈闭", () => {
         <ConfigProvider>
           <FocusScope>
             <box style={{ flexDirection: "column" }}>
-              <Button tuiHotkey="d" onClick={() => events.push("outer-hotkey")}>
+              <Button tuiHotkey="d" tuiOnClick={() => events.push("outer-hotkey")}>
                 下层按钮
               </Button>
-              <Button onClick={() => setOpen(true)}>打开浮层</Button>
-              <Modal open={open} title="浮层" onOk={() => events.push("ok")} onCancel={() => setOpen(false)}>
+              <Button tuiOnClick={() => setOpen(true)}>打开浮层</Button>
+              <Modal open={open} title="浮层" tuiOnOk={() => events.push("ok")} tuiOnCancel={() => setOpen(false)}>
                 <text>浮层正文</text>
               </Modal>
             </box>
@@ -172,7 +172,7 @@ describe("Modal 焦点圈闭", () => {
               <Checkbox checked={checked} tuiOnChange={setChecked}>
                 下层选项
               </Checkbox>
-              <Modal open={open} title="浮层" footer={null} onCancel={() => setOpen(false)}>
+              <Modal open={open} title="浮层" footer={null} tuiOnCancel={() => setOpen(false)}>
                 <text>浮层正文</text>
               </Modal>
             </box>
@@ -211,7 +211,7 @@ describe("Modal 焦点圈闭", () => {
             <PageEscape />
             <box style={{ flexDirection: "column" }}>
               <Button>占位</Button>
-              <Modal open={open} title="浮层" footer={null} onCancel={() => setOpen(false)}>
+              <Modal open={open} title="浮层" footer={null} tuiOnCancel={() => setOpen(false)}>
                 <text>浮层正文</text>
               </Modal>
             </box>
@@ -241,10 +241,10 @@ describe("Modal 焦点圈闭", () => {
           <FocusScope>
             <box style={{ flexDirection: "column" }}>
               <Button>占位</Button>
-              <Modal open={openA} title="浮层A" footer={null} onCancel={() => setOpenA(false)}>
+              <Modal open={openA} title="浮层A" footer={null} tuiOnCancel={() => setOpenA(false)}>
                 <text>A 正文</text>
               </Modal>
-              <Modal open={openB} title="浮层B" footer={null} onCancel={() => setOpenB(false)}>
+              <Modal open={openB} title="浮层B" footer={null} tuiOnCancel={() => setOpenB(false)}>
                 <text>B 正文</text>
               </Modal>
             </box>
@@ -283,7 +283,7 @@ describe("Modal 焦点圈闭", () => {
     const b = await renderTui(
       <ConfigProvider>
         <FocusScope>
-          <Button onClick={() => (clicked = true)}>按钮</Button>
+          <Button tuiOnClick={() => (clicked = true)}>按钮</Button>
         </FocusScope>
       </ConfigProvider>,
       { width: 40, height: 10 },

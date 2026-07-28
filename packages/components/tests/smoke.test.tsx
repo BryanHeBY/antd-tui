@@ -19,7 +19,7 @@ describe("Button", () => {
     let pressed = 0
     const t = await renderTui(
       wrap(
-        <Button type="primary" onClick={() => pressed++}>
+        <Button type="primary" tuiOnClick={() => pressed++}>
           确认
         </Button>,
       ),
@@ -36,7 +36,7 @@ describe("Button", () => {
     let pressed = 0
     const t = await renderTui(
       wrap(
-        <Button disabled onClick={() => pressed++}>
+        <Button disabled tuiOnClick={() => pressed++}>
           禁用
         </Button>,
       ),

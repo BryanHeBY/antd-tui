@@ -16,8 +16,8 @@ export interface InputProps {
   placeholder?: string
   /** 同 antd：禁用 */
   disabled?: boolean
-  /** 同 antd：Enter 键回调（无 event 参数）；未提供时默认移动焦点到下一个控件 */
-  onPressEnter?: () => void
+  /** 类似 antd onPressEnter，但无 DOM 事件参数；未提供时默认移动焦点到下一个控件 */
+  tuiOnPressEnter?: () => void
 }
 
 export function InputBase({
@@ -25,7 +25,7 @@ export function InputBase({
   tuiOnChange,
   placeholder,
   disabled = false,
-  onPressEnter,
+  tuiOnPressEnter,
 }: InputProps) {
   const token = useToken()
   const { focused, focusNext, requestFocus } = useFocusable({ kind: "input", disabled })
@@ -50,7 +50,7 @@ export function InputBase({
         focused={focused && !disabled}
         onInput={(v: string) => tuiOnChange?.(v)}
         onSubmit={() => {
-          if (onPressEnter) onPressEnter()
+          if (tuiOnPressEnter) tuiOnPressEnter()
           else focusNext()
         }}
         style={{ flexGrow: 1 }}

@@ -192,7 +192,7 @@ describe("Switch", () => {
           checked={checked}
           checkedChildren="开"
           unCheckedChildren="关"
-          onChange={setChecked}
+          tuiOnChange={setChecked}
         />
       )
     }
@@ -207,7 +207,7 @@ describe("Switch", () => {
   test("loading 时不可切换", async () => {
     let called = false
     const t = await renderTui(
-      wrap(<Switch loading checked={false} onChange={() => (called = true)} />),
+      wrap(<Switch loading checked={false} tuiOnChange={() => (called = true)} />),
       { width: 40, height: 6 },
     )
     await t.enter()
@@ -226,7 +226,7 @@ describe("Select", () => {
           <Checkbox>占位焦点</Checkbox>
           <Select
             value={value}
-            onChange={(v) => {
+            tuiOnChange={(v) => {
               seen.push(v)
               setValue(v)
             }}
@@ -259,7 +259,7 @@ describe("Select", () => {
         <Select
           disabled
           value="a"
-          onChange={() => (called = true)}
+          tuiOnChange={() => (called = true)}
           options={[
             { label: "甲", value: "a" },
             { label: "乙", value: "b" },
@@ -281,7 +281,7 @@ describe("Select", () => {
       return (
         <Select
           value={value}
-          onChange={(next) => {
+          tuiOnChange={(next) => {
             seen.push(next)
             // 模拟受控父组件拒绝本次修改，value 保持为 a。
             setValue("a")

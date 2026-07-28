@@ -20,8 +20,8 @@ export interface SwitchProps {
   checkedChildren?: ReactNode
   /** 同 antd：未选中时的内容 */
   unCheckedChildren?: ReactNode
-  /** 同 antd：切换回调（antd 首参即 checked，语义一致） */
-  onChange?: (checked: boolean) => void
+  /** 类似 antd onChange，但终端无 DOM 事件参数 */
+  tuiOnChange?: (checked: boolean) => void
 }
 
 export function Switch({
@@ -30,13 +30,13 @@ export function Switch({
   loading = false,
   checkedChildren,
   unCheckedChildren,
-  onChange,
+  tuiOnChange,
 }: SwitchProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const locked = disabled || loading
   const toggle = () => {
-    if (!locked) onChange?.(!checked)
+    if (!locked) tuiOnChange?.(!checked)
   }
   const { focused, isActiveScope, requestFocus } = useFocusable({
     kind: "action",

@@ -15,10 +15,10 @@ export interface ModalProps {
   open?: boolean
   /** 同 antd：标题 */
   title?: ReactNode
-  /** 同 antd：确认回调 */
-  onOk?: () => void
-  /** 同 antd：取消回调（Esc 亦触发） */
-  onCancel?: () => void
+  /** 类似 antd onOk，但不提供 close 回调或 Promise 延迟关闭能力 */
+  tuiOnOk?: () => void
+  /** 类似 antd onCancel；Esc 亦触发，不提供 close 回调 */
+  tuiOnCancel?: () => void
   /** 同 antd：确认按钮文案 */
   okText?: string
   /** 同 antd：取消按钮文案 */
@@ -35,8 +35,8 @@ export interface ModalProps {
 export function Modal({
   open = false,
   title,
-  onOk,
-  onCancel,
+  tuiOnOk,
+  tuiOnCancel,
   okText = "确定",
   cancelText = "取消",
   footer,
@@ -52,8 +52,8 @@ export function Modal({
     <FocusScope>
       <ModalBody
         title={title}
-        onOk={onOk}
-        onCancel={onCancel}
+        tuiOnOk={tuiOnOk}
+        tuiOnCancel={tuiOnCancel}
         okText={okText}
         cancelText={cancelText}
         footer={footer}
@@ -78,8 +78,8 @@ interface ModalBodyProps extends Omit<ModalProps, "open"> {
 /** 浮层主体：拆出组件是为了让 useKeyboard 处于内层 FocusScope 之内（后挂载 → 栈顶） */
 function ModalBody({
   title,
-  onOk,
-  onCancel,
+  tuiOnOk,
+  tuiOnCancel,
   okText,
   cancelText,
   footer,
@@ -93,7 +93,7 @@ function ModalBody({
   // 圈闭守卫：多层浮层并存时，只有栈顶的 Modal 响应 Esc（逐层关闭）
   const { isActiveScope } = useFocusScopeState()
   useKeyboard((key) => {
-    if (keyboard && key.name === "escape" && isActiveScope()) onCancel?.()
+    if (keyboard && key.name === "escape" && isActiveScope()) tuiOnCancel?.()
   })
 
   // 水平精确居中；内容高度自适应无法预知，垂直取 1/4 处近似视觉重心
@@ -123,10 +123,10 @@ function ModalBody({
       <box style={{ flexDirection: "column" }}>{children}</box>
       {footer === null ? null : (
         <box style={{ flexDirection: "row", gap: 2, justifyContent: "flex-end" }}>
-          <Button type="primary" tuiSize="small" onClick={onOk}>
+          <Button type="primary" tuiSize="small" tuiOnClick={tuiOnOk}>
             {` ${okText} `}
           </Button>
-          <Button tuiSize="small" onClick={onCancel}>
+          <Button tuiSize="small" tuiOnClick={tuiOnCancel}>
             {` ${cancelText} `}
           </Button>
         </box>

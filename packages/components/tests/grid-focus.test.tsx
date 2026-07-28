@@ -14,24 +14,24 @@ function renderGrid(log: string[]) {
         <box style={{ flexDirection: "column", width: "100%" }}>
           <Row gutter={1}>
             <Col flex={1}>
-              <Button tuiSize="small" block onClick={() => log.push("A")}>
+              <Button tuiSize="small" block tuiOnClick={() => log.push("A")}>
                 A
               </Button>
             </Col>
             <Col flex={1}>
-              <Button tuiSize="small" block onClick={() => log.push("B")}>
+              <Button tuiSize="small" block tuiOnClick={() => log.push("B")}>
                 B
               </Button>
             </Col>
           </Row>
           <Row gutter={1}>
             <Col flex={1}>
-              <Button tuiSize="small" block onClick={() => log.push("C")}>
+              <Button tuiSize="small" block tuiOnClick={() => log.push("C")}>
                 C
               </Button>
             </Col>
             <Col flex={1}>
-              <Button tuiSize="small" block onClick={() => log.push("D")}>
+              <Button tuiSize="small" block tuiOnClick={() => log.push("D")}>
                 D
               </Button>
             </Col>
@@ -66,12 +66,12 @@ describe("Row/Col 栅格", () => {
         <FocusScope>
           <Row>
             <Col span={12}>
-              <Button tuiSize="small" block onClick={() => {}}>
+              <Button tuiSize="small" block tuiOnClick={() => {}}>
                 L
               </Button>
             </Col>
             <Col span={12}>
-              <Button tuiSize="small" block onClick={() => {}}>
+              <Button tuiSize="small" block tuiOnClick={() => {}}>
                 R
               </Button>
             </Col>
@@ -123,8 +123,8 @@ describe("Button 热键", () => {
       <ConfigProvider>
         <FocusScope>
           <box style={{ flexDirection: "column" }}>
-            <Button onClick={() => log.push("first")}>first</Button>
-            <Button tuiHotkey="x" onClick={() => log.push("hot")}>
+            <Button tuiOnClick={() => log.push("first")}>first</Button>
+            <Button tuiHotkey="x" tuiOnClick={() => log.push("hot")}>
               hot
             </Button>
           </box>
@@ -147,7 +147,7 @@ describe("Button 热键", () => {
         <FocusScope>
           <box style={{ flexDirection: "column" }}>
             <Input value={value} tuiOnChange={(v: string) => (value = v)} />
-            <Button tuiHotkey="x" onClick={() => log.push("hot")}>
+            <Button tuiHotkey="x" tuiOnClick={() => log.push("hot")}>
               hot
             </Button>
           </box>
@@ -169,8 +169,8 @@ describe("Button 热键", () => {
       <ConfigProvider>
         <FocusScope>
           <box style={{ flexDirection: "column" }}>
-            <Button onClick={() => log.push("first")}>first</Button>
-            <Button tuiHotkey="+" onClick={() => log.push("plus")}>
+            <Button tuiOnClick={() => log.push("first")}>first</Button>
+            <Button tuiHotkey="+" tuiOnClick={() => log.push("plus")}>
               plus
             </Button>
           </box>
@@ -189,8 +189,8 @@ describe("Button 热键", () => {
       <ConfigProvider>
         <FocusScope>
           <box style={{ flexDirection: "column" }}>
-            <Button onClick={() => log.push("first")}>first</Button>
-            <Button tuiHotkey="backspace" onClick={() => log.push("del")}>
+            <Button tuiOnClick={() => log.push("first")}>first</Button>
+            <Button tuiHotkey="backspace" tuiOnClick={() => log.push("del")}>
               del
             </Button>
           </box>
@@ -218,10 +218,10 @@ describe("FocusScope suspended：键盘分区", () => {
         <ConfigProvider>
           <FocusScope>
             <box style={{ flexDirection: "column" }}>
-              <Button onClick={() => events.push("host")}>宿主按钮</Button>
+              <Button tuiOnClick={() => events.push("host")}>宿主按钮</Button>
               <FocusScope suspended={suspended}>
                 <box style={{ flexDirection: "column" }}>
-                  <Button onClick={() => events.push("page")}>页面按钮</Button>
+                  <Button tuiOnClick={() => events.push("page")}>页面按钮</Button>
                   <Input placeholder="页面输入" />
                 </box>
               </FocusScope>

@@ -30,8 +30,8 @@ describe("Input.TextArea", () => {
     t.destroy()
   })
 
-  test("tuiDefaultValue 作为初值渲染", async () => {
-    const t = await renderTui(wrap(<Input.TextArea rows={2} tuiDefaultValue="初始文本" />), {
+  test("defaultValue 作为初值渲染", async () => {
+    const t = await renderTui(wrap(<Input.TextArea rows={2} defaultValue="初始文本" />), {
       width: 40,
       height: 8,
     })

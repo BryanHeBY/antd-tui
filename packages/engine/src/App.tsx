@@ -143,11 +143,11 @@ export function PageView({
             <Space direction="horizontal" size={2}>
               {actions.map((action, i) =>
                 action.type === "submit" ? (
-                  <Button key={i} type="primary" onClick={handleSubmit}>
+                  <Button key={i} type="primary" tuiOnClick={handleSubmit}>
                     {action.label ?? "提交"}
                   </Button>
                 ) : (
-                  <Button key={i} onClick={onCancel}>
+                  <Button key={i} tuiOnClick={onCancel}>
                     {action.label ?? "取消"}
                   </Button>
                 ),
