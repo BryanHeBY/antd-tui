@@ -162,4 +162,46 @@ describe("Button 热键", () => {
     expect(value).toBe("x")
     t.destroy()
   })
+
+  test("单字符热键匹配可见字符：符号键经 sequence 触发", async () => {
+    const log: string[] = []
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <box style={{ flexDirection: "column" }}>
+            <Button onClick={() => log.push("first")}>first</Button>
+            <Button tuiHotkey="+" onClick={() => log.push("plus")}>
+              plus
+            </Button>
+          </box>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 12 },
+    )
+    await t.type("+")
+    expect(log).toEqual(["plus"])
+    t.destroy()
+  })
+
+  test("多字符热键只匹配命名键：backspace 键触发，字符 b 不触发", async () => {
+    const log: string[] = []
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <box style={{ flexDirection: "column" }}>
+            <Button onClick={() => log.push("first")}>first</Button>
+            <Button tuiHotkey="backspace" onClick={() => log.push("del")}>
+              del
+            </Button>
+          </box>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 12 },
+    )
+    await t.type("b")
+    expect(log).toEqual([])
+    await t.press(KeyCodes.BACKSPACE)
+    expect(log).toEqual(["del"])
+    t.destroy()
+  })
 })

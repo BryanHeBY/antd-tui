@@ -19,7 +19,11 @@ export interface ButtonProps {
   tuiSize?: "middle" | "small"
   /** 同 antd（子集）：CSS 风格布局样式 */
   style?: CssLikeStyle
-  /** TUI 扩展：全局热键（key.name 或 key.sequence 匹配即触发，输入类组件聚焦时失效） */
+  /**
+   * TUI 扩展：全局热键（输入类组件聚焦时失效）。
+   * 命名空间规则：单字符（如 "7" "+" "%"）只匹配可见字符 key.sequence；
+   * 多字符（如 "backspace" "f1"）只匹配命名键 key.name。
+   */
   tuiHotkey?: string
   /** 同 antd：点击/激活回调（终端无 DOM 事件，不提供 event 参数） */
   onClick?: () => void
@@ -52,7 +56,9 @@ export function Button({
     if (!tuiHotkey || disabled || !isActiveScope()) return
     // 输入框/选择器聚焦时按键归它们，热键静默
     if (getFocusedKind() === "input") return
-    if (key.name === tuiHotkey || key.sequence === tuiHotkey) onClick?.()
+    // 单字符走可见字符（sequence），多字符走命名键（name），两套命名空间不混用
+    const hit = tuiHotkey.length === 1 ? key.sequence === tuiHotkey : key.name === tuiHotkey
+    if (hit) onClick?.()
   })
 
   const isPrimary = type === "primary"
