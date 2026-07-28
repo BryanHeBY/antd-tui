@@ -45,7 +45,7 @@ export function Slider({
   const current = Math.min(Math.max(value ?? min, min), max)
 
   // 注册为 input 类：方向键归组件消费（调节数值），用 Tab 离开
-  const { focused } = useFocusable({
+  const { focused, isActiveScope } = useFocusable({
     kind: "input",
     disabled,
     getRect: () => {
@@ -63,7 +63,7 @@ export function Slider({
   }
 
   useKeyboard((key) => {
-    if (!focused || disabled) return
+    if (!focused || disabled || !isActiveScope()) return
     switch (key.name) {
       case "left":
         emit(current - step)

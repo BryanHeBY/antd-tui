@@ -44,15 +44,37 @@ interface FocusContextValue {
   focusPrev: () => void
   /** 当前焦点元素的类别（热键组件用它避免吞掉输入框按键） */
   getFocusedKind: () => FocusableKind | null
+  /** 本作用域是否在栈顶（浮层打开时下层作用域的按键须静默） */
+  isActiveScope: () => boolean
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
 
+/** 嵌套深度：Modal 等浮层在更深的作用域内渲染 */
+const FocusDepthContext = createContext<number>(-1)
+
+/**
+ * 已挂载作用域的深度表。仅深度最大者响应键盘，浮层因此获得焦点圈闭，
+ * 卸载后外层自动恢复。不能用挂载顺序判断：React 的 effect 是子先父后。
+ */
+const scopeDepths = new Map<string, number>()
+
 export function FocusScope({ children }: { children?: ReactNode }) {
+  const scopeId = useId()
+  const depth = useContext(FocusDepthContext) + 1
   const entriesRef = useRef<FocusableEntry[]>([])
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedIdRef = useRef<string | null>(null)
   focusedIdRef.current = focusedId
+
+  useEffect(() => {
+    scopeDepths.set(scopeId, depth)
+    return () => {
+      scopeDepths.delete(scopeId)
+    }
+  }, [scopeId, depth])
+
+  const isActiveScope = () => depth >= Math.max(...scopeDepths.values())
 
   const enabled = () => entriesRef.current.filter((e) => !e.disabled)
 
@@ -125,6 +147,8 @@ export function FocusScope({ children }: { children?: ReactNode }) {
   }, [])
 
   useKeyboard((key) => {
+    // 焦点圈闭：浮层打开时只有最内层作用域响应按键
+    if (!isActiveScope()) return
     if (key.name === "tab") {
       move(key.shift ? -1 : 1)
       return
@@ -151,11 +175,17 @@ export function FocusScope({ children }: { children?: ReactNode }) {
       focusPrev: () => move(-1),
       getFocusedKind: () =>
         entriesRef.current.find((e) => e.id === focusedIdRef.current)?.kind ?? null,
+      isActiveScope,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [focusedId, register, move],
   )
 
-  return <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
+  return (
+    <FocusDepthContext.Provider value={depth}>
+      <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
+    </FocusDepthContext.Provider>
+  )
 }
 
 export interface UseFocusableOptions {
@@ -191,5 +221,6 @@ export function useFocusable({ kind, disabled = false, onActivate, getRect }: Us
     focusNext: ctx?.focusNext ?? (() => {}),
     focusPrev: ctx?.focusPrev ?? (() => {}),
     getFocusedKind: ctx?.getFocusedKind ?? (() => null),
+    isActiveScope: ctx?.isActiveScope ?? (() => true),
   }
 }

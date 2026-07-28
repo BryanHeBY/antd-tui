@@ -33,7 +33,7 @@ function RadioBase({
   const select = () => {
     if (!disabled && !checked) tuiOnChange?.(true)
   }
-  const { focused } = useFocusable({
+  const { focused, isActiveScope } = useFocusable({
     kind: "action",
     disabled,
     onActivate: select,
@@ -44,7 +44,7 @@ function RadioBase({
   })
 
   useKeyboard((key) => {
-    if (focused && key.name === "space") select()
+    if (focused && isActiveScope() && key.name === "space") select()
   })
 
   if (tuiButtonStyle) {

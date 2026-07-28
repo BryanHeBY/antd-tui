@@ -25,7 +25,7 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
   const toggle = () => {
     if (!disabled) tuiOnChange?.(!checked)
   }
-  const { focused } = useFocusable({
+  const { focused, isActiveScope } = useFocusable({
     kind: "action",
     disabled,
     onActivate: toggle,
@@ -36,7 +36,7 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
   })
 
   useKeyboard((key) => {
-    if (focused && key.name === "space") toggle()
+    if (focused && isActiveScope() && key.name === "space") toggle()
   })
 
   const color = disabled

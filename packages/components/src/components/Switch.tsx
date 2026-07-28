@@ -37,7 +37,7 @@ export function Switch({
   const toggle = () => {
     if (!locked) onChange?.(!checked)
   }
-  const { focused } = useFocusable({
+  const { focused, isActiveScope } = useFocusable({
     kind: "action",
     disabled: locked,
     onActivate: toggle,
@@ -48,7 +48,7 @@ export function Switch({
   })
 
   useKeyboard((key) => {
-    if (focused && key.name === "space") toggle()
+    if (focused && isActiveScope() && key.name === "space") toggle()
   })
 
   const backgroundColor = locked ? "#262626" : checked ? token.colorPrimary : "#373737"

@@ -38,7 +38,7 @@ export function Button({
 }: ButtonProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
-  const { focused, getFocusedKind } = useFocusable({
+  const { focused, getFocusedKind, isActiveScope } = useFocusable({
     kind: "action",
     disabled,
     onActivate: onClick,
@@ -49,7 +49,7 @@ export function Button({
   })
 
   useKeyboard((key) => {
-    if (!tuiHotkey || disabled) return
+    if (!tuiHotkey || disabled || !isActiveScope()) return
     // 输入框/选择器聚焦时按键归它们，热键静默
     if (getFocusedKind() === "input") return
     if (key.name === tuiHotkey || key.sequence === tuiHotkey) onClick?.()
