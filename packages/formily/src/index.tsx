@@ -185,7 +185,7 @@ export const SchemaField = createSchemaField({
 })
 
 /**
- * 编译页面 schema 的 scope 段：{ 函数名: "{{ 表达式 }}" } → 可注入 SchemaField scope 的具名函数表。
+ * 编译页面 Schema 的 scope 段：{ 函数名: "{{ 表达式 }}" } → 可注入 SchemaField scope 的具名函数表。
  * base 通常为 { $form, $memo }；Formily 表达式引擎按作用域惰性查找，
  * 因此 scope 函数之间可互相调用（不受定义顺序限制）。
  */

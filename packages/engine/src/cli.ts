@@ -2,19 +2,19 @@
  * antd-tui engine CLI
  *
  * 用法：
- *   engine --schema <path>          从文件读取页面 schema
- *   engine --schema-json '<json>'   从参数读取页面 schema
- *   engine --stdin                  从 stdin 读取页面 schema（管道场景）
- *   engine ... --dry-run            仅校验 schema，不渲染
+ *   engine --schema <path>          从文件读取页面 Schema
+ *   engine --schema-json '<json>'   从参数读取页面 Schema
+ *   engine --stdin                  从 stdin 读取页面 Schema（管道场景）
+ *   engine ... --dry-run            仅校验页面 Schema，不渲染
  *
  * 输出协议（NDJSON，stdout；TUI 渲染期间不写 stdout，结果在退出前输出）：
  *   {"event":"valid"}                          --dry-run 校验通过
  *   {"event":"submit","values":{...}}          用户提交
  *   {"event":"cancel"}                         用户取消（Esc / 取消按钮）
- *   {"event":"invalid","errors":[...]}         schema 校验失败
+ *   {"event":"invalid","errors":[...]}         页面 Schema 校验失败
  *   {"event":"error","message":"..."}          运行错误
  *
- * 退出码：0=submit/valid  1=cancel  2=schema 无效  3=环境不满足
+ * 退出码：0=submit/valid  1=cancel  2=页面 Schema 无效  3=环境不满足
  */
 import { readFileSync } from "node:fs"
 import { componentWhitelist } from "@antd-tui/formily"

@@ -1,6 +1,8 @@
 # antd-tui 页面 Schema 编写规范
 
-面向生成页面 schema 的 Agent 与人类作者。engine 读入一份 JSON(信封协议),校验后渲染为交互式终端界面,交互结果以 NDJSON 写回 stdout。完整可运行的黄金样例见 `examples/calculator.schema.json`。
+面向生成页面 Schema 的 Agent 与人类作者。engine 读入一份 JSON(信封协议),校验后渲染为交互式终端界面,交互结果以 NDJSON 写回 stdout。完整可运行的黄金样例见 `examples/calculator.schema.json`。
+
+两级概念:外层信封整体是本引擎的「页面 Schema」;其中 `form` 字段的值才是 Formily 生态定义的「表单 Schema」(ISchema,由 SchemaField 消费)。
 
 ## 1. 信封协议
 
@@ -15,7 +17,7 @@
   "scope": {                        // 可选：具名表达式函数表
     "fnName": "{{ (arg) => ... }}"
   },
-  "form": { "type": "object", "properties": { ... } },  // Formily JSON Schema，根节点必须是 object
+  "form": { "type": "object", "properties": { ... } },  // Formily 表单 Schema（ISchema），根节点必须是 object
   "actions": [                      // 可选，仅 form 模式生效；缺省 = 提交 + 取消
     { "type": "submit", "label": "提交" },
     { "type": "cancel", "label": "取消" }
@@ -35,7 +37,7 @@
 | `{"event":"valid"}` | `--dry-run` 校验通过 | 0 |
 | `{"event":"submit","values":{...}}` | 用户提交(interactive 模式 Esc 同此) | 0 |
 | `{"event":"cancel"}` | 用户取消 | 1 |
-| `{"event":"invalid","errors":[...]}` | schema 校验失败 | 2 |
+| `{"event":"invalid","errors":[...]}` | 页面 Schema 校验失败 | 2 |
 | `{"event":"error","message":"..."}` | 运行错误 / 环境不满足 | 2 / 3 |
 
 ## 2. scope:逻辑收进具名函数

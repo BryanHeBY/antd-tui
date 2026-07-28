@@ -1,5 +1,7 @@
 /**
- * 页面 schema 协议定义与校验。
+ * 页面 Schema（信封协议）定义与校验。
+ * 两级概念：外层信封是本引擎的「页面 Schema」；其中 form 字段的值
+ * 才是 Formily 生态定义的「表单 Schema」（ISchema，SchemaField 消费）。
  * 不引入 ajv，用轻量结构校验 + 组件白名单遍历，错误信息带 JSON 路径。
  */
 
@@ -22,7 +24,7 @@ export interface PageSchema {
   }
   /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$memo） */
   scope?: Record<string, string>
-  /** Formily JSON Schema（根节点须为 type: "object"） */
+  /** 表单 Schema：Formily ISchema，根节点须为 type: "object" */
   form: Record<string, unknown>
   actions?: PageAction[]
 }

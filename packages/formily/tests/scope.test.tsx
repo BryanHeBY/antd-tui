@@ -6,7 +6,7 @@ import { ConfigProvider, FocusScope } from "@antd-tui/components"
 import { FormProvider, SchemaField, compileScope } from "../src/index"
 
 /**
- * scope 机制：页面 schema 的 scope 段定义具名表达式函数，
+ * scope 机制：页面 Schema 的 scope 段定义具名表达式函数，
  * 编译后注入 SchemaField 作用域，字段表达式按名调用。
  * 同时验证 x-content 文案通道（@formily/react 内建）畅通。
  */
