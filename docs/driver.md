@@ -34,8 +34,9 @@ engine --schema x.schema.json --drive [--size 80x24]
 | `{"id":4,"op":"type","text":"user-api"}` | 输入文本(进当前聚焦的输入组件) |
 | `{"id":5,"op":"press","key":"tab"}` | 按键:tab/enter/escape/up/down/left/right/backspace/delete/home/end 或单字符 |
 | `{"id":6,"op":"locate","text":"部署"}` | 只定位不点击,返回 `{x,y}` |
-| `{"id":7,"op":"values"}` | 读当前 `form.values` |
-| `{"id":8,"op":"quit"}` | 结束会话(等价取消) |
+| `{"id":7,"op":"wait","text":"校验未通过","timeout":2000}` | 轮询直到帧中出现文本(异步 UI:校验反馈/Spin 消失),默认超时 2s |
+| `{"id":8,"op":"values"}` | 读当前 `form.values` |
+| `{"id":9,"op":"quit"}` | 结束会话(等价取消) |
 
 ### 响应与约定
 

@@ -86,6 +86,7 @@ interface DriveCommand {
   key?: string
   x?: number
   y?: number
+  timeout?: number
   return?: string
 }
 
@@ -167,6 +168,29 @@ export async function runDrive(schema: PageSchema, args: DriverArgs): Promise<vo
           else respond(cmd, { ok: false, error: `帧中找不到文本 "${cmd.text}"` })
           break
         }
+        case "wait": {
+          // 轮询 settle 直到帧里出现目标文本：校验反馈 / Spin 消失等异步 UI 用它同步
+          if (typeof cmd.text !== "string") {
+            respond(cmd, { ok: false, error: "wait 需要 text 字段" })
+            break
+          }
+          const deadline = Date.now() + (cmd.timeout ?? 2000)
+          let found = session.setup.captureCharFrame().includes(cmd.text)
+          while (!found && Date.now() < deadline) {
+            await session.settle()
+            exitIfFinished()
+            found = session.setup.captureCharFrame().includes(cmd.text)
+          }
+          if (!found) {
+            respond(cmd, { ok: false, error: `等待超时：帧中未出现 "${cmd.text}"` })
+          } else if (cmd.return === "none") {
+            respond(cmd, { ok: true })
+          } else {
+            const format = FORMATS.has(cmd.return ?? "") ? (cmd.return as SnapshotFormat) : "text"
+            respond(cmd, { ok: true, frame: renderFrame(session, format) })
+          }
+          break
+        }
         case "click": {
           let x = cmd.x
           let y = cmd.y
@@ -231,7 +255,7 @@ export async function runDrive(schema: PageSchema, args: DriverArgs): Promise<vo
         default:
           respond(cmd, {
             ok: false,
-            error: `未知操作 "${String(cmd.op)}"（可用：snapshot/locate/click/type/press/values/quit）`,
+            error: `未知操作 "${String(cmd.op)}"（可用：snapshot/locate/wait/click/type/press/values/quit）`,
           })
       }
     } catch (err) {
