@@ -58,12 +58,18 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
             <Typography.Text type="secondary">{schema.page.description}</Typography.Text>
           ) : null}
 
-          {/* 表单区撑满剩余高度：可伸展组件（Row 等）自动均分空间 */}
-          <box style={{ flexDirection: "column", flexGrow: 1, flexShrink: 1, gap: 1 }}>
+          {/* 表单区可滚动：内容超出终端高度时滚动而非被 flex 压缩变形；
+              content 最小高度撑满视口，计算器这类 flex 均分布局不受影响 */}
+          <scrollbox
+            style={{ flexGrow: 1, flexShrink: 1 }}
+            scrollY
+            scrollX={false}
+            contentOptions={{ flexDirection: "column", gap: 1, minHeight: "100%" }}
+          >
             <FormProvider form={form}>
               <SchemaField schema={schema.form as ISchema} scope={scope} />
             </FormProvider>
-          </box>
+          </scrollbox>
 
           <box style={{ flexDirection: "column", gap: 1, flexShrink: 0 }}>
             {actions.length > 0 ? (
