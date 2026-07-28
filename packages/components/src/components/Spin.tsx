@@ -31,7 +31,7 @@ export function Spin({ spinning = true, tip, tuiIntervalMs = 80, children }: Spi
 
   return (
     <box style={{ flexDirection: "row", minHeight: 1 }}>
-      <text fg={token.colorPrimary}>{FRAMES[frame]}</text>
+      <text fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
       {tip ? <text fg={token.colorTextSecondary}> {tip}</text> : null}
     </box>
   )

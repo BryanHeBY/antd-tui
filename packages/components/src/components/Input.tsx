@@ -35,7 +35,7 @@ export function InputBase({
       border
       style={{
         borderStyle: token.borderStyle,
-        borderColor: focused ? token.colorPrimary : token.colorBorder,
+        borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
         height: 3,
         paddingLeft: 1,
         paddingRight: 1,

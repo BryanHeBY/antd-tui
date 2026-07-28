@@ -55,7 +55,7 @@ export interface TitleProps {
 function Title({ children }: TitleProps) {
   const token = useToken()
   return (
-    <text fg={token.colorPrimary}>
+    <text fg={token.colorPrimaryHover}>
       <b>{children}</b>
     </text>
   )

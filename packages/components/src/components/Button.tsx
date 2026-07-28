@@ -103,7 +103,7 @@ export function Button({
   const borderColor = disabled
     ? token.colorTextDisabled
     : focused
-      ? token.colorPrimary
+      ? token.colorPrimaryHover
       : isPrimary
         ? token.colorPrimary
         : token.colorBorder
@@ -114,7 +114,7 @@ export function Button({
     : isPrimary
       ? "#ffffff"
       : focused
-        ? token.colorPrimary
+        ? token.colorPrimaryHover
         : token.colorText
 
   return (

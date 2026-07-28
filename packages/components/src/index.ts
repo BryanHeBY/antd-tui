@@ -1,4 +1,5 @@
-export { ConfigProvider, useToken, defaultTokens, type ThemeTokens } from "./theme"
+export { ConfigProvider, useToken, defaultTokens, deriveTokens, type ThemeTokens } from "./theme"
+export { darkPalette } from "./color"
 export { FocusScope, useFocusable, type FocusableKind, type FocusableRect } from "./focus"
 export { Typography, type TextProps, type TitleProps } from "./components/Typography"
 export { Button, type ButtonProps } from "./components/Button"

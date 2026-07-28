@@ -66,7 +66,7 @@ export function Switch({
         paddingRight: 1,
         flexDirection: "row",
         alignSelf: "flex-start",
-        borderColor: focused ? token.colorPrimary : undefined,
+        borderColor: focused ? token.colorPrimaryHover : undefined,
       }}
       onMouseDown={() => {
         // 浏览器直觉：点击控件同时把焦点转移过去

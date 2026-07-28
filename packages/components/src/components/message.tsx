@@ -77,7 +77,7 @@ function MessageList({ items }: { items: MessageItem[] }) {
               ? token.colorError
               : item.type === "warning"
                 ? token.colorWarning
-                : token.colorPrimary
+                : token.colorPrimaryHover
         return (
           <box
             key={item.id}

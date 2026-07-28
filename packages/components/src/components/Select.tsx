@@ -79,7 +79,7 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
       border
       style={{
         borderStyle: token.borderStyle,
-        borderColor: focused ? token.colorPrimary : token.colorBorder,
+        borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
       }}
       onMouseDown={handleMouseDown}
     >

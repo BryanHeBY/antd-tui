@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
+import { darkPalette } from "../color"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -13,13 +14,12 @@ export interface TagProps {
   children?: ReactNode
 }
 
-/** antd 预设色名 → 终端色值 */
+/** antd 预设色名 → 种子色（渲染时经暗色色板派生，黑底可读） */
 const PRESET_COLORS: Record<string, string> = {
   success: "#52c41a",
   processing: "#1677ff",
   error: "#ff4d4f",
   warning: "#faad14",
-  default: "#8c8c8c",
   magenta: "#eb2f96",
   red: "#f5222d",
   volcano: "#fa541c",
@@ -35,18 +35,17 @@ const PRESET_COLORS: Record<string, string> = {
 
 export function Tag({ color, bordered = true, children }: TagProps) {
   const token = useToken()
-  const resolved = color ? (PRESET_COLORS[color] ?? color) : token.colorBorder
+  const seed = color && color !== "default" ? (PRESET_COLORS[color] ?? color) : undefined
+  const palette = seed ? darkPalette(seed) : null
 
   if (bordered) {
-    return (
-      <text fg={resolved}>
-        [{children}]
-      </text>
-    )
+    // 前景文字用 hover 档（palette[6]），黑底可读性优先
+    return <text fg={palette ? palette[6] : token.colorTextSecondary}>[{children}]</text>
   }
+  const fill = palette ? palette[5]! : token.colorBorder
   return (
-    <box style={{ backgroundColor: resolved, paddingLeft: 1, paddingRight: 1, minHeight: 1 }}>
-      <text fg="#ffffff" bg={resolved}>
+    <box style={{ backgroundColor: fill, paddingLeft: 1, paddingRight: 1, minHeight: 1 }}>
+      <text fg="#ffffff" bg={fill}>
         {children}
       </text>
     </box>

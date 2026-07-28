@@ -38,7 +38,7 @@ export function TextArea({
       border
       style={{
         borderStyle: token.borderStyle,
-        borderColor: focused ? token.colorPrimary : token.colorBorder,
+        borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
         height: rows + 2,
       }}
       onMouseDown={() => {

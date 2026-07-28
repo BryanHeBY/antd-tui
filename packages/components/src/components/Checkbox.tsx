@@ -42,9 +42,9 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
   const color = disabled
     ? token.colorTextDisabled
     : focused
-      ? token.colorPrimary
+      ? token.colorPrimaryHover
       : checked
-        ? token.colorPrimary
+        ? token.colorPrimaryHover
         : token.colorText
 
   return (

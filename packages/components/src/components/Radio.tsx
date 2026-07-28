@@ -91,7 +91,7 @@ function RadioBase({
   const color = disabled
     ? token.colorTextDisabled
     : focused || checked
-      ? token.colorPrimary
+      ? token.colorPrimaryHover
       : token.colorText
 
   return (

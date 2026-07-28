@@ -59,7 +59,7 @@ export function Modal({
         footer={footer}
         tuiWidth={tuiWidth}
         keyboard={keyboard}
-        borderColor={token.colorPrimary}
+        borderColor={token.colorPrimaryHover}
         backgroundColor="#141414"
         borderStyle={token.borderStyle}
       >

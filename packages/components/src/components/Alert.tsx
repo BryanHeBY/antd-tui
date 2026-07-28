@@ -39,7 +39,7 @@ export function Alert({
         ? token.colorWarning
         : type === "error"
           ? token.colorError
-          : token.colorPrimary
+          : token.colorPrimaryHover
 
   return (
     <box
