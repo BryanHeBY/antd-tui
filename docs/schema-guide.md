@@ -154,11 +154,17 @@ void 节点名不参与取值,但影响可读性与 LLM 模仿质量。用语义
 
 ## 6. 校验
 
-提交前先跑结构校验(不渲染、无需 TTY):
+生成后必须先过校验再交付,两档都无需 TTY:
 
 ```sh
+# 静态校验:结构、未知键(拦 typo)、组件与 props 键白名单、表达式语法与未定义引用
 bun packages/engine/src/cli.ts --schema your.schema.json --dry-run
+
+# 静态校验 + 无头渲染一帧:再兜住表达式运行时崩溃、props 类型错等动态问题(推荐)
+bun packages/engine/src/cli.ts --schema your.schema.json --check
 ```
+
+校验失败输出 `{"event":"invalid","errors":[...]}`(退出码 2),errors 带 JSON 路径且一次性列全,按路径逐条修复即可。
 
 ## 7. 示例索引:什么场景抄哪个
 

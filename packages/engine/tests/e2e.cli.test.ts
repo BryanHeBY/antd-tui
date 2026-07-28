@@ -82,4 +82,30 @@ describe("CLI 协议", () => {
     expect(r.events[0]?.event).toBe("error")
     expect(String(r.events[0]?.message)).toContain("--stdin")
   })
+
+  test("--check：合法 schema 无头渲染通过，退出码 0（无需 TTY）", async () => {
+    const r = await runCli(["--schema", CALC_SCHEMA, "--check"])
+    expect(r.exitCode).toBe(0)
+    expect(r.events).toEqual([{ event: "valid" }])
+  })
+
+  test("--check：表达式运行时崩溃被捕获为 invalid，退出码 2", async () => {
+    const bad = JSON.stringify({
+      version: "0.1",
+      form: {
+        type: "object",
+        properties: {
+          t: {
+            type: "void",
+            "x-component": "Descriptions",
+            "x-component-props": { items: "{{ $form.values.nothing.map((x) => x) }}" },
+          },
+        },
+      },
+    })
+    const r = await runCli(["--schema-json", bad, "--check"])
+    expect(r.exitCode).toBe(2)
+    expect(r.events[0]?.event).toBe("invalid")
+    expect(String((r.events[0]?.errors as string[])[0])).toContain("渲染期异常")
+  })
 })
