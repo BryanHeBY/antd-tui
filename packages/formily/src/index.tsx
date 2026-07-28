@@ -149,6 +149,18 @@ function ResultTextView({ value, type = "success", bold = true, align }: ResultT
 
 const ResultText = connect(ResultTextView)
 
+// 展示组件挂 void 节点时，ReactiveField 会把 value 覆盖为 undefined
+// （{...componentProps, value} 的展开顺序所致），这里从 componentProps 找回
+const StatisticBinding = connect(
+  Statistic,
+  mapProps((props, field) => {
+    const value = (props as { value?: unknown }).value
+    if (value !== undefined) return props
+    const cp = (field as { componentProps?: { value?: string | number } }).componentProps
+    return { ...props, value: cp?.value }
+  }),
+)
+
 /** schema 可用的组件注册表 */
 export const schemaComponents = {
   FormItem,
@@ -169,7 +181,7 @@ export const schemaComponents = {
   Tag,
   Divider,
   Progress,
-  Statistic,
+  Statistic: StatisticBinding,
   Descriptions,
   Spin,
   Table,
