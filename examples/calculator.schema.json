@@ -2,7 +2,8 @@
   "version": "0.1",
   "page": {
     "title": "TUI 计算器",
-    "description": "鼠标点击 / 方向键 / 数字热键，逻辑全由 schema 表达式驱动"
+    "description": "鼠标点击 / 方向键 / 数字热键，逻辑全由 schema 表达式驱动",
+    "mode": "interactive"
   },
   "form": {
     "type": "object",
@@ -525,6 +526,5 @@
         }
       }
     }
-  },
-  "actions": []
+  }
 }

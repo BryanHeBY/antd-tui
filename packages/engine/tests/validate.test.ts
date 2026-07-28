@@ -12,6 +12,24 @@ function base(extra: Record<string, unknown>) {
   return { version: "0.1", form: { type: "object" }, ...extra }
 }
 
+describe("page.mode 校验", () => {
+  test("form / interactive / 缺省均合法", () => {
+    expect(validatePageSchema(base({ page: { mode: "form" } }), WHITELIST).ok).toBe(true)
+    expect(validatePageSchema(base({ page: { mode: "interactive" } }), WHITELIST).ok).toBe(true)
+    expect(validatePageSchema(base({ page: { title: "t" } }), WHITELIST).ok).toBe(true)
+  })
+
+  test("非法 mode 报错", () => {
+    const r = validatePageSchema(base({ page: { mode: "popup" } }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/page/mode")
+  })
+
+  test("actions 为空数组不再有特殊语义（仍合法，等同缺省）", () => {
+    expect(validatePageSchema(base({ actions: [] }), WHITELIST).ok).toBe(true)
+  })
+})
+
 describe("scope 段校验", () => {
   test("合法 scope：函数名到表达式字符串的映射", () => {
     const r = validatePageSchema(

@@ -13,6 +13,12 @@ export interface PageSchema {
   page?: {
     title?: string
     description?: string
+    /**
+     * 页面模式，默认 "form"。
+     * form：底部操作栏（actions，缺省为提交+取消），Esc 取消。
+     * interactive：无操作栏的自包含交互页面，Esc 完成并回传当前值。
+     */
+    mode?: "form" | "interactive"
   }
   /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$memo） */
   scope?: Record<string, string>
@@ -44,6 +50,11 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
   if (root.page !== undefined) {
     if (typeof root.page !== "object" || root.page === null) {
       errors.push("/page 必须是对象")
+    } else {
+      const mode = (root.page as Record<string, unknown>).mode
+      if (mode !== undefined && mode !== "form" && mode !== "interactive") {
+        errors.push('/page/mode 必须是 "form" 或 "interactive"')
+      }
     }
   }
 

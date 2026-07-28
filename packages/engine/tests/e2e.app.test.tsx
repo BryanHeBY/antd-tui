@@ -5,7 +5,7 @@ import type { PageSchema } from "../src/validate"
 import calculatorSchema from "../../../examples/calculator.schema.json"
 
 /**
- * E2E（进程内）：手机风格计算器（逻辑全在 schema 表达式，actions 为空）。
+ * E2E（进程内）：手机风格计算器（逻辑全在 schema，page.mode = interactive）。
  * 覆盖热键输入、= 求值、错误分支、方向键导航、鼠标点击、Esc 完成回传。
  */
 

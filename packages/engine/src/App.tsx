@@ -28,13 +28,13 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
     [schema.scope, form],
   )
 
-  // actions 显式为空数组 = 无操作栏的自包含交互页面：Esc 关闭并回传当前值
-  const interactiveOnly = Array.isArray(schema.actions) && schema.actions.length === 0
-  const actions = interactiveOnly ? [] : schema.actions?.length ? schema.actions : DEFAULT_ACTIONS
+  // interactive 模式：无操作栏的自包含交互页面，Esc 完成并回传当前值
+  const interactive = schema.page?.mode === "interactive"
+  const actions = interactive ? [] : schema.actions?.length ? schema.actions : DEFAULT_ACTIONS
 
   useKeyboard((key) => {
     if (key.name === "escape") {
-      if (interactiveOnly) onFinish(form.values as Record<string, unknown>)
+      if (interactive) onFinish(form.values as Record<string, unknown>)
       else onCancel()
     }
   })
@@ -83,7 +83,7 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
             ) : null}
 
             <Typography.Text type="secondary">
-              {interactiveOnly
+              {interactive
                 ? "方向键 移动 · Enter 确认 · Esc 退出"
                 : "Tab 切换焦点 · Enter 确认 · Esc 取消"}
             </Typography.Text>
