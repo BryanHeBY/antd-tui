@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { renderTui } from "@antd-tui/test-utils"
 import { displayWidth } from "@antd-tui/components"
 import { VibeApp } from "../src/VibeApp"
+import { AcpClient } from "../src/acp"
 
 /**
  * vibe-tui × mock agent 的闭环 E2E：
@@ -25,6 +26,21 @@ function locate(frame: string, target: string): { x: number; y: number } {
 }
 
 describe("vibe-tui × mock agent", () => {
+  test("agent 在握手前退出时，start() 会明确失败而不是永久等待", async () => {
+    const state: { exitCode: number | null } = { exitCode: null }
+    const client = new AcpClient(["bun", "-e", "process.exit(7)"], {
+      onRender: () => ({ ok: true }),
+      onUpdate: () => {},
+      onExit: (code) => {
+        state.exitCode = code
+      },
+    })
+
+    await expect(client.start()).rejects.toThrow()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(state.exitCode).toBe(7)
+  })
+
   test("prompt 生成页面 → 点击回流 → agent 重渲染", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
       width: 70,

@@ -25,25 +25,70 @@ export interface AcpClientHandlers {
   onExit: (code: number | null) => void
 }
 
+export interface AcpClientOptions {
+  /** 退出时删除临时 ACP session，默认开启 */
+  ephemeral?: boolean
+  /** 等待 initialize + session/new 完成的最长时间，默认 10 秒 */
+  startupTimeoutMs?: number
+}
+
 export class AcpClient {
   private proc: ReturnType<typeof Bun.spawn> | null = null
   private session: ActiveSession | null = null
   private ctx: ClientContext | null = null
   private canDeleteSession = false
   private stopped = false
+  private readySettled = false
+  private startupTimer: ReturnType<typeof setTimeout> | null = null
   private readyResolve: (() => void) | null = null
-  private readonly ready = new Promise<void>((resolve) => {
+  private readyReject: ((reason: Error) => void) | null = null
+  private readonly ready = new Promise<void>((resolve, reject) => {
     this.readyResolve = resolve
+    this.readyReject = reject
   })
 
   constructor(
     private readonly cmd: string[],
     private readonly handlers: AcpClientHandlers,
-    private readonly options: { ephemeral?: boolean } = {},
-  ) {}
+    private readonly options: AcpClientOptions = {},
+  ) {
+    // ready 同时供 start() 与 prompt() 等待。后者会在启动失败时静默放弃，
+    // 因而需要预先吸收那条分支上的拒绝，避免出现未处理 Promise 警告。
+    void this.ready.catch(() => {})
+  }
+
+  private resolveReady(): void {
+    if (this.readySettled) return
+    this.readySettled = true
+    if (this.startupTimer) clearTimeout(this.startupTimer)
+    this.startupTimer = null
+    this.readyResolve?.()
+  }
+
+  private rejectReady(error: Error): void {
+    if (this.readySettled) return
+    this.readySettled = true
+    if (this.startupTimer) clearTimeout(this.startupTimer)
+    this.startupTimer = null
+    this.readyReject?.(error)
+  }
 
   async start(): Promise<void> {
-    this.proc = Bun.spawn(this.cmd, { stdin: "pipe", stdout: "pipe", stderr: "ignore" })
+    try {
+      this.proc = Bun.spawn(this.cmd, { stdin: "pipe", stdout: "pipe", stderr: "ignore" })
+    } catch (err) {
+      const error = new Error(`无法启动 agent：${(err as Error).message}`)
+      this.rejectReady(error)
+      throw error
+    }
+
+    const startupTimeoutMs = this.options.startupTimeoutMs ?? 10_000
+    if (startupTimeoutMs > 0) {
+      this.startupTimer = setTimeout(() => {
+        this.rejectReady(new Error(`等待 agent 初始化超时（${startupTimeoutMs}ms）`))
+      }, startupTimeoutMs)
+    }
+
     const sink = this.proc.stdin as import("bun").FileSink
     const output = new WritableStream<Uint8Array>({
       write: (chunk) => {
@@ -54,7 +99,9 @@ export class AcpClient {
     const stream = ndJsonStream(output, this.proc.stdout as ReadableStream<Uint8Array>)
 
     void this.proc.exited.then((code) => {
-      if (!this.stopped) this.handlers.onExit(code)
+      if (this.stopped) return
+      this.rejectReady(new Error(`agent 在初始化完成前退出（code ${code ?? "?"}）`))
+      this.handlers.onExit(code)
     })
 
     const app = client().onRequest(
@@ -71,10 +118,11 @@ export class AcpClient {
           protocolVersion: 1,
           clientCapabilities: {},
         })) as { agentCapabilities?: { sessionCapabilities?: { delete?: unknown } } }
-        this.canDeleteSession = init.agentCapabilities?.sessionCapabilities?.delete !== undefined
+        // ACP 用 null/undefined 都表示未声明该能力；只有对象才代表支持 delete。
+        this.canDeleteSession = init.agentCapabilities?.sessionCapabilities?.delete != null
         const session = await ctx.buildSession(process.cwd()).start()
         this.session = session
-        this.readyResolve?.()
+        this.resolveReady()
         for (;;) {
           const msg = await session.nextUpdate()
           if (msg.kind === "session_update") {
@@ -86,7 +134,9 @@ export class AcpClient {
           }
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // initialize/session/new 失败时必须让 start() 返回失败，不能永远停在「启动中」。
+        this.rejectReady(new Error(`ACP 连接失败：${err instanceof Error ? err.message : String(err)}`))
         // 连接断开（agent 退出/被 stop）：onExit 已另行通知
       })
 
@@ -99,6 +149,8 @@ export class AcpClient {
       void this.session?.prompt(text).catch(() => {
         // 轮次失败不致命：agent 侧可经 session/update 反馈
       })
+    }).catch(() => {
+      // agent 尚未成功启动或已退出：丢弃无法送达的输入，避免未处理拒绝。
     })
   }
 
@@ -108,6 +160,7 @@ export class AcpClient {
    */
   async stop(): Promise<void> {
     this.stopped = true
+    this.rejectReady(new Error("agent 已停止"))
     if (this.options.ephemeral !== false && this.canDeleteSession && this.ctx && this.session) {
       try {
         await this.ctx.request(
