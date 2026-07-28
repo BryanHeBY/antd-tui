@@ -59,6 +59,128 @@ describe("scope 段校验", () => {
   })
 })
 
+describe("未知键拒绝", () => {
+  test("信封层 typo（scopes）报错并列出可用键", () => {
+    const r = validatePageSchema(base({ scopes: {} }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/scopes")
+    expect(r.errors[0]).toContain("未知键")
+  })
+
+  test("page 与 actions 的未知键报错", () => {
+    const r1 = validatePageSchema(base({ page: { titel: "t" } }), WHITELIST)
+    expect(r1.ok).toBe(false)
+    expect(r1.errors[0]).toContain("/page/titel")
+
+    const r2 = validatePageSchema(base({ actions: [{ type: "submit", lable: "x" }] }), WHITELIST)
+    expect(r2.ok).toBe(false)
+    expect(r2.errors[0]).toContain("/actions/0/lable")
+  })
+
+  test("字段节点 typo（x-comopnent-props）报错", () => {
+    const r = validatePageSchema(
+      base({
+        form: {
+          type: "object",
+          properties: { a: { type: "void", "x-component": "Button", "x-comopnent-props": {} } },
+        },
+      }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/form/properties/a/x-comopnent-props")
+  })
+})
+
+describe("表达式静态检查", () => {
+  test("语法错误在 dry-run 阶段报出", () => {
+    const r = validatePageSchema(
+      base({ scope: { bad: "{{ () => { const } }}" } }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/scope/bad")
+    expect(r.errors[0]).toContain("语法错误")
+  })
+
+  test("调用未定义的 scope 函数报错（含 props 深层表达式）", () => {
+    const r = validatePageSchema(
+      base({
+        scope: { pressDigit: "{{ (d) => d }}" },
+        form: {
+          type: "object",
+          properties: {
+            btn: {
+              type: "void",
+              "x-component": "Button",
+              "x-component-props": { onClick: "{{ () => pressDigt('7') }}" },
+            },
+          },
+        },
+      }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("pressDigt")
+  })
+
+  test("合法表达式不误报：scope 互调、内置全局、字符串里的括号", () => {
+    const r = validatePageSchema(
+      base({
+        scope: {
+          a: "{{ () => b() + Math.min(1, 2) }}",
+          b: "{{ () => { const f = () => 1; return f() } }}",
+          c: "{{ () => '文案里有 run() 也不报' }}",
+        },
+      }),
+      WHITELIST,
+    )
+    expect(r.errors).toEqual([])
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe("字段结构深化", () => {
+  test("非法 type 报错", () => {
+    const r = validatePageSchema(
+      base({ form: { type: "object", properties: { a: { type: "int" } } } }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/form/properties/a/type")
+  })
+
+  test("enum 非数组、required 非布尔、props 非对象均报错", () => {
+    const r = validatePageSchema(
+      base({
+        form: {
+          type: "object",
+          properties: {
+            a: { type: "string", enum: "dev,test", required: "yes", "x-component-props": [] },
+          },
+        },
+      }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    const all = r.errors.join("\n")
+    expect(all).toContain("/form/properties/a/enum")
+    expect(all).toContain("/form/properties/a/required")
+    expect(all).toContain("/form/properties/a/x-component-props")
+  })
+
+  test("x-reactions 非对象报错", () => {
+    const r = validatePageSchema(
+      base({
+        form: { type: "object", properties: { a: { type: "string", "x-reactions": "visible" } } },
+      }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/form/properties/a/x-reactions")
+  })
+})
+
 describe("state 段校验", () => {
   test("合法 state：任意初值对象", () => {
     const r = validatePageSchema(
