@@ -34,7 +34,8 @@ async function main(): Promise<void> {
     process.exit(3)
   }
 
-  const renderer = await createCliRenderer({ exitOnCtrlC: true })
+  // Ctrl+C 由 VibeApp 接管：先删临时会话再退出
+  const renderer = await createCliRenderer({ exitOnCtrlC: false })
   createRoot(renderer).render(React.createElement(VibeApp, { agentCmd }))
 }
 

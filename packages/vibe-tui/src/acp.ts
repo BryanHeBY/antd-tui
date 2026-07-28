@@ -7,7 +7,7 @@
  *   agent → client 扩展请求：_vibetui/render { schema } —— 渲染/替换画板页面，
  *     校验失败时响应携带 errors，agent 可据此自修
  */
-import { client, ndJsonStream, type ActiveSession } from "@agentclientprotocol/sdk"
+import { client, ndJsonStream, type ActiveSession, type ClientContext } from "@agentclientprotocol/sdk"
 
 export interface RenderResult {
   ok: boolean
@@ -28,6 +28,8 @@ export interface AcpClientHandlers {
 export class AcpClient {
   private proc: ReturnType<typeof Bun.spawn> | null = null
   private session: ActiveSession | null = null
+  private ctx: ClientContext | null = null
+  private canDeleteSession = false
   private stopped = false
   private readyResolve: (() => void) | null = null
   private readonly ready = new Promise<void>((resolve) => {
@@ -37,6 +39,7 @@ export class AcpClient {
   constructor(
     private readonly cmd: string[],
     private readonly handlers: AcpClientHandlers,
+    private readonly options: { ephemeral?: boolean } = {},
   ) {}
 
   async start(): Promise<void> {
@@ -63,7 +66,12 @@ export class AcpClient {
     // 长驻连接：建会话后持续泵 session/update 到状态行，连接关闭时结束
     void app
       .connectWith(stream, async (ctx) => {
-        await ctx.request("initialize", { protocolVersion: 1, clientCapabilities: {} })
+        this.ctx = ctx
+        const init = (await ctx.request("initialize", {
+          protocolVersion: 1,
+          clientCapabilities: {},
+        })) as { agentCapabilities?: { sessionCapabilities?: { delete?: unknown } } }
+        this.canDeleteSession = init.agentCapabilities?.sessionCapabilities?.delete !== undefined
         const session = await ctx.buildSession(process.cwd()).start()
         this.session = session
         this.readyResolve?.()
@@ -94,8 +102,23 @@ export class AcpClient {
     })
   }
 
-  stop(): void {
+  /**
+   * 结束会话。ephemeral（默认开启）且 agent 声明支持 session/delete 时，
+   * 退出前删除本次会话，避免临时使用在 agent 侧堆积会话记录。
+   */
+  async stop(): Promise<void> {
     this.stopped = true
+    if (this.options.ephemeral !== false && this.canDeleteSession && this.ctx && this.session) {
+      try {
+        await this.ctx.request(
+          "session/delete",
+          { sessionId: this.session.sessionId },
+          { timeout: 2000 } as never,
+        )
+      } catch {
+        // 删除失败不阻塞退出
+      }
+    }
     this.proc?.kill()
   }
 }

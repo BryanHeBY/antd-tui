@@ -90,7 +90,9 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
       .start()
       .then(() => setStatus("agent 就绪，输入 prompt 开始"))
       .catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
-    return () => acp.stop()
+    return () => {
+      void acp.stop()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -107,9 +109,12 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
     [acp],
   )
 
-  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板，Esc 逐层返回
+  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板，Esc 逐层返回；
+  // Ctrl+C 自行接管：先清理临时会话（session/delete）再退出
   useKeyboard((key) => {
-    if (key.name === "f2") setPageMode((v) => !v)
+    if (key.ctrl && key.name === "c") {
+      void acp.stop().finally(() => process.exit(0))
+    } else if (key.name === "f2") setPageMode((v) => !v)
     else if (key.name === "f3") setShowLog((v) => !v)
     else if (key.name === "escape") {
       if (showLog) setShowLog(false)
