@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useKeyboard } from "@opentui/react"
-import { createForm } from "@formily/core"
+import { createForm, setValidateLanguage } from "@formily/core"
 import type { ISchema } from "@formily/react"
 import {
   Button,
@@ -8,6 +8,7 @@ import {
   FocusScope,
   Space,
   Typography,
+  message,
 } from "@antd-tui/components"
 import { FormProvider, SchemaField, compileScope } from "@antd-tui/formily"
 import type { PageAction, PageSchema } from "./validate"
@@ -20,8 +21,12 @@ export interface AppProps {
 
 const DEFAULT_ACTIONS: PageAction[] = [{ type: "submit" }, { type: "cancel" }]
 
+// 校验消息用中文（formily 默认 en，会出现 "The field value is required"）
+setValidateLanguage("zh-CN")
+
 export function App({ schema, onFinish, onCancel }: AppProps) {
   const form = useMemo(() => createForm(), [])
+  const [messageApi, messageHolder] = message.useMessage()
   // $memo：页面级可变对象，供 scope 函数存放隐藏交互状态（不进 form.values、不回传）
   const scope = useMemo(
     () => compileScope(schema.scope, { $form: form, $memo: {} }),
@@ -44,14 +49,22 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
       .submit((values: Record<string, unknown>) => {
         onFinish(values)
       })
-      .catch(() => {
-        // 校验失败：错误已写入各 field.selfErrors，由 FormItem 展示
+      .catch((feedbacks: Array<{ address?: string; messages?: unknown[] }>) => {
+        // 校验失败：行内错误已由 FormItem 展示，这里再弹全局提示，
+        // 防止错误字段滚出视口后用户误以为「点了没反应」
+        const first = Array.isArray(feedbacks) ? feedbacks[0] : undefined
+        const title = first?.address
+          ? ((form.query(first.address).take()?.title as string | undefined) ?? first.address)
+          : ""
+        const detail = first?.messages?.filter(Boolean).join("；") ?? ""
+        messageApi.error(`校验未通过${title ? `：${title}` : ""}${detail ? ` ${detail}` : ""}`)
       })
   }
 
   return (
     <ConfigProvider>
       <FocusScope>
+        {messageHolder}
         <box style={{ flexDirection: "column", padding: 1, gap: 1, width: "100%", height: "100%" }}>
           {schema.page?.title ? <Typography.Title>{schema.page.title}</Typography.Title> : null}
           {schema.page?.description ? (
