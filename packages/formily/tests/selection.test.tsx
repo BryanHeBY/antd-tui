@@ -131,3 +131,51 @@ describe("Checkbox", () => {
     t.destroy()
   })
 })
+
+describe("TextArea", () => {
+  test("多行输入写回 form.values", async () => {
+    const form = createForm()
+    const t = await renderSchema(form, {
+      type: "object",
+      properties: {
+        remark: {
+          type: "string",
+          title: "备注",
+          "x-decorator": "FormItem",
+          "x-component": "TextArea",
+          "x-component-props": { rows: 3, placeholder: "请输入备注" },
+        },
+      },
+    })
+
+    expect(t.frame()).toContain("请输入备注")
+    await t.type("hello")
+    await t.waitUntil(() => form.values.remark === "hello")
+    t.destroy()
+  })
+})
+
+describe("Slider", () => {
+  test("方向键调节写回 form.values", async () => {
+    const form = createForm()
+    const t = await renderSchema(form, {
+      type: "object",
+      properties: {
+        level: {
+          type: "number",
+          title: "等级",
+          default: 5,
+          "x-decorator": "FormItem",
+          "x-component": "Slider",
+          "x-component-props": { min: 0, max: 10, step: 1 },
+        },
+      },
+    })
+
+    expect(form.values.level).toBe(5)
+    await t.press(KeyCodes.ARROW_RIGHT)
+    await t.waitUntil(() => form.values.level === 6)
+    expect(t.frame()).toContain("6")
+    t.destroy()
+  })
+})

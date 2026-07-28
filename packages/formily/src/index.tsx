@@ -12,6 +12,7 @@ import {
   Radio as TuiRadio,
   Row,
   Select as TuiSelect,
+  Slider as TuiSlider,
   Space,
   Switch as TuiSwitch,
   Typography,
@@ -63,6 +64,20 @@ const Select = connect(
     return { ...props, options }
   }),
 )
+
+// TextArea：终端缓冲区自维护内容，formily 的 value 仅作初值
+const TextArea = connect(
+  TuiInput.TextArea,
+  mapProps((props) => {
+    const { onChange, value, ...rest } = props as {
+      onChange?: (value: string) => void
+      value?: string
+    }
+    return { ...rest, tuiDefaultValue: value, tuiOnChange: onChange }
+  }),
+)
+
+const Slider = connect(TuiSlider)
 
 // 单个 Checkbox：formily 的 onChange 桥接到 tuiOnChange（值即 boolean）
 const Checkbox = connect(
@@ -130,6 +145,8 @@ export const schemaComponents = {
   FormItem,
   Input,
   InputNumber,
+  TextArea,
+  Slider,
   Select,
   Checkbox,
   CheckboxGroup,

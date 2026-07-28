@@ -1,5 +1,8 @@
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { TextArea, type TextAreaProps } from "./TextArea"
+
+export type { TextAreaProps }
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -17,7 +20,7 @@ export interface InputProps {
   onPressEnter?: () => void
 }
 
-export function Input({
+export function InputBase({
   value,
   tuiOnChange,
   placeholder,
@@ -52,3 +55,6 @@ export function Input({
     </box>
   )
 }
+
+/** 复合组件：对齐 antd 的 Input.TextArea */
+export const Input = Object.assign(InputBase, { TextArea })
