@@ -113,7 +113,7 @@ describe("表达式静态检查", () => {
             btn: {
               type: "void",
               "x-component": "Button",
-              "x-component-props": { onClick: "{{ () => pressDigt('7') }}" },
+              "x-component-props": { tuiOnClick: "{{ () => pressDigt('7') }}" },
             },
           },
         },
@@ -236,59 +236,66 @@ describe("state 段校验", () => {
   })
 })
 
-describe("theme 段校验", () => {
-  test("合法 theme：token 覆盖种子色", () => {
+describe("tuiTheme 段校验", () => {
+  test("旧 theme 字段被拒绝，避免与 antd ConfigProvider.theme 混淆", () => {
+    const r = validatePageSchema(base({ theme: { token: { colorPrimary: "#722ed1" } } }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain('/theme')
+    expect(r.errors[0]).toContain('tuiTheme')
+  })
+
+  test("合法 tuiTheme：token 覆盖种子色", () => {
     const r = validatePageSchema(
-      base({ theme: { token: { colorPrimary: "#722ed1", padding: 1 } } }),
+      base({ tuiTheme: { token: { colorPrimary: "#722ed1", padding: 1 } } }),
       WHITELIST,
     )
     expect(r.ok).toBe(true)
   })
 
-  test("theme 缺省合法、空对象合法", () => {
+  test("tuiTheme 缺省合法、空对象合法", () => {
     expect(validatePageSchema(base({}), WHITELIST).ok).toBe(true)
-    expect(validatePageSchema(base({ theme: {} }), WHITELIST).ok).toBe(true)
+    expect(validatePageSchema(base({ tuiTheme: {} }), WHITELIST).ok).toBe(true)
   })
 
-  test("theme 非对象报错", () => {
-    const r = validatePageSchema(base({ theme: "dark" }), WHITELIST)
+  test("tuiTheme 非对象报错", () => {
+    const r = validatePageSchema(base({ tuiTheme: "dark" }), WHITELIST)
     expect(r.ok).toBe(false)
-    expect(r.errors[0]).toContain("/theme")
+    expect(r.errors[0]).toContain("/tuiTheme")
   })
 
-  test("theme.token 非对象报错", () => {
-    const r = validatePageSchema(base({ theme: { token: ["#fff"] } }), WHITELIST)
+  test("tuiTheme.token 非对象报错", () => {
+    const r = validatePageSchema(base({ tuiTheme: { token: ["#fff"] } }), WHITELIST)
     expect(r.ok).toBe(false)
-    expect(r.errors[0]).toContain("/theme/token")
+    expect(r.errors[0]).toContain("/tuiTheme/token")
   })
 
-  test("theme.token 值非字符串/数字报错并带键名路径", () => {
+  test("tuiTheme.token 值非字符串/数字报错并带键名路径", () => {
     const r = validatePageSchema(
-      base({ theme: { token: { colorPrimary: { hex: "#fff" } } } }),
+      base({ tuiTheme: { token: { colorPrimary: { hex: "#fff" } } } }),
       WHITELIST,
     )
     expect(r.ok).toBe(false)
-    expect(r.errors[0]).toContain("/theme/token/colorPrimary")
+    expect(r.errors[0]).toContain("/tuiTheme/token/colorPrimary")
   })
 
   test("颜色键非法 hex 报错（防 #NaNNaN 静默渲染），transparent 合法", () => {
     const bad = validatePageSchema(
-      base({ theme: { token: { colorPrimary: "blue" } } }),
+      base({ tuiTheme: { token: { colorPrimary: "blue" } } }),
       WHITELIST,
     )
     expect(bad.ok).toBe(false)
-    expect(bad.errors[0]).toContain("/theme/token/colorPrimary")
+    expect(bad.errors[0]).toContain("/tuiTheme/token/colorPrimary")
 
     const ok = validatePageSchema(
-      base({ theme: { token: { colorPrimary: "#722ed1", colorBgContainer: "transparent" } } }),
+      base({ tuiTheme: { token: { colorPrimary: "#722ed1", colorBgContainer: "transparent" } } }),
       WHITELIST,
     )
     expect(ok.ok).toBe(true)
   })
 
   test("borderStyle 非枚举值报错", () => {
-    const r = validatePageSchema(base({ theme: { token: { borderStyle: "dotted" } } }), WHITELIST)
+    const r = validatePageSchema(base({ tuiTheme: { token: { borderStyle: "dotted" } } }), WHITELIST)
     expect(r.ok).toBe(false)
-    expect(r.errors[0]).toContain("/theme/token/borderStyle")
+    expect(r.errors[0]).toContain("/tuiTheme/token/borderStyle")
   })
 })

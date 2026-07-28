@@ -53,13 +53,13 @@ describe("deriveTokens", () => {
 })
 
 describe("ConfigProvider", () => {
-  test("theme.token 种子经派生后注入组件", async () => {
+  test("tuiTheme.token 种子经派生后注入组件", async () => {
     function Probe() {
       const token = useToken()
       return <text>{`P=${token.colorPrimary} H=${token.colorPrimaryHover}`}</text>
     }
     const t = await renderTui(
-      <ConfigProvider theme={{ token: { colorPrimary: "#722ed1" } }}>
+      <ConfigProvider tuiTheme={{ token: { colorPrimary: "#722ed1" } }}>
         <Probe />
       </ConfigProvider>,
       { width: 60, height: 4 },

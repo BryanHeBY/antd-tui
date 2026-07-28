@@ -89,13 +89,13 @@ export const defaultTokens: ThemeTokens = deriveTokens()
 const ThemeContext = createContext<ThemeTokens>(defaultTokens)
 
 export interface ConfigProviderProps {
-  /** 对齐 antd：token 覆盖放在 theme.token；种子色（colorPrimary 等）经暗色算法派生 */
-  theme?: { token?: Partial<ThemeTokens> }
+  /** 终端主题覆盖；种子色（colorPrimary 等）经终端暗色算法派生 */
+  tuiTheme?: { token?: Partial<ThemeTokens> }
   children?: ReactNode
 }
 
-export function ConfigProvider({ theme, children }: ConfigProviderProps) {
-  const token = theme?.token
+export function ConfigProvider({ tuiTheme, children }: ConfigProviderProps) {
+  const token = tuiTheme?.token
   const merged = useMemo(() => deriveTokens(token), [token])
   return <ThemeContext.Provider value={merged}>{children}</ThemeContext.Provider>
 }

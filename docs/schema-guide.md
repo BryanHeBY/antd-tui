@@ -20,7 +20,7 @@
   "state": {                        // 可选：响应式 UI 状态初值（$state，不回传，见第 2 节）
     "current": 0
   },
-  "theme": {                        // 可选：主题覆盖，形状同 antd ConfigProvider
+  "tuiTheme": {                     // 可选：终端主题覆盖
     "token": { "colorPrimary": "#722ed1" }
   },
   "form": { "type": "object", "properties": { ... } },  // Formily 表单 Schema（ISchema），根节点必须是 object
@@ -36,15 +36,15 @@
 - `form`(默认):底部渲染操作栏(`actions`),Esc 取消。适合"填完提交"的表单页。
 - `interactive`:不渲染操作栏,Esc 完成并回传当前 `form.values`。适合计算器这类自包含交互页面。
 
-### theme:主题覆盖
+### tuiTheme：终端主题覆盖
 
-形状完全对齐 antd ConfigProvider 的 `theme.token`。种子色(`colorPrimary` / `colorSuccess` / `colorWarning` / `colorError`)传 antd 亮色 seed 值即可,引擎内置 antd 暗色算法(darkAlgorithm 等价实现)自动派生贴合黑底的低饱和色阶——与 antd 暗色主题同源同值,不要自己调暗颜色:
+`tuiTheme` 是终端专用主题，不等同于 antd `ConfigProvider.theme`。它只接受 `{ token }` 子集，固定使用终端暗色派生；颜色 token 仅接受 `#RGB`、`#RRGGBB` 或 `transparent`。种子色(`colorPrimary` / `colorSuccess` / `colorWarning` / `colorError`)会派生为适合黑底终端的色阶:
 
 ```jsonc
-"theme": { "token": { "colorPrimary": "#722ed1" } }   // 紫色主题,派生填充 #3e2069(深)、前景 #cda8f0(亮)
+"tuiTheme": { "token": { "colorPrimary": "#722ed1" } }   // 紫色终端主题
 ```
 
-终端适配差异:algorithm 固定为暗色(终端默认黑底);主基调为「背景填充取色板深端、前景点缀取亮端」——终端字形纤细,填充要深、前景要亮,色相灰蓝、轻微可辨(与 antd 网页端的取档不同)。
+主基调为「背景填充取色板深端、前景点缀取亮端」；终端字形纤细，因此填充更深、前景更亮。
 
 ### 输出协议(stdout,NDJSON)
 
@@ -64,7 +64,7 @@
 "scope": {
   "pressDigit": "{{ (d) => { const s = $form.values.display; $form.setValuesIn('display', s === '0' ? d : s + d) } }}"
 },
-"form": { ... "x-component-props": { "onClick": "{{ () => pressDigit('7') }}" } ... }
+"form": { ... "x-component-props": { "tuiOnClick": "{{ () => pressDigit('7') }}" } ... }
 ```
 
 - 函数名用动词短语:`pressDigit` / `evaluate` / `clearAll`
@@ -104,7 +104,7 @@ void 节点的显示文案用 `x-content`,不要用 `x-component-props.children`
   "type": "void",
   "x-component": "Button",
   "x-content": "AC",
-  "x-component-props": { "onClick": "{{ () => clearAll() }}" }
+  "x-component-props": { "tuiOnClick": "{{ () => clearAll() }}" }
 }
 ```
 
@@ -174,7 +174,7 @@ bun packages/engine/src/cli.ts --schema your.schema.json --check
 
 | 示例 | 范式 | 覆盖的知识点 |
 |---|---|---|
-| `examples/deploy-config.schema.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox(Group)/RadioGroup/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
+| `examples/deploy-config.schema.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox/Checkbox.Group/Radio.Group/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
 | `examples/service-dashboard.schema.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、`state` 段 + `$state` 驱动交互、`x-component-props` 动态表达式 |
 | `examples/calculator.schema.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
 
@@ -182,7 +182,7 @@ Formily 习惯写法提示(与 @formily/antd 一致):
 
 - 字段标签用 schema `title`(FormItem 自动读取),不要写进 `x-component-props`
 - 选项用 schema `enum`(自动转组件 `options`),初始值用 `default`,必填用 `required`
-- 展示"用户输入值"的组件(如 ResultText)挂在**数据字段**上,值走 `field.value`;静态展示数据(如 Statistic 的指标数字)用 void 节点 + `x-component-props.value`,动态展示用 `{{ $state.xxx }}` 表达式——不要为展示数据开真值字段(会混进回传)
+- 展示"用户输入值"用 `Typography.Text` 挂在**数据字段**上，值走 `field.value`；静态展示数据(如 Statistic 的指标数字)用 void 节点 + `x-component-props.value`，动态展示用 `{{ $state.xxx }}` 表达式——不要为展示数据开真值字段(会混进回传)
 - 联动显隐用标准 `x-reactions`:`{ "dependencies": ["其他字段"], "fulfill": { "state": { "visible": "{{ $deps[0] === true }}" } } }`
 - 终端只有两类热键:单字符(匹配可见字符)与命名键(如 `backspace`),同一 schema 里两类可并存,框架按长度自动区分
 

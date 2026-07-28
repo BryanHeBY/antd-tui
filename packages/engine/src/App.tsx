@@ -171,7 +171,7 @@ export function PageView({
 /** 独立运行形态（engine CLI）：自带主题、焦点作用域与 Esc 语义 */
 export function App({ schema, onFinish, onCancel, onFormReady }: AppProps) {
   return (
-    <ConfigProvider theme={schema.theme as { token?: Partial<ThemeTokens> } | undefined}>
+    <ConfigProvider tuiTheme={schema.tuiTheme as { token?: Partial<ThemeTokens> } | undefined}>
       <FocusScope>
         <PageView
           schema={schema}

@@ -34,11 +34,8 @@ export interface PageSchema {
    * 分工：$state = 驱动渲染的 UI 状态；$memo = 非渲染状态（timer 等）；form.values = 只装用户输入。
    */
   state?: Record<string, unknown>
-  /**
-   * 主题覆盖，形状对齐 antd ConfigProvider：{ token: { colorPrimary: "#722ed1" } }。
-   * 种子色（colorPrimary/colorSuccess/colorWarning/colorError）经暗色算法派生。
-   */
-  theme?: { token?: Record<string, string | number> }
+  /** 终端主题覆盖；种子色（colorPrimary/colorSuccess/colorWarning/colorError）经暗色算法派生。 */
+  tuiTheme?: { token?: Record<string, string | number> }
   /** 表单 Schema：Formily ISchema，根节点须为 type: "object" */
   form: Record<string, unknown>
   actions?: PageAction[]
@@ -49,7 +46,7 @@ export interface ValidationResult {
   errors: string[]
 }
 
-const ENVELOPE_KEYS = new Set(["version", "page", "scope", "state", "theme", "form", "actions"])
+const ENVELOPE_KEYS = new Set(["version", "page", "scope", "state", "tuiTheme", "form", "actions"])
 const PAGE_KEYS = new Set(["title", "description", "mode"])
 const ACTION_KEYS = new Set(["type", "label"])
 const THEME_KEYS = new Set(["token"])
@@ -300,26 +297,26 @@ export function validatePageSchema(
     }
   }
 
-  if (root.theme !== undefined) {
-    if (typeof root.theme !== "object" || root.theme === null || Array.isArray(root.theme)) {
-      errors.push("/theme 必须是对象")
+  if (root.tuiTheme !== undefined) {
+    if (typeof root.tuiTheme !== "object" || root.tuiTheme === null || Array.isArray(root.tuiTheme)) {
+      errors.push("/tuiTheme 必须是对象")
     } else {
-      reportUnknownKeys(root.theme as Record<string, unknown>, THEME_KEYS, "/theme", errors)
-      const themeToken = (root.theme as Record<string, unknown>).token
+      reportUnknownKeys(root.tuiTheme as Record<string, unknown>, THEME_KEYS, "/tuiTheme", errors)
+      const themeToken = (root.tuiTheme as Record<string, unknown>).token
       if (themeToken !== undefined) {
         if (typeof themeToken !== "object" || themeToken === null || Array.isArray(themeToken)) {
-          errors.push("/theme/token 必须是对象")
+          errors.push("/tuiTheme/token 必须是对象")
         } else {
           for (const [name, value] of Object.entries(themeToken as Record<string, unknown>)) {
             if (typeof value !== "string" && typeof value !== "number") {
-              errors.push(`/theme/token/${name} 必须是字符串或数字`)
+              errors.push(`/tuiTheme/token/${name} 必须是字符串或数字`)
             } else if (name.startsWith("color")) {
               // 非法 hex 会在色板派生里算出 NaN，静默渲染成 #NaNNaN；提前拦截
               if (typeof value !== "string" || !(HEX_COLOR_RE.test(value) || value === "transparent")) {
-                errors.push(`/theme/token/${name} 必须是 #RGB / #RRGGBB 色值（或 "transparent"）`)
+                errors.push(`/tuiTheme/token/${name} 必须是 #RGB / #RRGGBB 色值（或 "transparent"）`)
               }
             } else if (name === "borderStyle" && !BORDER_STYLES.has(value as string)) {
-              errors.push(`/theme/token/borderStyle 必须是 ${[...BORDER_STYLES].join(" / ")} 之一`)
+              errors.push(`/tuiTheme/token/borderStyle 必须是 ${[...BORDER_STYLES].join(" / ")} 之一`)
             }
           }
         }
