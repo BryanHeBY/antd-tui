@@ -1,0 +1,21 @@
+{
+  "name": "@antd-tui/vibe-tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.3.0",
+    "@antd-tui/components": "workspace:*",
+    "@antd-tui/engine": "workspace:*",
+    "@antd-tui/formily": "workspace:*",
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@antd-tui/test-utils": "workspace:*"
+  }
+}

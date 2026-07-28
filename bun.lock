@@ -66,8 +66,26 @@
         "react": "^19.0.0",
       },
     },
+    "packages/vibe-tui": {
+      "name": "@antd-tui/vibe-tui",
+      "version": "0.1.0",
+      "dependencies": {
+        "@agentclientprotocol/sdk": "^1.3.0",
+        "@antd-tui/components": "workspace:*",
+        "@antd-tui/engine": "workspace:*",
+        "@antd-tui/formily": "workspace:*",
+        "@opentui/core": "latest",
+        "@opentui/react": "latest",
+        "react": "^19.0.0",
+      },
+      "devDependencies": {
+        "@antd-tui/test-utils": "workspace:*",
+      },
+    },
   },
   "packages": {
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@1.3.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-i3h/efaeuMUFAO1HSfo97QZQnnvMd7wWBYtBsdL6UMZg3a78sk3Ffya5Xu7C7tYsXomXoDXJBAzQF2PcFKAhIQ=="],
+
     "@antd-tui/components": ["@antd-tui/components@workspace:packages/components"],
 
     "@antd-tui/engine": ["@antd-tui/engine@workspace:packages/engine"],
@@ -75,6 +93,8 @@
     "@antd-tui/formily": ["@antd-tui/formily@workspace:packages/formily"],
 
     "@antd-tui/test-utils": ["@antd-tui/test-utils@workspace:packages/test-utils"],
+
+    "@antd-tui/vibe-tui": ["@antd-tui/vibe-tui@workspace:packages/vibe-tui"],
 
     "@formily/core": ["@formily/core@2.3.7", "", { "dependencies": { "@formily/reactive": "2.3.7", "@formily/shared": "2.3.7", "@formily/validator": "2.3.7" } }, "sha512-oqLE6gOoM2xjwlUrfH4cyjscO4kZJNpidtVytZeBvYp9v4OgL9EUm89laPcF4cnpWE2lZIqqzfGluOySxku8WQ=="],
 
@@ -177,6 +197,8 @@
     "web-tree-sitter": ["web-tree-sitter@0.25.10", "", { "peerDependencies": { "@types/emscripten": "^1.40.0" }, "optionalPeers": ["@types/emscripten"] }, "sha512-Y09sF44/13XvgVKgO2cNDw5rGk6s26MgoZPXLESvMXeefBf7i6/73eFurre0IsTW6E14Y0ArIzhUMmjoc7xyzA=="],
 
     "ws": ["ws@8.21.1", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw=="],
+
+    "zod": ["zod@4.4.3", "", {}, "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="],
 
     "react-devtools-core/ws": ["ws@7.5.13", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": "^5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA=="],
   }

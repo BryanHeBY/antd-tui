@@ -13,6 +13,7 @@
     "examples:deploy:dry": "bun packages/engine/src/cli.ts --schema examples/deploy-config.schema.json --dry-run",
     "examples:dash": "bun packages/engine/src/cli.ts --schema examples/service-dashboard.schema.json",
     "examples:dash:dry": "bun packages/engine/src/cli.ts --schema examples/service-dashboard.schema.json --dry-run",
+    "vibe:mock": "bun packages/vibe-tui/src/cli.ts --agent \"bun packages/vibe-tui/tests/mock-agent.ts\"",
     "build:bin": "bun build --compile packages/engine/src/cli.ts --outfile dist/antd-tui-engine"
   },
   "devDependencies": {
