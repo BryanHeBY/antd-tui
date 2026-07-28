@@ -72,5 +72,10 @@ export function parseSize(raw: string | undefined, fallback: { width: number; he
   if (!raw) return fallback
   const m = /^(\d+)x(\d+)$/.exec(raw)
   if (!m) return null
-  return { width: Number(m[1]), height: Number(m[2]) }
+  const width = Number(m[1])
+  const height = Number(m[2])
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    return null
+  }
+  return { width, height }
 }

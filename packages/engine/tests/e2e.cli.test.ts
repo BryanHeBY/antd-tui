@@ -159,6 +159,13 @@ describe("--snapshot 帧导出", () => {
     expect(r.exitCode).toBe(2)
     expect(r.events[0]?.event).toBe("error")
   })
+
+  test("零尺寸被拒绝，避免传给渲染器", async () => {
+    const r = await runCli(["--schema", CALC_SCHEMA, "--snapshot", "--size", "0x24"])
+    expect(r.exitCode).toBe(2)
+    expect(r.events[0]).toMatchObject({ event: "error" })
+    expect(String(r.events[0]?.message)).toContain("--size")
+  })
 })
 
 describe("--drive 交互会话", () => {
