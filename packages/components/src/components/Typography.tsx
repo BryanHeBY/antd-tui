@@ -54,8 +54,9 @@ export interface TitleProps {
 
 function Title({ children }: TitleProps) {
   const token = useToken()
+  // 对齐 antd：标题是白色粗体（colorTextHeading），不是主色
   return (
-    <text fg={token.colorPrimaryHover}>
+    <text fg={token.colorText}>
       <b>{children}</b>
     </text>
   )
