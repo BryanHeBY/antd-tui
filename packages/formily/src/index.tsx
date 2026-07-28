@@ -2,10 +2,12 @@ import { createSchemaField, connect, mapProps, FormProvider as FormilyFormProvid
 import type { Field as FieldType, Form } from "@formily/core"
 import type { ReactNode } from "react"
 import {
+  Alert,
   Button,
   Card,
   Checkbox as TuiCheckbox,
   Col,
+  Divider,
   FormItem as TuiFormItem,
   Input as TuiInput,
   InputNumber as TuiInputNumber,
@@ -15,6 +17,7 @@ import {
   Slider as TuiSlider,
   Space,
   Switch as TuiSwitch,
+  Tag,
   Typography,
   type SelectOption,
 } from "@antd-tui/components"
@@ -156,6 +159,9 @@ export const schemaComponents = {
   Card,
   Space,
   Button,
+  Alert,
+  Tag,
+  Divider,
   Row,
   Col,
 } as const
