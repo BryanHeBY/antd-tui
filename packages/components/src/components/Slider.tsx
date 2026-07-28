@@ -86,7 +86,8 @@ export function Slider({
   const knobIndex = Math.round(ratio * (width - 1))
   const filled = "━".repeat(knobIndex)
   const rest = "─".repeat(Math.max(0, width - knobIndex - 1))
-  const trackColor = disabled ? token.colorTextDisabled : token.colorPrimary
+  // 轨道是字形前景（━/─）而非真背景填充，已走过的一段取亮端才可见
+  const trackColor = disabled ? token.colorTextDisabled : token.colorPrimaryHover
   const restColor = disabled ? token.colorTextDisabled : token.colorBorder
 
   // 点击/拖动：把鼠标横坐标换算成轨道比例再取值（emit 会按 step 对齐）

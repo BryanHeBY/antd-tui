@@ -40,10 +40,10 @@ export function Tag({ color, bordered = true, children }: TagProps) {
   const palette = seed ? darkPalette(seed) : null
 
   if (bordered) {
-    // 前景文字用 hover 档（palette[6]），黑底可读性优先
-    return <text attributes={TextAttributes.BOLD} fg={palette ? palette[6] : token.colorTextSecondary}>[{children}]</text>
+    // 前景文字取色板亮端，黑底可读性优先
+    return <text attributes={TextAttributes.BOLD} fg={palette ? palette[8] : token.colorTextSecondary}>[{children}]</text>
   }
-  const fill = palette ? palette[5]! : token.colorBorder
+  const fill = palette ? palette[3]! : token.colorBorder
   return (
     <box style={{ backgroundColor: fill, paddingLeft: 1, paddingRight: 1, minHeight: 1 }}>
       <text attributes={TextAttributes.BOLD} fg="#ffffff" bg={fill}>

@@ -31,18 +31,18 @@ describe("darkPalette", () => {
 })
 
 describe("deriveTokens", () => {
-  test("默认 token：主色为暗色填充档，hover 档更浅供黑底前景", () => {
-    expect(defaultTokens.colorPrimary).toBe("#1668dc")
-    expect(defaultTokens.colorPrimaryHover).toBe("#3c89e8")
+  test("默认 token：填充取色板深端，前景档取亮端", () => {
+    expect(defaultTokens.colorPrimary).toBe("#15417e")
+    expect(defaultTokens.colorPrimaryHover).toBe("#8dc5f8")
     expect(defaultTokens.colorSuccess).toBe("#49aa19")
     expect(defaultTokens.colorError).toBe("#dc4446")
   })
 
   test("覆盖种子色时重新派生，而非原样使用", () => {
     const tokens = deriveTokens({ colorPrimary: "#722ed1" })
-    // antd 暗紫色板：填充 #642ab5、hover #854eca
-    expect(tokens.colorPrimary).toBe("#642ab5")
-    expect(tokens.colorPrimaryHover).toBe("#854eca")
+    // antd 暗紫色板：填充 #3e2069（深端）、前景 #cda8f0（亮端）
+    expect(tokens.colorPrimary).toBe("#3e2069")
+    expect(tokens.colorPrimaryHover).toBe("#cda8f0")
   })
 
   test("非种子键（含 colorPrimaryHover）允许直接覆盖", () => {
@@ -64,7 +64,7 @@ describe("ConfigProvider", () => {
       </ConfigProvider>,
       { width: 60, height: 4 },
     )
-    expect(t.frame()).toContain("P=#642ab5 H=#854eca")
+    expect(t.frame()).toContain("P=#3e2069 H=#cda8f0")
     t.destroy()
   })
 })

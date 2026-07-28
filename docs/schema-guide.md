@@ -38,10 +38,10 @@
 形状完全对齐 antd ConfigProvider 的 `theme.token`。种子色(`colorPrimary` / `colorSuccess` / `colorWarning` / `colorError`)传 antd 亮色 seed 值即可,引擎内置 antd 暗色算法(darkAlgorithm 等价实现)自动派生贴合黑底的低饱和色阶——与 antd 暗色主题同源同值,不要自己调暗颜色:
 
 ```jsonc
-"theme": { "token": { "colorPrimary": "#722ed1" } }   // 紫色主题,派生填充 #642ab5、高亮 #854eca
+"theme": { "token": { "colorPrimary": "#722ed1" } }   // 紫色主题,派生填充 #3e2069(深)、前景 #cda8f0(亮)
 ```
 
-终端适配差异:algorithm 固定为暗色(终端默认黑底);antd 的 hover 档在终端用于聚焦/前景高亮(无 hover 交互)。
+终端适配差异:algorithm 固定为暗色(终端默认黑底);主基调为「背景填充取色板深端、前景点缀取亮端」——终端字形纤细,填充要深、前景要亮,色相灰蓝、轻微可辨(与 antd 网页端的取档不同)。
 
 ### 输出协议(stdout,NDJSON)
 

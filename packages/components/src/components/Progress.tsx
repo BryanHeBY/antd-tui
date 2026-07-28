@@ -34,12 +34,13 @@ export function Progress({
   // percent 达到 100 时 antd 默认转为 success 态
   const effective = status === "normal" && clamped >= 100 ? "success" : status
 
+  // 进度条是字形前景（█/░）而非真背景填充，必须取亮端才可见
   const barColor =
     effective === "exception"
       ? token.colorError
       : effective === "success"
         ? token.colorSuccess
-        : token.colorPrimary
+        : token.colorPrimaryHover
 
   const total = boxWidth ?? FULL_WIDTH_FALLBACK
   const width = Math.max(TRACK_MIN_WIDTH, total - (showInfo ? INFO_WIDTH : 0))

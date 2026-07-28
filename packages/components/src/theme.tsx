@@ -6,13 +6,19 @@ import { darkPalette } from "./color"
  *
  * 与 antd v5 相同的两级结构：seed token（colorPrimary 等种子色）经暗色算法
  * 派生出组件消费的 token。终端默认黑底，算法固定为 darkAlgorithm 等价实现；
- * 终端无 hover，antd 的 hover 档（色板第 7 阶）挪给聚焦/前景高亮使用。
+ * 主基调：背景填充取色板深端、前景点缀取亮端，色相灰蓝、轻微可辨。
  * 尺寸单位为终端 cell。
  */
 export interface ThemeTokens {
-  /** 同 antd（经暗色算法派生）：主色，用于填充（主按钮底色、开关开启底色等） */
+  /**
+   * 主色（填充端）；终端适配：取色板第 4 阶（深灰蓝）。
+   * 背景填充尽可能深，靠色相与中性灰区分即可（antd 为第 6 阶，终端上过于抢眼）。
+   */
   colorPrimary: string
-  /** 同 antd（经暗色算法派生）：主色 hover 档；终端适配为聚焦边框/选中标记等黑底前景 */
+  /**
+   * 主色前景档；终端适配为聚焦边框/选中标记/文字高亮等黑底前景。
+   * 取色板第 9 阶（亮灰蓝）：终端字形纤细，前景色尽可能亮、饱和度由算法压低。
+   */
   colorPrimaryHover: string
   colorSuccess: string
   colorWarning: string
@@ -54,8 +60,8 @@ export function deriveTokens(overrides: Partial<ThemeTokens> = {}): ThemeTokens 
   }
   const primary = darkPalette(seeds.colorPrimary)
   const derived: ThemeTokens = {
-    colorPrimary: primary[5]!,
-    colorPrimaryHover: primary[6]!,
+    colorPrimary: primary[3]!,
+    colorPrimaryHover: primary[8]!,
     colorSuccess: darkPalette(seeds.colorSuccess)[5]!,
     colorWarning: darkPalette(seeds.colorWarning)[5]!,
     colorError: darkPalette(seeds.colorError)[5]!,
