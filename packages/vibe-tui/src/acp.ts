@@ -17,8 +17,10 @@ export interface RenderResult {
 export interface AcpClientHandlers {
   /** agent 请求渲染页面；返回校验结果 */
   onRender: (schema: unknown) => RenderResult
-  /** session/update 流式文本片段 */
+  /** session/update 流式文本片段（chunk 是碎片而非整行，由上层拼接） */
   onUpdate: (text: string) => void
+  /** 一轮 prompt 结束（stop 消息），上层可冲刷未完的流式行 */
+  onTurnEnd?: () => void
   /** agent 进程退出 */
   onExit: (code: number | null) => void
 }
@@ -70,8 +72,10 @@ export class AcpClient {
           if (msg.kind === "session_update") {
             const update = msg.update as { content?: { text?: string } }
             if (update.content?.text) this.handlers.onUpdate(update.content.text)
+          } else if (msg.kind === "stop") {
+            // 一轮 prompt 结束，通知上层冲刷流式缓冲，继续等下一轮
+            this.handlers.onTurnEnd?.()
           }
-          // stop 消息 = 一轮 prompt 结束，继续等下一轮
         }
       })
       .catch(() => {

@@ -42,6 +42,23 @@ const app = agent()
       .map((block) => ("text" in block ? block.text : ""))
       .join(" ")
 
+    const say = async (chunk: string) => {
+      await cx.client.notify("session/update", {
+        sessionId: cx.params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: chunk },
+        },
+      })
+    }
+
+    // 流式场景：把一句话拆成字符级 chunk 发出（模拟真实 LLM 流式输出）
+    if (text.includes("stream")) {
+      for (const ch of "这是一段流式拼接的完整回复") await say(ch)
+      await say("\n")
+      return { stopReason: "end_turn" as const }
+    }
+
     if (text.includes("inc")) count += 1
     else count = 0
 
@@ -49,16 +66,7 @@ const app = agent()
       "_vibetui/render",
       { schema: counterSchema(count) },
     )
-    await cx.client.notify("session/update", {
-      sessionId: cx.params.sessionId,
-      update: {
-        sessionUpdate: "agent_message_chunk",
-        content: {
-          type: "text",
-          text: result.ok ? `已渲染计数器（count=${count}）` : `渲染失败：${result.errors?.[0]}`,
-        },
-      },
-    })
+    await say(result.ok ? `已渲染计数器（count=${count}）` : `渲染失败：${result.errors?.[0]}`)
     return { stopReason: "end_turn" as const }
   })
 

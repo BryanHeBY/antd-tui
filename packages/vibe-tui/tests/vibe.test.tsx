@@ -102,4 +102,26 @@ describe("vibe-tui × mock agent", () => {
     expect(t.frame()).toContain("计数器")
     t.destroy()
   })
+
+  test("流式 chunk 拼接成整行，不会一字一行", async () => {
+    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+      width: 70,
+      height: 24,
+    })
+    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
+
+    // mock agent 会把这句话按字符逐个 chunk 发送
+    await t.type("stream")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("这是一段流式拼接的完整回复"), 8000)
+
+    // 对话面板里必须是完整一行，而不是每个字符各占一行
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    const lines = t.frame().split("\n")
+    expect(lines.some((l) => l.includes("这是一段流式拼接的完整回复"))).toBe(true)
+    // 单字符独占一行 = 拼接失败（帧里出现「 这 」这类孤行）
+    expect(lines.some((l) => l.trim() === "这")).toBe(false)
+    t.destroy()
+  })
 })

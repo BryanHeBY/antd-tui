@@ -31,16 +31,37 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
   const [page, setPage] = useState<PageState | null>(null)
   const [status, setStatus] = useState("agent 启动中…")
   const [log, setLog] = useState<string[]>([])
+  /** 流式未完行：chunk 拼接缓冲，遇 \n 才沉淀成 log 行 */
+  const [partial, setPartial] = useState("")
+  const partialRef = useRef("")
   const [showLog, setShowLog] = useState(false)
   const [pageMode, setPageMode] = useState(false)
   const [input, setInput] = useState("")
   const pageKeyRef = useRef(0)
 
-  const appendLog = (text: string) => {
-    const lines = text.split("\n").filter((l) => l.trim() !== "")
-    if (lines.length === 0) return
-    setLog((prev) => [...prev, ...lines].slice(-LOG_LIMIT))
-    setStatus(lines.at(-1)!)
+  const pushLines = (lines: string[]) => {
+    const cleaned = lines.filter((l) => l.trim() !== "")
+    if (cleaned.length > 0) setLog((prev) => [...prev, ...cleaned].slice(-LOG_LIMIT))
+    return cleaned
+  }
+
+  /** 流式 chunk：只做拼接，完整行（含 \n）才入日志；状态行始终跟随最新文本 */
+  const appendChunk = (text: string) => {
+    const merged = partialRef.current + text
+    const parts = merged.split("\n")
+    partialRef.current = parts.pop() ?? ""
+    setPartial(partialRef.current)
+    const completed = pushLines(parts)
+    const latest = partialRef.current.trim() || completed.at(-1)
+    if (latest) setStatus(latest)
+  }
+
+  /** 轮次结束/中断：把未完行冲刷成正式日志行 */
+  const flushPartial = () => {
+    const rest = partialRef.current.trim()
+    partialRef.current = ""
+    setPartial("")
+    if (rest) pushLines([rest])
   }
 
   const clientRef = useRef<AcpClient | null>(null)
@@ -53,8 +74,13 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
         setPage({ schema: raw as PageSchema, key: pageKeyRef.current })
         return { ok: true }
       },
-      onUpdate: appendLog,
-      onExit: (code) => appendLog(`agent 已退出（code ${code ?? "?"}）`),
+      onUpdate: appendChunk,
+      onTurnEnd: flushPartial,
+      onExit: (code) => {
+        flushPartial()
+        pushLines([`agent 已退出（code ${code ?? "?"}）`])
+        setStatus(`agent 已退出（code ${code ?? "?"}）`)
+      },
     })
   }
   const acp = clientRef.current
@@ -95,6 +121,9 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
     const text = input.trim()
     if (text === "") return
     setInput("")
+    // 我方发言也入对话记录，未完的 agent 流式行先冲刷
+    flushPartial()
+    pushLines([`> ${text}`])
     setStatus(`> ${text}`)
     acp.prompt(text)
   }
@@ -107,7 +136,7 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
               F3 切换为日志面板查看 agent 完整回复 */}
           <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
             {showLog ? (
-              <LogPanel log={log} />
+              <LogPanel log={log} partial={partial} />
             ) : (
               <FocusScope suspended={!pageMode}>
                 {page ? (
@@ -146,9 +175,10 @@ function EmptyCanvas() {
   )
 }
 
-/** 滚动对话面板：agent 的完整回复按行留存，F3/Esc 关闭 */
-function LogPanel({ log }: { log: string[] }) {
+/** 滚动对话面板：agent 的完整回复按行留存（含流式未完行），F3/Esc 关闭 */
+function LogPanel({ log, partial }: { log: string[]; partial: string }) {
   const token = useToken()
+  const empty = log.length === 0 && partial.trim() === ""
   return (
     <box
       border
@@ -170,16 +200,23 @@ function LogPanel({ log }: { log: string[] }) {
         stickyStart="bottom"
         contentOptions={{ flexDirection: "column" }}
       >
-        {log.length === 0 ? (
+        {empty ? (
           <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
             暂无对话
           </text>
         ) : (
-          log.map((line, i) => (
-            <text key={i} attributes={TextAttributes.BOLD} fg={token.colorText}>
-              {line}
-            </text>
-          ))
+          <>
+            {log.map((line, i) => (
+              <text key={i} attributes={TextAttributes.BOLD} fg={token.colorText}>
+                {line}
+              </text>
+            ))}
+            {partial.trim() !== "" ? (
+              <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+                {partial}
+              </text>
+            ) : null}
+          </>
         )}
       </scrollbox>
     </box>
