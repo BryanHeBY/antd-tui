@@ -120,4 +120,50 @@ describe("计算器 E2E", () => {
     expect(cancelled).toBe(false)
     t.destroy()
   })
+
+  test("小数点防重：1.2.3 中第二个点被忽略", async () => {
+    const t = await render(() => {})
+
+    await t.type("1.2.3")
+    await t.waitUntil(() => t.frame().includes("1.23"))
+    expect(t.frame()).not.toContain("1.2.3")
+
+    // 新数字段（运算符之后）可再次输入小数点
+    await t.type("+4.5")
+    await t.waitUntil(() => t.frame().includes("1.23+4.5"))
+    t.destroy()
+  })
+
+  test("% 后按数字被忽略，须先接运算符", async () => {
+    const t = await render(() => {})
+
+    await t.type("50%5")
+    await t.waitUntil(() => t.frame().includes("50%"))
+    expect(t.frame()).not.toContain("50%5")
+
+    await t.type("*2=")
+    await t.waitUntil(() => t.frame().includes("1 │") || t.frame().includes("1│"))
+    // 50% × 2 = 1
+    t.destroy()
+  })
+
+  test("= 出结果后：按数字开新算式，按运算符在结果上继续", async () => {
+    const t = await render(() => {})
+
+    await t.type("6*7=")
+    await t.waitUntil(() => t.frame().includes("42"))
+
+    // 按数字：整个表达式被替换
+    await t.type("5")
+    await t.waitUntil(() => !t.frame().includes("42"))
+    const lines = t.frame().split("\n")
+    expect(lines.some((l) => l.trimEnd().endsWith("5 │"))).toBe(true)
+
+    // 再算一次，按运算符在结果上继续
+    await t.type("*8=")
+    await t.waitUntil(() => t.frame().includes("40"))
+    await t.type("+2=")
+    await t.waitUntil(() => t.frame().includes("42"))
+    t.destroy()
+  })
 })

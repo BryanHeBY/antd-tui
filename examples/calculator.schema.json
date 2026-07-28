@@ -2,8 +2,17 @@
   "version": "0.1",
   "page": {
     "title": "TUI 计算器",
-    "description": "鼠标点击 / 方向键 / 数字热键，逻辑全由 schema 表达式驱动",
+    "description": "鼠标点击 / 方向键 / 数字热键，逻辑全由 schema scope 函数驱动",
     "mode": "interactive"
+  },
+  "scope": {
+    "pressDigit": "{{ (d) => { const s = $form.values.display; if ($memo.justEvaluated) { $memo.justEvaluated = false; $form.setValuesIn('display', d); return } if (s.slice(-1) === '%') return; $form.setValuesIn('display', s === '0' || s === '错误' ? d : s + d) } }}",
+    "pressOp": "{{ (op) => { const s = $form.values.display; if (s === '错误') return; $memo.justEvaluated = false; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + op) } }}",
+    "pressDot": "{{ () => { const s = $form.values.display; if (s === '错误' || $memo.justEvaluated) { $memo.justEvaluated = false; $form.setValuesIn('display', '0.'); return } const seg = s.split(/[+\\-×÷%]/).pop(); if (seg.includes('.')) return; $form.setValuesIn('display', s + '.') } }}",
+    "pressPercent": "{{ () => { const s = $form.values.display; if (s === '错误' || '+-×÷%.'.includes(s.slice(-1))) return; $memo.justEvaluated = false; $form.setValuesIn('display', s + '%') } }}",
+    "clearAll": "{{ () => { $memo.justEvaluated = false; $form.setValuesIn('display', '0') } }}",
+    "deleteOne": "{{ () => { const s = $form.values.display; $memo.justEvaluated = false; $form.setValuesIn('display', s === '错误' || s.length <= 1 ? '0' : s.slice(0, -1)) } }}",
+    "evaluate": "{{ () => { const s = $form.values.display; if (s === '错误') return; try { const r = Function('return (' + s.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100') + ')')(); $form.setValuesIn('display', Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : '错误'); $memo.justEvaluated = true } catch (e) { $form.setValuesIn('display', '错误'); $memo.justEvaluated = false } } }}"
   },
   "form": {
     "type": "object",
@@ -23,502 +32,416 @@
           }
         }
       },
-      "r1": {
+      "rowTop": {
         "type": "void",
         "x-component": "Row",
         "x-component-props": {
           "gutter": 1,
-          "style": {
-            "flex": 1
-          }
+          "style": { "flex": 1 }
         },
         "properties": {
-          "cac": {
+          "colClear": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kac": {
+              "btnClear": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "AC",
                 "x-component-props": {
-                  "children": "AC",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "c",
-                  "onClick": "{{ () => $form.setValuesIn('display', '0') }}"
+                  "onClick": "{{ () => clearAll() }}"
                 }
               }
             }
           },
-          "cdel": {
+          "colDelete": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kdel": {
+              "btnDelete": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "DEL",
                 "x-component-props": {
-                  "children": "DEL",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "backspace",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '错误' || s.length <= 1 ? '0' : s.slice(0, -1)) } }}"
+                  "onClick": "{{ () => deleteOne() }}"
                 }
               }
             }
           },
-          "cpct": {
+          "colPercent": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kpct": {
+              "btnPercent": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "%",
                 "x-component-props": {
-                  "children": "%",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "%",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误' || '+-×÷%'.includes(s.slice(-1))) return; $form.setValuesIn('display', s + '%') } }}"
+                  "onClick": "{{ () => pressPercent() }}"
                 }
               }
             }
           },
-          "cdiv": {
+          "colDivide": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kdiv": {
+              "btnDivide": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "÷",
                 "x-component-props": {
-                  "children": "÷",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "/",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '÷') } }}"
+                  "onClick": "{{ () => pressOp('÷') }}"
                 }
               }
             }
           }
         }
       },
-      "r2": {
+      "rowSeven": {
         "type": "void",
         "x-component": "Row",
         "x-component-props": {
           "gutter": 1,
-          "style": {
-            "flex": 1
-          }
+          "style": { "flex": 1 }
         },
         "properties": {
-          "c7": {
+          "col7": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k7": {
+              "btn7": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "7",
                 "x-component-props": {
-                  "children": "7",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "7",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '7' : s + '7') } }}"
+                  "onClick": "{{ () => pressDigit('7') }}"
                 }
               }
             }
           },
-          "c8": {
+          "col8": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k8": {
+              "btn8": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "8",
                 "x-component-props": {
-                  "children": "8",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "8",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '8' : s + '8') } }}"
+                  "onClick": "{{ () => pressDigit('8') }}"
                 }
               }
             }
           },
-          "c9": {
+          "col9": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k9": {
+              "btn9": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "9",
                 "x-component-props": {
-                  "children": "9",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "9",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '9' : s + '9') } }}"
+                  "onClick": "{{ () => pressDigit('9') }}"
                 }
               }
             }
           },
-          "cmul": {
+          "colMultiply": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kmul": {
+              "btnMultiply": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "×",
                 "x-component-props": {
-                  "children": "×",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "*",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '×') } }}"
+                  "onClick": "{{ () => pressOp('×') }}"
                 }
               }
             }
           }
         }
       },
-      "r3": {
+      "rowFour": {
         "type": "void",
         "x-component": "Row",
         "x-component-props": {
           "gutter": 1,
-          "style": {
-            "flex": 1
-          }
+          "style": { "flex": 1 }
         },
         "properties": {
-          "c4": {
+          "col4": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k4": {
+              "btn4": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "4",
                 "x-component-props": {
-                  "children": "4",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "4",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '4' : s + '4') } }}"
+                  "onClick": "{{ () => pressDigit('4') }}"
                 }
               }
             }
           },
-          "c5": {
+          "col5": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k5": {
+              "btn5": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "5",
                 "x-component-props": {
-                  "children": "5",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "5",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '5' : s + '5') } }}"
+                  "onClick": "{{ () => pressDigit('5') }}"
                 }
               }
             }
           },
-          "c6": {
+          "col6": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k6": {
+              "btn6": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "6",
                 "x-component-props": {
-                  "children": "6",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "6",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '6' : s + '6') } }}"
+                  "onClick": "{{ () => pressDigit('6') }}"
                 }
               }
             }
           },
-          "csub": {
+          "colSubtract": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "ksub": {
+              "btnSubtract": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "-",
                 "x-component-props": {
-                  "children": "-",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "-",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '-') } }}"
+                  "onClick": "{{ () => pressOp('-') }}"
                 }
               }
             }
           }
         }
       },
-      "r4": {
+      "rowOne": {
         "type": "void",
         "x-component": "Row",
         "x-component-props": {
           "gutter": 1,
-          "style": {
-            "flex": 1
-          }
+          "style": { "flex": 1 }
         },
         "properties": {
-          "c1": {
+          "col1": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k1": {
+              "btn1": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "1",
                 "x-component-props": {
-                  "children": "1",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "1",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '1' : s + '1') } }}"
+                  "onClick": "{{ () => pressDigit('1') }}"
                 }
               }
             }
           },
-          "c2": {
+          "col2": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k2": {
+              "btn2": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "2",
                 "x-component-props": {
-                  "children": "2",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "2",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '2' : s + '2') } }}"
+                  "onClick": "{{ () => pressDigit('2') }}"
                 }
               }
             }
           },
-          "c3": {
+          "col3": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "k3": {
+              "btn3": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "3",
                 "x-component-props": {
-                  "children": "3",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "3",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '3' : s + '3') } }}"
+                  "onClick": "{{ () => pressDigit('3') }}"
                 }
               }
             }
           },
-          "cadd": {
+          "colAdd": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kadd": {
+              "btnAdd": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "+",
                 "x-component-props": {
-                  "children": "+",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "+",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '+') } }}"
+                  "onClick": "{{ () => pressOp('+') }}"
                 }
               }
             }
           }
         }
       },
-      "r5": {
+      "rowZero": {
         "type": "void",
         "x-component": "Row",
         "x-component-props": {
           "gutter": 1,
-          "style": {
-            "flex": 1
-          }
+          "style": { "flex": 1 }
         },
         "properties": {
-          "c0": {
+          "col0": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 2
-            },
+            "x-component-props": { "flex": 2 },
             "properties": {
-              "k0": {
+              "btn0": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "0",
                 "x-component-props": {
-                  "children": "0",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": "0",
-                  "onClick": "{{ () => { const s = $form.values.display; if (s === '0') return; $form.setValuesIn('display', s === '错误' ? '0' : s + '0') } }}"
+                  "onClick": "{{ () => pressDigit('0') }}"
                 }
               }
             }
           },
-          "cdot": {
+          "colDot": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "kdot": {
+              "btnDot": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": ".",
                 "x-component-props": {
-                  "children": ".",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "tuiHotkey": ".",
-                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '错误' ? '0.' : s + '.') } }}"
+                  "onClick": "{{ () => pressDot() }}"
                 }
               }
             }
           },
-          "ceq": {
+          "colEquals": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": {
-              "flex": 1
-            },
+            "x-component-props": { "flex": 1 },
             "properties": {
-              "keq": {
+              "btnEquals": {
                 "type": "void",
                 "x-component": "Button",
+                "x-content": "=",
                 "x-component-props": {
-                  "children": "=",
                   "tuiSize": "small",
                   "block": true,
-                  "style": {
-                    "height": "100%"
-                  },
+                  "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "=",
-                  "onClick": "{{ () => { const s = $form.values.display; try { const r = Function('return (' + s.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100') + ')')(); $form.setValuesIn('display', Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : '错误') } catch (e) { $form.setValuesIn('display', '错误') } } }}"
+                  "onClick": "{{ () => evaluate() }}"
                 }
               }
             }
