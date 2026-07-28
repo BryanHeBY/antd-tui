@@ -20,6 +20,8 @@ export interface AppProps {
   schema: PageSchema
   onFinish: (values: Record<string, unknown>) => void
   onCancel: () => void
+  /** 内部（--drive 会话）：表单实例创建后回传，供驱动协议读取实时 values */
+  onFormReady?: (form: ReturnType<typeof createForm>) => void
 }
 
 const DEFAULT_ACTIONS: PageAction[] = [{ type: "submit" }, { type: "cancel" }]
@@ -36,8 +38,9 @@ function EscapeHandler({ onEscape }: { onEscape: () => void }) {
   return null
 }
 
-export function App({ schema, onFinish, onCancel }: AppProps) {
+export function App({ schema, onFinish, onCancel, onFormReady }: AppProps) {
   const form = useMemo(() => createForm(), [])
+  onFormReady?.(form)
   const [messageApi, messageHolder] = message.useMessage()
   // 三个状态通道的分工：
   // $state：响应式 UI 状态（schema.state 声明初值），表达式读取自动联动，不进 form.values、不回传

@@ -160,3 +160,45 @@ describe("--snapshot 帧导出", () => {
     expect(r.events[0]?.event).toBe("error")
   })
 })
+
+describe("--drive 交互会话", () => {
+  test("click 文本定位 + values + Esc 穿透 submit，退出码 0", async () => {
+    const commands = [
+      { id: 1, op: "click", text: "7", return: "none" },
+      { id: 2, op: "click", text: "+", return: "none" },
+      { id: 3, op: "click", text: "8", return: "none" },
+      { id: 4, op: "click", text: "=", return: "none" },
+      { id: 5, op: "values" },
+      { id: 6, op: "press", key: "escape" },
+    ]
+    const r = await runCli(
+      ["--schema", CALC_SCHEMA, "--drive", "--size", "60x28"],
+      commands.map((c) => JSON.stringify(c)).join("\n") + "\n",
+    )
+    expect(r.exitCode).toBe(0)
+    expect(r.events[0]).toMatchObject({ event: "ready" })
+    const values = r.events.find((e) => e.id === 5)
+    expect(values).toMatchObject({ ok: true, values: { display: "15" } })
+    expect(r.events.at(-1)).toMatchObject({ event: "submit", values: { display: "15" } })
+  })
+
+  test("snapshot 操作回帧、locate 返回坐标、未知操作报错", async () => {
+    const commands = [
+      { id: 1, op: "snapshot" },
+      { id: 2, op: "locate", text: "AC" },
+      { id: 3, op: "fly" },
+      { id: 4, op: "quit" },
+    ]
+    const r = await runCli(
+      ["--schema", CALC_SCHEMA, "--drive", "--size", "60x28"],
+      commands.map((c) => JSON.stringify(c)).join("\n") + "\n",
+    )
+    expect(r.exitCode).toBe(1)
+    expect(String((r.events.find((e) => e.id === 1) as { frame?: string }).frame)).toContain(
+      "TUI 计算器",
+    )
+    expect(r.events.find((e) => e.id === 2)).toMatchObject({ ok: true })
+    expect(r.events.find((e) => e.id === 3)).toMatchObject({ ok: false })
+    expect(r.events.at(-1)).toMatchObject({ event: "cancel" })
+  })
+})

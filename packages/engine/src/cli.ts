@@ -28,6 +28,7 @@ interface CliArgs {
   dryRun: boolean
   check: boolean
   snapshot: boolean
+  drive: boolean
   format: string
   size?: string
   out?: string
@@ -39,6 +40,7 @@ function parseArgs(argv: string[]): CliArgs {
     dryRun: false,
     check: false,
     snapshot: false,
+    drive: false,
     format: "text",
   }
   for (let i = 0; i < argv.length; i++) {
@@ -60,6 +62,9 @@ function parseArgs(argv: string[]): CliArgs {
         break
       case "--snapshot":
         args.snapshot = true
+        break
+      case "--drive":
+        args.drive = true
         break
       case "--format":
         args.format = argv[++i] ?? "text"
@@ -171,6 +176,11 @@ async function main(): Promise<void> {
     return
   }
 
+  if (args.drive) {
+    const { runDrive } = await import("./driver")
+    await runDrive(parsed as unknown as PageSchema, args)
+    return
+  }
 
   // --stdin 场景 stdin 是管道：schema 读得进来，但渲染后键盘事件无处可来
   if (args.useStdin && !process.stdin.isTTY) {

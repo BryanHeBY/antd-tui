@@ -15,6 +15,8 @@ export interface HeadlessSession {
   settle: () => Promise<void>
   /** 页面是否已完成（提交/取消）；完成后应输出事件并退出 */
   finished: () => FinishState | null
+  /** 当前 form.values（--drive 的 values 操作用） */
+  values: () => Record<string, unknown>
   destroy: () => void
 }
 
@@ -30,6 +32,7 @@ export async function mountHeadless(
   ])
 
   let finishState: FinishState | null = null
+  let form: { values: unknown } | null = null
   const setup = await testRender(
     React.createElement(App, {
       schema,
@@ -38,6 +41,9 @@ export async function mountHeadless(
       },
       onCancel: () => {
         finishState = { event: "cancel" }
+      },
+      onFormReady: (f) => {
+        form = f as { values: unknown }
       },
     }),
     { width, height },
@@ -55,6 +61,8 @@ export async function mountHeadless(
     setup,
     settle,
     finished: () => finishState,
+    // JSON 往返：values 是 observable 代理，structuredClone 不可用；协议侧本来就要 JSON 化
+    values: () => (form ? JSON.parse(JSON.stringify(form.values)) : {}) as Record<string, unknown>,
     destroy: () => setup.renderer.destroy(),
   }
 }
