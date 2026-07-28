@@ -17,6 +17,9 @@
   "scope": {                        // 可选：具名表达式函数表
     "fnName": "{{ (arg) => ... }}"
   },
+  "theme": {                        // 可选：主题覆盖，形状同 antd ConfigProvider
+    "token": { "colorPrimary": "#722ed1" }
+  },
   "form": { "type": "object", "properties": { ... } },  // Formily 表单 Schema（ISchema），根节点必须是 object
   "actions": [                      // 可选，仅 form 模式生效；缺省 = 提交 + 取消
     { "type": "submit", "label": "提交" },
@@ -29,6 +32,16 @@
 
 - `form`(默认):底部渲染操作栏(`actions`),Esc 取消。适合"填完提交"的表单页。
 - `interactive`:不渲染操作栏,Esc 完成并回传当前 `form.values`。适合计算器这类自包含交互页面。
+
+### theme:主题覆盖
+
+形状完全对齐 antd ConfigProvider 的 `theme.token`。种子色(`colorPrimary` / `colorSuccess` / `colorWarning` / `colorError`)传 antd 亮色 seed 值即可,引擎内置 antd 暗色算法(darkAlgorithm 等价实现)自动派生贴合黑底的低饱和色阶——与 antd 暗色主题同源同值,不要自己调暗颜色:
+
+```jsonc
+"theme": { "token": { "colorPrimary": "#722ed1" } }   // 紫色主题,派生填充 #642ab5、高亮 #854eca
+```
+
+终端适配差异:algorithm 固定为暗色(终端默认黑底);antd 的 hover 档在终端用于聚焦/前景高亮(无 hover 交互)。
 
 ### 输出协议(stdout,NDJSON)
 

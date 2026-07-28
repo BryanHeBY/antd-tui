@@ -9,6 +9,7 @@ import {
   Space,
   Typography,
   message,
+  type ThemeTokens,
 } from "@antd-tui/components"
 import { FormProvider, SchemaField, compileScope } from "@antd-tui/formily"
 import type { PageAction, PageSchema } from "./validate"
@@ -62,7 +63,7 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
   }
 
   return (
-    <ConfigProvider>
+    <ConfigProvider theme={schema.theme as { token?: Partial<ThemeTokens> } | undefined}>
       <FocusScope>
         {messageHolder}
         <box style={{ flexDirection: "column", padding: 1, gap: 1, width: "100%", height: "100%" }}>

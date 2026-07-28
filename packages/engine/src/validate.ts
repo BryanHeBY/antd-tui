@@ -24,6 +24,11 @@ export interface PageSchema {
   }
   /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$memo） */
   scope?: Record<string, string>
+  /**
+   * 主题覆盖，形状对齐 antd ConfigProvider：{ token: { colorPrimary: "#722ed1" } }。
+   * 种子色（colorPrimary/colorSuccess/colorWarning/colorError）经暗色算法派生。
+   */
+  theme?: { token?: Record<string, string | number> }
   /** 表单 Schema：Formily ISchema，根节点须为 type: "object" */
   form: Record<string, unknown>
   actions?: PageAction[]
@@ -67,6 +72,25 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
       for (const [name, expr] of Object.entries(root.scope as Record<string, unknown>)) {
         if (typeof expr !== "string") {
           errors.push(`/scope/${name} 必须是 "{{ 表达式 }}" 字符串`)
+        }
+      }
+    }
+  }
+
+  if (root.theme !== undefined) {
+    if (typeof root.theme !== "object" || root.theme === null || Array.isArray(root.theme)) {
+      errors.push("/theme 必须是对象")
+    } else {
+      const themeToken = (root.theme as Record<string, unknown>).token
+      if (themeToken !== undefined) {
+        if (typeof themeToken !== "object" || themeToken === null || Array.isArray(themeToken)) {
+          errors.push("/theme/token 必须是对象")
+        } else {
+          for (const [name, value] of Object.entries(themeToken as Record<string, unknown>)) {
+            if (typeof value !== "string" && typeof value !== "number") {
+              errors.push(`/theme/token/${name} 必须是字符串或数字`)
+            }
+          }
         }
       }
     }

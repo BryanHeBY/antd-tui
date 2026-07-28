@@ -51,3 +51,39 @@ describe("scope 段校验", () => {
     expect(r.errors[0]).toContain("/scope/evaluate")
   })
 })
+
+describe("theme 段校验", () => {
+  test("合法 theme：token 覆盖种子色", () => {
+    const r = validatePageSchema(
+      base({ theme: { token: { colorPrimary: "#722ed1", padding: 1 } } }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(true)
+  })
+
+  test("theme 缺省合法、空对象合法", () => {
+    expect(validatePageSchema(base({}), WHITELIST).ok).toBe(true)
+    expect(validatePageSchema(base({ theme: {} }), WHITELIST).ok).toBe(true)
+  })
+
+  test("theme 非对象报错", () => {
+    const r = validatePageSchema(base({ theme: "dark" }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/theme")
+  })
+
+  test("theme.token 非对象报错", () => {
+    const r = validatePageSchema(base({ theme: { token: ["#fff"] } }), WHITELIST)
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/theme/token")
+  })
+
+  test("theme.token 值非字符串/数字报错并带键名路径", () => {
+    const r = validatePageSchema(
+      base({ theme: { token: { colorPrimary: { hex: "#fff" } } } }),
+      WHITELIST,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/theme/token/colorPrimary")
+  })
+})
