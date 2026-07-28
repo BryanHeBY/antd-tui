@@ -192,6 +192,8 @@ export const schemaComponents = {
 /** 供 engine 做 x-component / x-decorator 白名单校验 */
 export const componentWhitelist: string[] = Object.keys(schemaComponents)
 
+export { componentPropsWhitelist } from "./props"
+
 export const SchemaField = createSchemaField({
   components: schemaComponents,
 })

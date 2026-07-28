@@ -181,6 +181,45 @@ describe("字段结构深化", () => {
   })
 })
 
+describe("组件 props 键白名单", () => {
+  const PROPS = { Button: ["type", "onClick", "tuiHotkey"] as const }
+
+  test("未知 prop 键报错并列出可用键", () => {
+    const r = validatePageSchema(
+      base({
+        form: {
+          type: "object",
+          properties: {
+            a: { type: "void", "x-component": "Button", "x-component-props": { onclick: "{{ () => 0 }}" } },
+          },
+        },
+      }),
+      WHITELIST,
+      PROPS,
+    )
+    expect(r.ok).toBe(false)
+    expect(r.errors[0]).toContain("/form/properties/a/x-component-props/onclick")
+    expect(r.errors[0]).toContain("onClick")
+  })
+
+  test("合法键通过；未提供白名单的组件不校验键", () => {
+    const ok = validatePageSchema(
+      base({
+        form: {
+          type: "object",
+          properties: {
+            a: { type: "void", "x-component": "Button", "x-component-props": { tuiHotkey: "a" } },
+            b: { type: "string", "x-component": "ResultText", "x-component-props": { anything: 1 } },
+          },
+        },
+      }),
+      WHITELIST,
+      PROPS,
+    )
+    expect(ok.errors).toEqual([])
+  })
+})
+
 describe("state 段校验", () => {
   test("合法 state：任意初值对象", () => {
     const r = validatePageSchema(

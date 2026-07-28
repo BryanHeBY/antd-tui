@@ -243,7 +243,11 @@ function reportUnknownKeys(
   }
 }
 
-export function validatePageSchema(input: unknown, whitelist: string[]): ValidationResult {
+export function validatePageSchema(
+  input: unknown,
+  whitelist: string[],
+  propsWhitelist?: Record<string, readonly string[]>,
+): ValidationResult {
   const errors: string[] = []
   const allow = new Set(whitelist)
 
@@ -330,7 +334,7 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
     if (form.type !== "object") {
       errors.push('/form/type 必须为 "object"')
     }
-    walkSchema(form, "/form", allow, scopeNames, errors)
+    walkSchema(form, "/form", allow, scopeNames, errors, propsWhitelist)
   }
 
   if (root.actions !== undefined) {
@@ -361,6 +365,7 @@ function walkSchema(
   allow: Set<string>,
   scopeNames: Set<string>,
   errors: string[],
+  propsWhitelist?: Record<string, readonly string[]>,
 ): void {
   reportUnknownKeys(node, NODE_KEYS, path, errors)
 
@@ -393,6 +398,20 @@ function walkSchema(
       if (typeof props !== "object" || props === null || Array.isArray(props)) {
         errors.push(`${path}/${key} 必须是对象`)
       } else {
+        // props 键白名单：按组件拒绝臆造/拼错的属性名
+        const ownerKey = key === "x-component-props" ? "x-component" : "x-decorator"
+        const owner = node[ownerKey]
+        const allowed =
+          typeof owner === "string" ? propsWhitelist?.[owner] : undefined
+        if (allowed) {
+          for (const propName of Object.keys(props as Record<string, unknown>)) {
+            if (!allowed.includes(propName)) {
+              errors.push(
+                `${path}/${key}/${propName} 不是 ${String(owner)} 的合法属性（可用：${allowed.join(", ")}）`,
+              )
+            }
+          }
+        }
         checkExpressionsDeep(props, `${path}/${key}`, scopeNames, errors)
       }
     }
@@ -431,13 +450,20 @@ function walkSchema(
         errors.push(`${path}/properties/${name} 必须是对象`)
         continue
       }
-      walkSchema(child as Record<string, unknown>, `${path}/properties/${name}`, allow, scopeNames, errors)
+      walkSchema(
+        child as Record<string, unknown>,
+        `${path}/properties/${name}`,
+        allow,
+        scopeNames,
+        errors,
+        propsWhitelist,
+      )
     }
   }
 
   // items（数组场景，PoC 预留）
   const items = node.items
   if (items !== undefined && typeof items === "object" && items !== null && !Array.isArray(items)) {
-    walkSchema(items as Record<string, unknown>, `${path}/items`, allow, scopeNames, errors)
+    walkSchema(items as Record<string, unknown>, `${path}/items`, allow, scopeNames, errors, propsWhitelist)
   }
 }

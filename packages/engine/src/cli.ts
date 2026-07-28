@@ -17,7 +17,7 @@
  * 退出码：0=submit/valid  1=cancel  2=页面 Schema 无效  3=环境不满足
  */
 import { readFileSync } from "node:fs"
-import { componentWhitelist } from "@antd-tui/formily"
+import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/formily"
 import { validatePageSchema, type PageSchema } from "./validate"
 
 interface CliArgs {
@@ -86,7 +86,7 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const result = validatePageSchema(parsed, componentWhitelist)
+  const result = validatePageSchema(parsed, componentWhitelist, componentPropsWhitelist)
   if (!result.ok) {
     emit({ event: "invalid", errors: result.errors })
     process.exit(2)
