@@ -1,6 +1,5 @@
-import { useRef } from "react"
-import type { BoxRenderable } from "@opentui/core"
 import { useToken } from "../theme"
+import { useMeasuredWidth } from "../measure"
 import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
@@ -29,7 +28,7 @@ export function Progress({
   style,
 }: ProgressProps) {
   const token = useToken()
-  const boxRef = useRef<BoxRenderable | null>(null)
+  const { boxRef, width: boxWidth } = useMeasuredWidth()
   const clamped = Math.min(Math.max(percent, 0), 100)
   // percent 达到 100 时 antd 默认转为 success 态
   const effective = status === "normal" && clamped >= 100 ? "success" : status
@@ -41,7 +40,7 @@ export function Progress({
         ? token.colorSuccess
         : token.colorPrimary
 
-  const total = boxRef.current?.width ?? FULL_WIDTH_FALLBACK
+  const total = boxWidth ?? FULL_WIDTH_FALLBACK
   const width = Math.max(TRACK_MIN_WIDTH, total - (showInfo ? INFO_WIDTH : 0))
   const filledCount = Math.round((clamped / 100) * width)
   const info =

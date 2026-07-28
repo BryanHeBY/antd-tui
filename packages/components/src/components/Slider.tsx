@@ -1,8 +1,7 @@
-import { useRef } from "react"
-import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { useMeasuredWidth } from "../measure"
 import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
@@ -41,7 +40,7 @@ export function Slider({
   style,
 }: SliderProps) {
   const token = useToken()
-  const boxRef = useRef<BoxRenderable | null>(null)
+  const { boxRef, width: boxWidth } = useMeasuredWidth()
   const current = Math.min(Math.max(value ?? min, min), max)
 
   // 注册为 input 类：方向键归组件消费（调节数值），用 Tab 离开
@@ -80,7 +79,7 @@ export function Slider({
     }
   })
 
-  const width = Math.max(TRACK_MIN_WIDTH, (boxRef.current?.width ?? 20) - (tuiShowValue ? 8 : 0))
+  const width = Math.max(TRACK_MIN_WIDTH, (boxWidth ?? 20) - (tuiShowValue ? 8 : 0))
   const ratio = max === min ? 0 : (current - min) / (max - min)
   const knobIndex = Math.round(ratio * (width - 1))
   const filled = "━".repeat(knobIndex)
