@@ -23,7 +23,7 @@ function counterSchema(n: number): Record<string, unknown> {
           type: "void",
           "x-component": "Button",
           "x-content": "+1",
-          "x-component-props": { tuiSize: "small", onClick: "{{ () => $agent.send('inc') }}" },
+          "x-component-props": { tuiSize: "small", tuiOnClick: "{{ () => $agent.send('inc') }}" },
         },
       },
     },
@@ -75,4 +75,6 @@ const stdout = new WritableStream<Uint8Array>({
     process.stdout.write(chunk)
   },
 })
-app.connect(ndJsonStream(stdout, Bun.stdin.stream() as ReadableStream<Uint8Array>))
+// 顶层 await 让 Bun 在 stdio 连接存活期间保持进程；不等待会使 mock 在启动后
+// 立即退出，导致集成测试偶发/持续卡在「agent 启动中」。
+await app.connect(ndJsonStream(stdout, Bun.stdin.stream() as ReadableStream<Uint8Array>))

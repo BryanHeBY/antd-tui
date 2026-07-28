@@ -42,6 +42,7 @@ export class AcpClient {
   private startupTimer: ReturnType<typeof setTimeout> | null = null
   private readyResolve: (() => void) | null = null
   private readyReject: ((reason: Error) => void) | null = null
+  private exitNotified = false
   private readonly ready = new Promise<void>((resolve, reject) => {
     this.readyResolve = resolve
     this.readyReject = reject
@@ -73,6 +74,12 @@ export class AcpClient {
     this.readyReject?.(error)
   }
 
+  private notifyExit(code: number | null): void {
+    if (this.exitNotified || this.stopped) return
+    this.exitNotified = true
+    this.handlers.onExit(code)
+  }
+
   async start(): Promise<void> {
     try {
       this.proc = Bun.spawn(this.cmd, { stdin: "pipe", stdout: "pipe", stderr: "ignore" })
@@ -98,11 +105,12 @@ export class AcpClient {
     })
     const stream = ndJsonStream(output, this.proc.stdout as ReadableStream<Uint8Array>)
 
-    void this.proc.exited.then((code) => {
+    const handleExit = (code: number | null) => {
       if (this.stopped) return
       this.rejectReady(new Error(`agent 在初始化完成前退出（code ${code ?? "?"}）`))
-      this.handlers.onExit(code)
-    })
+      this.notifyExit(code)
+    }
+    void this.proc.exited.then(handleExit)
 
     const app = client().onRequest(
       "_vibetui/render",
@@ -134,10 +142,17 @@ export class AcpClient {
           }
         }
       })
-      .catch((err: unknown) => {
+      .catch(async (err: unknown) => {
         // initialize/session/new 失败时必须让 start() 返回失败，不能永远停在「启动中」。
+        // 如果连接正因子进程退出而断开，先等待退出码并触发 onExit，确保 start()
+        // 失败时宿主状态不会短暂落后于真实进程状态。
+        const proc = this.proc
+        if (proc && !this.stopped) {
+          const code = await proc.exited
+          handleExit(code)
+          return
+        }
         this.rejectReady(new Error(`ACP 连接失败：${err instanceof Error ? err.message : String(err)}`))
-        // 连接断开（agent 退出/被 stop）：onExit 已另行通知
       })
 
     await this.ready
