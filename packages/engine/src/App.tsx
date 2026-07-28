@@ -9,7 +9,7 @@ import {
   Space,
   Typography,
 } from "@antd-tui/components"
-import { FormProvider, SchemaField } from "@antd-tui/formily"
+import { FormProvider, SchemaField, compileScope } from "@antd-tui/formily"
 import type { PageAction, PageSchema } from "./validate"
 
 export interface AppProps {
@@ -22,6 +22,11 @@ const DEFAULT_ACTIONS: PageAction[] = [{ type: "submit" }, { type: "cancel" }]
 
 export function App({ schema, onFinish, onCancel }: AppProps) {
   const form = useMemo(() => createForm(), [])
+  // $memo：页面级可变对象，供 scope 函数存放隐藏交互状态（不进 form.values、不回传）
+  const scope = useMemo(
+    () => compileScope(schema.scope, { $form: form, $memo: {} }),
+    [schema.scope, form],
+  )
 
   // actions 显式为空数组 = 无操作栏的自包含交互页面：Esc 关闭并回传当前值
   const interactiveOnly = Array.isArray(schema.actions) && schema.actions.length === 0
@@ -56,7 +61,7 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
           {/* 表单区撑满剩余高度：可伸展组件（Row 等）自动均分空间 */}
           <box style={{ flexDirection: "column", flexGrow: 1, flexShrink: 1, gap: 1 }}>
             <FormProvider form={form}>
-              <SchemaField schema={schema.form as ISchema} />
+              <SchemaField schema={schema.form as ISchema} scope={scope} />
             </FormProvider>
           </box>
 

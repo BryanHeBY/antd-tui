@@ -1,4 +1,5 @@
 import { createSchemaField, connect, mapProps, FormProvider as FormilyFormProvider } from "@formily/react"
+import { Schema } from "@formily/json-schema"
 import type { Field as FieldType, Form } from "@formily/core"
 import type { ReactNode } from "react"
 import {
@@ -182,6 +183,22 @@ export const componentWhitelist: string[] = Object.keys(schemaComponents)
 export const SchemaField = createSchemaField({
   components: schemaComponents,
 })
+
+/**
+ * 编译页面 schema 的 scope 段：{ 函数名: "{{ 表达式 }}" } → 可注入 SchemaField scope 的具名函数表。
+ * base 通常为 { $form, $memo }；Formily 表达式引擎按作用域惰性查找，
+ * 因此 scope 函数之间可互相调用（不受定义顺序限制）。
+ */
+export function compileScope(
+  defs: Record<string, string> | undefined,
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const scope: Record<string, unknown> = { ...base }
+  for (const [name, expr] of Object.entries(defs ?? {})) {
+    scope[name] = Schema.shallowCompile(expr, scope)
+  }
+  return scope
+}
 
 // @formily/react 的类型基于 React 17，在 React 19 下需要收窄返回类型
 export const FormProvider = FormilyFormProvider as unknown as (props: {

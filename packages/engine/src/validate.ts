@@ -14,6 +14,8 @@ export interface PageSchema {
     title?: string
     description?: string
   }
+  /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$memo） */
+  scope?: Record<string, string>
   /** Formily JSON Schema（根节点须为 type: "object"） */
   form: Record<string, unknown>
   actions?: PageAction[]
@@ -42,6 +44,18 @@ export function validatePageSchema(input: unknown, whitelist: string[]): Validat
   if (root.page !== undefined) {
     if (typeof root.page !== "object" || root.page === null) {
       errors.push("/page 必须是对象")
+    }
+  }
+
+  if (root.scope !== undefined) {
+    if (typeof root.scope !== "object" || root.scope === null || Array.isArray(root.scope)) {
+      errors.push("/scope 必须是对象")
+    } else {
+      for (const [name, expr] of Object.entries(root.scope as Record<string, unknown>)) {
+        if (typeof expr !== "string") {
+          errors.push(`/scope/${name} 必须是 "{{ 表达式 }}" 字符串`)
+        }
+      }
     }
   }
 
