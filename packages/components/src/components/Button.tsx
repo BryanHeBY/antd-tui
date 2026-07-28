@@ -107,7 +107,8 @@ export function Button({
       : isPrimary
         ? token.colorPrimary
         : token.colorBorder
-  const backgroundColor = isPrimary && !disabled ? token.colorPrimary : "transparent"
+  // primary 的填充色只涂在边框内的内容行：涂满整个盒子会把圆角边框淹没成直角实心块
+  const fillColor = isPrimary && !disabled ? token.colorPrimary : "transparent"
   const textColor = disabled
     ? token.colorTextDisabled
     : isPrimary
@@ -123,18 +124,26 @@ export function Button({
       style={{
         borderStyle: focused ? "double" : token.borderStyle,
         borderColor,
-        backgroundColor,
-        paddingLeft: block ? 0 : 2,
-        paddingRight: block ? 0 : 2,
         height: 3,
-        alignItems: "center",
-        justifyContent: "center",
         ...(block ? { width: "100%" } : null),
         ...toBoxStyle(style),
       }}
       onMouseDown={handleMouseDown}
     >
-      <text fg={textColor}>{focused ? <b>{children}</b> : children}</text>
+      <box
+        style={{
+          flexGrow: 1,
+          backgroundColor: fillColor,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingLeft: block ? 0 : 2,
+          paddingRight: block ? 0 : 2,
+        }}
+      >
+        <text fg={textColor} bg={isPrimary && !disabled ? fillColor : undefined}>
+          {focused ? <b>{children}</b> : children}
+        </text>
+      </box>
     </box>
   )
 }
