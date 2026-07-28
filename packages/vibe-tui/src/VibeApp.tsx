@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes } from "@opentui/core"
-import { useKeyboard } from "@opentui/react"
-import { ConfigProvider, FocusScope, useToken } from "@antd-tui/components"
+import { useKeyboard, useTerminalDimensions } from "@opentui/react"
+import { ConfigProvider, FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/formily"
 import { PageView, validatePageSchema, type PageSchema } from "@antd-tui/engine"
 import { AcpClient } from "./acp"
@@ -25,12 +25,23 @@ interface PageState {
   key: number
 }
 
+const LOG_LIMIT = 300
+
 export function VibeApp({ agentCmd }: VibeAppProps) {
   const [page, setPage] = useState<PageState | null>(null)
   const [status, setStatus] = useState("agent 启动中…")
+  const [log, setLog] = useState<string[]>([])
+  const [showLog, setShowLog] = useState(false)
   const [pageMode, setPageMode] = useState(false)
   const [input, setInput] = useState("")
   const pageKeyRef = useRef(0)
+
+  const appendLog = (text: string) => {
+    const lines = text.split("\n").filter((l) => l.trim() !== "")
+    if (lines.length === 0) return
+    setLog((prev) => [...prev, ...lines].slice(-LOG_LIMIT))
+    setStatus(lines.at(-1)!)
+  }
 
   const clientRef = useRef<AcpClient | null>(null)
   if (clientRef.current === null) {
@@ -42,12 +53,8 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
         setPage({ schema: raw as PageSchema, key: pageKeyRef.current })
         return { ok: true }
       },
-      onUpdate: (text) => {
-        // 状态行只保留最后一行非空文本
-        const line = text.split("\n").filter(Boolean).at(-1)
-        if (line) setStatus(line)
-      },
-      onExit: (code) => setStatus(`agent 已退出（code ${code ?? "?"}）`),
+      onUpdate: appendLog,
+      onExit: (code) => appendLog(`agent 已退出（code ${code ?? "?"}）`),
     })
   }
   const acp = clientRef.current
@@ -74,10 +81,14 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
     [acp],
   )
 
-  // 模式切换是宿主级全局键：F2 进页面模式，Esc 回输入行（不做作用域圈闭判断）
+  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板，Esc 逐层返回
   useKeyboard((key) => {
     if (key.name === "f2") setPageMode((v) => !v)
-    else if (key.name === "escape" && pageMode) setPageMode(false)
+    else if (key.name === "f3") setShowLog((v) => !v)
+    else if (key.name === "escape") {
+      if (showLog) setShowLog(false)
+      else if (pageMode) setPageMode(false)
+    }
   })
 
   const submitPrompt = () => {
@@ -92,26 +103,31 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
     <ConfigProvider>
       <FocusScope>
         <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
-          {/* 画板：agent 下发的页面；输入行模式下挂起（键盘静默，鼠标仍可用） */}
+          {/* 画板：agent 下发的页面；输入行模式下挂起（键盘静默，鼠标仍可用）。
+              F3 切换为日志面板查看 agent 完整回复 */}
           <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
-            <FocusScope suspended={!pageMode}>
-              {page ? (
-                <PageView
-                  key={page.key}
-                  schema={page.schema}
-                  handleEscape={false}
-                  hideHint
-                  onFinish={(values) => acp.prompt(`[page] submit ${JSON.stringify(values)}`)}
-                  onCancel={() => acp.prompt("[page] cancel")}
-                  scopeExtras={scopeExtras}
-                />
-              ) : (
-                <EmptyCanvas />
-              )}
-            </FocusScope>
+            {showLog ? (
+              <LogPanel log={log} />
+            ) : (
+              <FocusScope suspended={!pageMode}>
+                {page ? (
+                  <PageView
+                    key={page.key}
+                    schema={page.schema}
+                    handleEscape={false}
+                    hideHint
+                    onFinish={(values) => acp.prompt(`[page] submit ${JSON.stringify(values)}`)}
+                    onCancel={() => acp.prompt("[page] cancel")}
+                    scopeExtras={scopeExtras}
+                  />
+                ) : (
+                  <EmptyCanvas />
+                )}
+              </FocusScope>
+            )}
           </box>
 
-          <StatusLine status={status} pageMode={pageMode} />
+          <StatusLine status={status} pageMode={pageMode} showLog={showLog} />
           <InputLine value={input} onChange={setInput} onSubmit={submitPrompt} active={!pageMode} />
         </box>
       </FocusScope>
@@ -130,15 +146,67 @@ function EmptyCanvas() {
   )
 }
 
-function StatusLine({ status, pageMode }: { status: string; pageMode: boolean }) {
+/** 滚动对话面板：agent 的完整回复按行留存，F3/Esc 关闭 */
+function LogPanel({ log }: { log: string[] }) {
   const token = useToken()
   return (
-    <box style={{ flexShrink: 0, minHeight: 1, flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}>
-      <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>
-        {pageMode ? "[页面模式 Esc 返回] " : "[输入模式 F2 进页面] "}
-      </text>
+    <box
+      border
+      style={{
+        flexGrow: 1,
+        flexDirection: "column",
+        borderStyle: token.borderStyle,
+        borderColor: token.colorBorder,
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+      title="对话记录（F3/Esc 关闭 · 滚轮滚动）"
+    >
+      <scrollbox
+        style={{ flexGrow: 1 }}
+        scrollY
+        scrollX={false}
+        stickyScroll
+        stickyStart="bottom"
+        contentOptions={{ flexDirection: "column" }}
+      >
+        {log.length === 0 ? (
+          <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+            暂无对话
+          </text>
+        ) : (
+          log.map((line, i) => (
+            <text key={i} attributes={TextAttributes.BOLD} fg={token.colorText}>
+              {line}
+            </text>
+          ))
+        )}
+      </scrollbox>
+    </box>
+  )
+}
+
+/**
+ * 单行状态行：整行一个 text 输出（拆成多个横排 text 会因宽度计算叠字），
+ * 并按终端宽度截断，避免长回复换行顶到输入框。完整内容按 F3 看对话面板。
+ */
+function StatusLine({
+  status,
+  pageMode,
+  showLog,
+}: {
+  status: string
+  pageMode: boolean
+  showLog: boolean
+}) {
+  const token = useToken()
+  const { width } = useTerminalDimensions()
+  const tag = showLog ? "[对话记录 Esc 关闭]" : pageMode ? "[页面模式 Esc 返回]" : "[输入模式 F2 页面 · F3 对话]"
+  const line = truncateToWidth(`${tag} ${status.replace(/\s+/g, " ")}`, Math.max(1, width - 2))
+  return (
+    <box style={{ flexShrink: 0, height: 1, paddingLeft: 1, paddingRight: 1, overflow: "hidden" }}>
       <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
-        {status}
+        {line}
       </text>
     </box>
   )

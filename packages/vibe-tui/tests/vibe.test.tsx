@@ -80,4 +80,26 @@ describe("vibe-tui × mock agent", () => {
     await t.waitUntil(() => t.frame().includes("输入模式"), 2000)
     t.destroy()
   })
+
+  test("F3 打开滚动对话面板查看完整回复，Esc 关闭", async () => {
+    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+      width: 70,
+      height: 24,
+    })
+    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
+    await t.type("counter")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("已渲染计数器"), 8000)
+
+    // F3：画板切换为对话记录面板，完整回复在面板中
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    expect(t.frame()).toContain("已渲染计数器（count=0）")
+
+    // Esc 关闭面板回到画板
+    await t.escape()
+    await t.waitUntil(() => !t.frame().includes("对话记录"), 2000)
+    expect(t.frame()).toContain("计数器")
+    t.destroy()
+  })
 })
