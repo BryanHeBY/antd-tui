@@ -53,8 +53,17 @@ const FormItem = connect(
 const Input = connect(
   TuiInput,
   mapProps((props) => {
-    const { onChange, ...rest } = props as { onChange?: (value: string) => void }
-    return { ...rest, tuiOnChange: onChange }
+    const { onChange, onPressEnter, tuiOnChange, tuiOnPressEnter, ...rest } = props as {
+      onChange?: (value: string) => void
+      onPressEnter?: () => void
+      tuiOnChange?: (value: string) => void
+      tuiOnPressEnter?: () => void
+    }
+    return {
+      ...rest,
+      tuiOnChange: tuiOnChange ?? onChange,
+      tuiOnPressEnter: tuiOnPressEnter ?? onPressEnter,
+    }
   }),
 )
 
@@ -66,23 +75,30 @@ const Select = connect(
   mapProps((props, field) => {
     const f = field as FieldType
     const dataSource = (f.dataSource ?? []) as Array<{ label?: string; value?: unknown }>
-    const options: SelectOption[] = dataSource.map((item) => ({
-      label: String(item.label ?? item.value),
-      value: item.value as SelectOption["value"],
-    }))
-    return { ...props, options }
+    const { onChange, tuiOnChange, options: schemaOptions, ...rest } = props as {
+      onChange?: (value: SelectOption["value"]) => void
+      tuiOnChange?: (value: SelectOption["value"]) => void
+      options?: SelectOption[]
+    }
+    const options =
+      dataSource.length > 0
+        ? dataSource.map((item) => ({
+            label: String(item.label ?? item.value),
+            value: item.value as SelectOption["value"],
+          }))
+        : schemaOptions ?? []
+    return { ...rest, options, tuiOnChange: tuiOnChange ?? onChange }
   }),
 )
 
-// TextArea：终端缓冲区自维护内容，formily 的 value 仅作初值
 const TextArea = connect(
   TuiInput.TextArea,
   mapProps((props) => {
-    const { onChange, value, ...rest } = props as {
+    const { onChange, tuiOnChange, ...rest } = props as {
       onChange?: (value: string) => void
-      value?: string
+      tuiOnChange?: (value: string) => void
     }
-    return { ...rest, tuiDefaultValue: value, tuiOnChange: onChange }
+    return { ...rest, tuiOnChange: tuiOnChange ?? onChange }
   }),
 )
 
@@ -92,15 +108,16 @@ const Slider = connect(TuiSlider)
 const Checkbox = connect(
   TuiCheckbox,
   mapProps((props) => {
-    const { onChange, value, ...rest } = props as {
+    const { onChange, value, tuiOnChange, ...rest } = props as {
       onChange?: (checked: boolean) => void
       value?: boolean
+      tuiOnChange?: (checked: boolean) => void
     }
-    return { ...rest, checked: value ?? false, tuiOnChange: onChange }
+    return { ...rest, checked: value ?? false, tuiOnChange: tuiOnChange ?? onChange }
   }),
 )
 
-// Checkbox.Group / Radio.Group：enum 转 options，onChange 语义与 antd 一致
+// Checkbox.Group / Radio.Group：enum 转 options；未提供 enum 时保留 x-component-props.options
 function useOptionsFromField(field: unknown) {
   const f = field as FieldType
   const dataSource = (f.dataSource ?? []) as Array<{ label?: string; value?: unknown }>
@@ -112,42 +129,61 @@ function useOptionsFromField(field: unknown) {
 
 const CheckboxGroup = connect(
   TuiCheckbox.Group,
-  mapProps((props, field) => ({ ...props, options: useOptionsFromField(field) })),
+  mapProps((props, field) => {
+    const options = useOptionsFromField(field)
+    return { ...props, options: options.length > 0 ? options : props.options }
+  }),
 )
 
 const RadioGroup = connect(
   TuiRadio.Group,
   mapProps((props, field) => {
-    const { onChange, ...rest } = props as { onChange?: (value: string | number) => void }
-    return { ...rest, options: useOptionsFromField(field), tuiOnChange: onChange }
+    const { onChange, tuiOnChange, options: schemaOptions, ...rest } = props as {
+      onChange?: (value: string | number) => void
+      tuiOnChange?: (value: string | number) => void
+      options?: Array<{ label: string; value: string | number }>
+    }
+    const options = useOptionsFromField(field)
+    return {
+      ...rest,
+      options: options.length > 0 ? options : schemaOptions,
+      tuiOnChange: tuiOnChange ?? onChange,
+    }
   }),
 )
 
 const Switch = connect(
   TuiSwitch,
   mapProps((props) => {
-    const { value, ...rest } = props as { value?: boolean }
-    return { ...rest, checked: value ?? false }
+    const { value, onChange, tuiOnChange, ...rest } = props as {
+      value?: boolean
+      onChange?: (checked: boolean) => void
+      tuiOnChange?: (checked: boolean) => void
+    }
+    return { ...rest, checked: value ?? false, tuiOnChange: tuiOnChange ?? onChange }
   }),
 )
 
-// 只读展示组件（TUI 自有，无 antd 对应）：把 field.value 渲染为高亮文本
-interface ResultTextProps {
+interface TypographyTextBindingProps {
   value?: unknown
   type?: "secondary" | "success" | "warning" | "danger"
-  bold?: boolean
-  align?: "left" | "center" | "right"
+  strong?: boolean
+  tuiAlign?: "left" | "center" | "right"
+  children?: ReactNode
 }
 
-function ResultTextView({ value, type = "success", bold = true, align }: ResultTextProps) {
+function TypographyTextBinding({ value, children, ...props }: TypographyTextBindingProps) {
   return (
-    <Typography.Text type={type} strong={bold} tuiAlign={align}>
-      {value === undefined || value === null || value === "" ? "—" : String(value)}
+    <Typography.Text {...props}>
+      {value === undefined || value === null || value === "" ? children ?? "—" : String(value)}
     </Typography.Text>
   )
 }
 
-const ResultText = connect(ResultTextView)
+const TypographyText = connect(TypographyTextBinding)
+const CheckboxComponent = Object.assign(Checkbox, { Group: CheckboxGroup })
+const RadioComponent = Object.assign(TuiRadio, { Group: RadioGroup })
+const TypographyComponent = Object.assign(Typography.Text, { Text: TypographyText })
 
 // 展示组件挂 void 节点时，ReactiveField 会把 value 覆盖为 undefined
 // （{...componentProps, value} 的展开顺序所致），这里从 componentProps 找回
@@ -169,11 +205,10 @@ export const schemaComponents = {
   TextArea,
   Slider,
   Select,
-  Checkbox,
-  CheckboxGroup,
-  RadioGroup,
+  Checkbox: CheckboxComponent,
+  Radio: RadioComponent,
   Switch,
-  ResultText,
+  Typography: TypographyComponent,
   Card,
   Space,
   Button,
@@ -190,7 +225,32 @@ export const schemaComponents = {
 } as const
 
 /** 供 engine 做 x-component / x-decorator 白名单校验 */
-export const componentWhitelist: string[] = Object.keys(schemaComponents)
+export const componentWhitelist: string[] = [
+  "FormItem",
+  "Input",
+  "InputNumber",
+  "TextArea",
+  "Slider",
+  "Select",
+  "Checkbox",
+  "Checkbox.Group",
+  "Radio.Group",
+  "Switch",
+  "Typography.Text",
+  "Card",
+  "Space",
+  "Button",
+  "Alert",
+  "Tag",
+  "Divider",
+  "Progress",
+  "Statistic",
+  "Descriptions",
+  "Spin",
+  "Table",
+  "Row",
+  "Col",
+]
 
 export { componentPropsWhitelist } from "./props"
 

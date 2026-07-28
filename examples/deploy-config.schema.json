@@ -77,7 +77,7 @@
               { "label": "华南", "value": "cn-south" }
             ],
             "x-decorator": "FormItem",
-            "x-component": "RadioGroup",
+            "x-component": "Radio.Group",
             "x-component-props": { "optionType": "button" }
           },
           "features": {
@@ -90,7 +90,7 @@
               { "label": "自动扩缩容", "value": "autoscale" }
             ],
             "x-decorator": "FormItem",
-            "x-component": "CheckboxGroup",
+            "x-component": "Checkbox.Group",
             "x-component-props": { "tuiDirection": "horizontal" }
           }
         }

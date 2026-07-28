@@ -30,13 +30,12 @@ describe("x-component-props 表达式", () => {
     const t = await renderSchema(form, {
       type: "object",
       properties: {
-        display: { type: "string", "x-component": "ResultText" },
+        display: { type: "string", "x-component": "Typography.Text" },
         k7: {
           type: "void",
           "x-component": "Button",
           "x-component-props": {
-            children: "7",
-            onClick:
+            tuiOnClick:
               "{{ () => $form.setValuesIn('display', ($form.values.display === '0' ? '' : $form.values.display) + '7') }}",
           },
         },
@@ -57,13 +56,12 @@ describe("x-component-props 表达式", () => {
     const t = await renderSchema(form, {
       type: "object",
       properties: {
-        display: { type: "string", "x-component": "ResultText" },
+        display: { type: "string", "x-component": "Typography.Text" },
         keq: {
           type: "void",
           "x-component": "Button",
           "x-component-props": {
-            children: "=",
-            onClick:
+            tuiOnClick:
               "{{ () => { const s = $form.values.display; try { $form.setValuesIn('display', String(Function('return (' + s + ')')())) } catch (e) { $form.setValuesIn('display', '错误') } } }}",
           },
         },

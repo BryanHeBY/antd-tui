@@ -24,10 +24,11 @@
           "display": {
             "type": "string",
             "default": "0",
-            "x-component": "ResultText",
+            "x-component": "Typography.Text",
             "x-component-props": {
-              "align": "right",
-              "type": "warning"
+              "tuiAlign": "right",
+              "type": "warning",
+              "strong": true
             }
           }
         }
@@ -54,7 +55,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "c",
-                  "onClick": "{{ () => clearAll() }}"
+                  "tuiOnClick": "{{ () => clearAll() }}"
                 }
               }
             }
@@ -73,7 +74,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "backspace",
-                  "onClick": "{{ () => deleteOne() }}"
+                  "tuiOnClick": "{{ () => deleteOne() }}"
                 }
               }
             }
@@ -92,7 +93,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "%",
-                  "onClick": "{{ () => pressPercent() }}"
+                  "tuiOnClick": "{{ () => pressPercent() }}"
                 }
               }
             }
@@ -112,7 +113,7 @@
                   "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "/",
-                  "onClick": "{{ () => pressOp('÷') }}"
+                  "tuiOnClick": "{{ () => pressOp('÷') }}"
                 }
               }
             }
@@ -141,7 +142,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "7",
-                  "onClick": "{{ () => pressDigit('7') }}"
+                  "tuiOnClick": "{{ () => pressDigit('7') }}"
                 }
               }
             }
@@ -160,7 +161,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "8",
-                  "onClick": "{{ () => pressDigit('8') }}"
+                  "tuiOnClick": "{{ () => pressDigit('8') }}"
                 }
               }
             }
@@ -179,7 +180,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "9",
-                  "onClick": "{{ () => pressDigit('9') }}"
+                  "tuiOnClick": "{{ () => pressDigit('9') }}"
                 }
               }
             }
@@ -199,7 +200,7 @@
                   "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "*",
-                  "onClick": "{{ () => pressOp('×') }}"
+                  "tuiOnClick": "{{ () => pressOp('×') }}"
                 }
               }
             }
@@ -228,7 +229,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "4",
-                  "onClick": "{{ () => pressDigit('4') }}"
+                  "tuiOnClick": "{{ () => pressDigit('4') }}"
                 }
               }
             }
@@ -247,7 +248,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "5",
-                  "onClick": "{{ () => pressDigit('5') }}"
+                  "tuiOnClick": "{{ () => pressDigit('5') }}"
                 }
               }
             }
@@ -266,7 +267,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "6",
-                  "onClick": "{{ () => pressDigit('6') }}"
+                  "tuiOnClick": "{{ () => pressDigit('6') }}"
                 }
               }
             }
@@ -286,7 +287,7 @@
                   "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "-",
-                  "onClick": "{{ () => pressOp('-') }}"
+                  "tuiOnClick": "{{ () => pressOp('-') }}"
                 }
               }
             }
@@ -315,7 +316,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "1",
-                  "onClick": "{{ () => pressDigit('1') }}"
+                  "tuiOnClick": "{{ () => pressDigit('1') }}"
                 }
               }
             }
@@ -334,7 +335,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "2",
-                  "onClick": "{{ () => pressDigit('2') }}"
+                  "tuiOnClick": "{{ () => pressDigit('2') }}"
                 }
               }
             }
@@ -353,7 +354,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "3",
-                  "onClick": "{{ () => pressDigit('3') }}"
+                  "tuiOnClick": "{{ () => pressDigit('3') }}"
                 }
               }
             }
@@ -373,7 +374,7 @@
                   "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "+",
-                  "onClick": "{{ () => pressOp('+') }}"
+                  "tuiOnClick": "{{ () => pressOp('+') }}"
                 }
               }
             }
@@ -402,7 +403,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": "0",
-                  "onClick": "{{ () => pressDigit('0') }}"
+                  "tuiOnClick": "{{ () => pressDigit('0') }}"
                 }
               }
             }
@@ -421,7 +422,7 @@
                   "block": true,
                   "style": { "height": "100%" },
                   "tuiHotkey": ".",
-                  "onClick": "{{ () => pressDot() }}"
+                  "tuiOnClick": "{{ () => pressDot() }}"
                 }
               }
             }
@@ -441,7 +442,7 @@
                   "style": { "height": "100%" },
                   "type": "primary",
                   "tuiHotkey": "=",
-                  "onClick": "{{ () => evaluate() }}"
+                  "tuiOnClick": "{{ () => evaluate() }}"
                 }
               }
             }

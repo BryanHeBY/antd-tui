@@ -22,7 +22,7 @@ function renderSchema(form: Form<any>, schema: object) {
   )
 }
 
-describe("CheckboxGroup", () => {
+describe("Checkbox.Group", () => {
   test("enum 渲染为多选项，选中值写回 form.values 数组", async () => {
     const form = createForm()
     const t = await renderSchema(form, {
@@ -36,7 +36,7 @@ describe("CheckboxGroup", () => {
             { label: "香蕉", value: "banana" },
           ],
           "x-decorator": "FormItem",
-          "x-component": "CheckboxGroup",
+          "x-component": "Checkbox.Group",
         },
       },
     })
@@ -54,7 +54,7 @@ describe("CheckboxGroup", () => {
   })
 })
 
-describe("RadioGroup", () => {
+describe("Radio.Group", () => {
   test("enum 渲染为单选项，default 生效且选中写回", async () => {
     const form = createForm()
     const t = await renderSchema(form, {
@@ -69,7 +69,7 @@ describe("RadioGroup", () => {
             { label: "女", value: "f" },
           ],
           "x-decorator": "FormItem",
-          "x-component": "RadioGroup",
+          "x-component": "Radio.Group",
         },
       },
     })
@@ -119,7 +119,7 @@ describe("Checkbox", () => {
           type: "boolean",
           "x-decorator": "FormItem",
           "x-component": "Checkbox",
-          "x-component-props": { children: "同意条款" },
+          "x-content": "同意条款",
         },
       },
     })
@@ -151,6 +151,46 @@ describe("TextArea", () => {
     expect(t.frame()).toContain("请输入备注")
     await t.type("hello")
     await t.waitUntil(() => form.values.remark === "hello")
+    t.destroy()
+  })
+
+  test("外部 value 更新会回写终端缓冲区", async () => {
+    const form = createForm({ initialValues: { note: "初始内容" } })
+    const t = await renderSchema(form, {
+      type: "object",
+      properties: {
+        note: { type: "string", "x-component": "TextArea" },
+      },
+    })
+
+    expect(t.frame()).toContain("初始内容")
+    form.setValuesIn("note", "联动后的内容")
+    await t.waitUntil(() => t.frame().includes("联动后的内容"))
+    t.destroy()
+  })
+})
+
+describe("options 透传", () => {
+  test("未使用 enum 时保留 Select 的 x-component-props.options", async () => {
+    const form = createForm()
+    const t = await renderSchema(form, {
+      type: "object",
+      properties: {
+        env: {
+          type: "string",
+          "x-component": "Select",
+          "x-component-props": {
+            options: [
+              { label: "开发", value: "dev" },
+              { label: "生产", value: "prod" },
+            ],
+          },
+        },
+      },
+    })
+
+    expect(t.frame()).toContain("开发")
+    expect(t.frame()).toContain("生产")
     t.destroy()
   })
 })

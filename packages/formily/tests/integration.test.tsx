@@ -90,7 +90,7 @@ describe("x-reactions 联动", () => {
           type: "string",
           title: "两倍",
           "x-decorator": "FormItem",
-          "x-component": "ResultText",
+          "x-component": "Typography.Text",
           "x-reactions": {
             dependencies: ["n"],
             fulfill: {

@@ -40,13 +40,12 @@ describe("compileScope", () => {
       {
         type: "object",
         properties: {
-          display: { type: "string", "x-component": "ResultText" },
+          display: { type: "string", "x-component": "Typography.Text" },
           k7: {
             type: "void",
             "x-component": "Button",
             "x-component-props": {
-              children: "7",
-              onClick: "{{ () => pressDigit('7') }}",
+              tuiOnClick: "{{ () => pressDigit('7') }}",
             },
           },
         },
@@ -77,11 +76,11 @@ describe("compileScope", () => {
       {
         type: "object",
         properties: {
-          display: { type: "string", "x-component": "ResultText" },
+          display: { type: "string", "x-component": "Typography.Text" },
           ka: {
             type: "void",
             "x-component": "Button",
-            "x-component-props": { children: "A", onClick: "{{ () => pressA() }}" },
+            "x-component-props": { tuiOnClick: "{{ () => pressA() }}" },
           },
         },
       },
@@ -108,11 +107,11 @@ describe("compileScope", () => {
       {
         type: "object",
         properties: {
-          display: { type: "string", "x-component": "ResultText" },
+          display: { type: "string", "x-component": "Typography.Text" },
           k: {
             type: "void",
             "x-component": "Button",
-            "x-component-props": { children: "+1", onClick: "{{ () => press() }}" },
+            "x-component-props": { tuiOnClick: "{{ () => press() }}" },
           },
         },
       },
@@ -147,7 +146,7 @@ describe("compileScope", () => {
           k: {
             type: "void",
             "x-component": "Button",
-            "x-component-props": { children: "+10", onClick: "{{ () => addLoad(10) }}" },
+            "x-component-props": { tuiOnClick: "{{ () => addLoad(10) }}" },
           },
         },
       },
@@ -163,18 +162,18 @@ describe("compileScope", () => {
 })
 
 describe("x-content 文案通道", () => {
-  test("void Button 用 x-content 提供文案，onClick 正常", async () => {
+  test("void Button 用 x-content 提供文案，tuiOnClick 正常", async () => {
     const form = createForm({ initialValues: { display: "0" } })
     const t = await renderSchema(form, {
       type: "object",
       properties: {
-        display: { type: "string", "x-component": "ResultText" },
+        display: { type: "string", "x-component": "Typography.Text" },
         k7: {
           type: "void",
           "x-component": "Button",
           "x-content": "柒",
           "x-component-props": {
-            onClick: "{{ () => $form.setValuesIn('display', '7') }}",
+            tuiOnClick: "{{ () => $form.setValuesIn('display', '7') }}",
           },
         },
       },

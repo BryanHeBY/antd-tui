@@ -157,7 +157,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "+",
-                  "onClick": "{{ () => addLoad(10) }}"
+                  "tuiOnClick": "{{ () => addLoad(10) }}"
                 }
               },
               "btnLoadDown": {
@@ -167,7 +167,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "-",
-                  "onClick": "{{ () => addLoad(-10) }}"
+                  "tuiOnClick": "{{ () => addLoad(-10) }}"
                 }
               }
             }
@@ -195,7 +195,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "1",
-                  "onClick": "{{ () => selectService(0) }}"
+                  "tuiOnClick": "{{ () => selectService(0) }}"
                 }
               },
               "btnSvcUserApi": {
@@ -205,7 +205,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "2",
-                  "onClick": "{{ () => selectService(1) }}"
+                  "tuiOnClick": "{{ () => selectService(1) }}"
                 }
               },
               "btnSvcBilling": {
@@ -215,7 +215,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "3",
-                  "onClick": "{{ () => selectService(2) }}"
+                  "tuiOnClick": "{{ () => selectService(2) }}"
                 }
               },
               "btnRefresh": {
@@ -225,7 +225,7 @@
                 "x-component-props": {
                   "tuiSize": "small",
                   "tuiHotkey": "r",
-                  "onClick": "{{ () => refresh() }}"
+                  "tuiOnClick": "{{ () => refresh() }}"
                 }
               }
             }

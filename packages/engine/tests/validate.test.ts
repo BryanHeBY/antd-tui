@@ -6,7 +6,7 @@ import { validatePageSchema } from "../src/validate"
  * 白名单遍历与 CLI 退出码由 e2e.cli.test.ts 覆盖。
  */
 
-const WHITELIST = ["Button", "ResultText"]
+const WHITELIST = ["Button", "Typography.Text"]
 
 function base(extra: Record<string, unknown>) {
   return { version: "0.1", form: { type: "object" }, ...extra }
@@ -182,7 +182,7 @@ describe("字段结构深化", () => {
 })
 
 describe("组件 props 键白名单", () => {
-  const PROPS = { Button: ["type", "onClick", "tuiHotkey"] as const }
+  const PROPS = { Button: ["type", "tuiOnClick", "tuiHotkey"] as const }
 
   test("未知 prop 键报错并列出可用键", () => {
     const r = validatePageSchema(
@@ -199,7 +199,7 @@ describe("组件 props 键白名单", () => {
     )
     expect(r.ok).toBe(false)
     expect(r.errors[0]).toContain("/form/properties/a/x-component-props/onclick")
-    expect(r.errors[0]).toContain("onClick")
+    expect(r.errors[0]).toContain("tuiOnClick")
   })
 
   test("合法键通过；未提供白名单的组件不校验键", () => {
@@ -209,7 +209,7 @@ describe("组件 props 键白名单", () => {
           type: "object",
           properties: {
             a: { type: "void", "x-component": "Button", "x-component-props": { tuiHotkey: "a" } },
-            b: { type: "string", "x-component": "ResultText", "x-component-props": { anything: 1 } },
+            b: { type: "string", "x-component": "Typography.Text", "x-component-props": { anything: 1 } },
           },
         },
       }),
