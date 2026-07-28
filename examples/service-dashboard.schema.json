@@ -5,19 +5,21 @@
     "description": "热键 1/2/3 切换服务，r 刷新，+/- 模拟负载，Esc 退出",
     "mode": "interactive"
   },
+  "state": {
+    "current": 0,
+    "cpu": 42,
+    "loading": false
+  },
   "scope": {
-    "selectService": "{{ (i) => $form.setValuesIn('current', i) }}",
-    "addLoad": "{{ (d) => $form.setValuesIn('cpu', Math.min(100, Math.max(0, $form.values.cpu + d))) }}",
-    "refresh": "{{ () => { if ($memo.timer) clearTimeout($memo.timer); $form.setValuesIn('loading', true); $memo.timer = setTimeout(() => $form.setValuesIn('loading', false), 600) } }}",
-    "serviceName": "{{ () => ['gateway', 'user-api', 'billing'][$form.values.current] }}",
-    "serviceItems": "{{ () => { const d = [{ ver: 'v2.4.1', node: 'node-01', owner: '平台组', qps: '3.2k' }, { ver: 'v1.9.0', node: 'node-02', owner: '账号组', qps: '1.1k' }, { ver: 'v3.1.7', node: 'node-03', owner: '交易组', qps: '640' }][$form.values.current]; return [{ label: '服务名', children: serviceName() }, { label: '版本', children: d.ver }, { label: '所在节点', children: d.node }, { label: '负责团队', children: d.owner }, { label: 'QPS', children: d.qps }, { label: '健康检查', children: '通过' }] } }}"
+    "selectService": "{{ (i) => { $state.current = i } }}",
+    "addLoad": "{{ (d) => { $state.cpu = Math.min(100, Math.max(0, $state.cpu + d)) } }}",
+    "refresh": "{{ () => { if ($memo.timer) clearTimeout($memo.timer); $state.loading = true; $memo.timer = setTimeout(() => { $state.loading = false; $memo.timer = null }, 600) } }}",
+    "serviceName": "{{ () => ['gateway', 'user-api', 'billing'][$state.current] }}",
+    "serviceItems": "{{ () => { const d = [{ ver: 'v2.4.1', node: 'node-01', owner: '平台组', qps: '3.2k' }, { ver: 'v1.9.0', node: 'node-02', owner: '账号组', qps: '1.1k' }, { ver: 'v3.1.7', node: 'node-03', owner: '交易组', qps: '640' }][$state.current]; return [{ label: '服务名', children: serviceName() }, { label: '版本', children: d.ver }, { label: '所在节点', children: d.node }, { label: '负责团队', children: d.owner }, { label: 'QPS', children: d.qps }, { label: '健康检查', children: '通过' }] } }}"
   },
   "form": {
     "type": "object",
     "properties": {
-      "current": { "type": "number", "default": 0, "x-hidden": true },
-      "cpu": { "type": "number", "default": 42, "x-hidden": true },
-      "loading": { "type": "boolean", "default": false, "x-hidden": true },
       "alertMaintain": {
         "type": "void",
         "x-component": "Alert",
@@ -30,54 +32,97 @@
       "tagRow": {
         "type": "void",
         "x-component": "Space",
-        "x-component-props": { "size": 2 },
+        "x-component-props": {
+          "size": 2
+        },
         "properties": {
-          "tagSla": { "type": "void", "x-component": "Tag", "x-content": "SLA 达标", "x-component-props": { "color": "success" } },
-          "tagCanary": { "type": "void", "x-component": "Tag", "x-content": "灰度中", "x-component-props": { "color": "processing" } },
-          "tagRegion": { "type": "void", "x-component": "Tag", "x-content": "cn-north", "x-component-props": { "bordered": false } }
+          "tagSla": {
+            "type": "void",
+            "x-component": "Tag",
+            "x-content": "SLA 达标",
+            "x-component-props": {
+              "color": "success"
+            }
+          },
+          "tagCanary": {
+            "type": "void",
+            "x-component": "Tag",
+            "x-content": "灰度中",
+            "x-component-props": {
+              "color": "processing"
+            }
+          },
+          "tagRegion": {
+            "type": "void",
+            "x-component": "Tag",
+            "x-content": "cn-north",
+            "x-component-props": {
+              "bordered": false
+            }
+          }
         }
       },
       "statRow": {
         "type": "void",
         "x-component": "Row",
-        "x-component-props": { "gutter": 2 },
+        "x-component-props": {
+          "gutter": 2
+        },
         "properties": {
           "colRequests": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": { "flex": 1 },
+            "x-component-props": {
+              "flex": 1
+            },
             "properties": {
               "requests": {
-                "type": "number",
-                "default": 12483,
+                "type": "void",
                 "x-component": "Statistic",
-                "x-component-props": { "title": "请求量", "suffix": "次/分" }
+                "x-component-props": {
+                  "value": 12483,
+                  "title": "请求量",
+                  "suffix": "次/分"
+                }
               }
             }
           },
           "colErrors": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": { "flex": 1 },
+            "x-component-props": {
+              "flex": 1
+            },
             "properties": {
               "errorRate": {
-                "type": "number",
-                "default": 0.42,
+                "type": "void",
                 "x-component": "Statistic",
-                "x-component-props": { "title": "错误率", "precision": 2, "suffix": "%", "tuiValueType": "danger" }
+                "x-component-props": {
+                  "value": 0.42,
+                  "title": "错误率",
+                  "precision": 2,
+                  "suffix": "%",
+                  "tuiValueType": "danger"
+                }
               }
             }
           },
           "colUptime": {
             "type": "void",
             "x-component": "Col",
-            "x-component-props": { "flex": 1 },
+            "x-component-props": {
+              "flex": 1
+            },
             "properties": {
               "uptimeDays": {
-                "type": "number",
-                "default": 36,
+                "type": "void",
                 "x-component": "Statistic",
-                "x-component-props": { "title": "持续运行", "suffix": "天", "tuiValueType": "success" }
+                "x-component-props": {
+                  "value": 36,
+                  "title": "持续运行",
+                  "suffix": "天",
+                  "tuiValueType": "success"
+                }
               }
             }
           }
@@ -86,32 +131,44 @@
       "loadCard": {
         "type": "void",
         "x-component": "Card",
-        "x-component-props": { "title": "节点负载" },
+        "x-component-props": {
+          "title": "节点负载"
+        },
         "properties": {
           "cpuProgress": {
             "type": "void",
             "x-component": "Progress",
             "x-component-props": {
-              "percent": "{{ $form.values.cpu }}",
-              "status": "{{ $form.values.cpu >= 90 ? 'exception' : 'active' }}"
+              "percent": "{{ $state.cpu }}",
+              "status": "{{ $state.cpu >= 90 ? 'exception' : 'active' }}"
             }
           },
           "loadBtns": {
             "type": "void",
             "x-component": "Space",
-            "x-component-props": { "size": 2 },
+            "x-component-props": {
+              "size": 2
+            },
             "properties": {
               "btnLoadUp": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "负载 +10",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "+", "onClick": "{{ () => addLoad(10) }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "+",
+                  "onClick": "{{ () => addLoad(10) }}"
+                }
               },
               "btnLoadDown": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "负载 -10",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "-", "onClick": "{{ () => addLoad(-10) }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "-",
+                  "onClick": "{{ () => addLoad(-10) }}"
+                }
               }
             }
           }
@@ -120,36 +177,56 @@
       "detailCard": {
         "type": "void",
         "x-component": "Card",
-        "x-component-props": { "title": "服务详情" },
+        "x-component-props": {
+          "title": "服务详情"
+        },
         "properties": {
           "svcBtns": {
             "type": "void",
             "x-component": "Space",
-            "x-component-props": { "size": 2 },
+            "x-component-props": {
+              "size": 2
+            },
             "properties": {
               "btnSvcGateway": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "1 gateway",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "1", "onClick": "{{ () => selectService(0) }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "1",
+                  "onClick": "{{ () => selectService(0) }}"
+                }
               },
               "btnSvcUserApi": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "2 user-api",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "2", "onClick": "{{ () => selectService(1) }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "2",
+                  "onClick": "{{ () => selectService(1) }}"
+                }
               },
               "btnSvcBilling": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "3 billing",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "3", "onClick": "{{ () => selectService(2) }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "3",
+                  "onClick": "{{ () => selectService(2) }}"
+                }
               },
               "btnRefresh": {
                 "type": "void",
                 "x-component": "Button",
                 "x-content": "刷新 (r)",
-                "x-component-props": { "tuiSize": "small", "tuiHotkey": "r", "onClick": "{{ () => refresh() }}" }
+                "x-component-props": {
+                  "tuiSize": "small",
+                  "tuiHotkey": "r",
+                  "onClick": "{{ () => refresh() }}"
+                }
               }
             }
           },
@@ -157,7 +234,7 @@
             "type": "void",
             "x-component": "Spin",
             "x-component-props": {
-              "spinning": "{{ $form.values.loading }}",
+              "spinning": "{{ $state.loading }}",
               "tip": "刷新中..."
             },
             "properties": {
@@ -178,7 +255,10 @@
         "type": "void",
         "x-component": "Divider",
         "x-content": "实例列表",
-        "x-component-props": { "orientation": "left", "dashed": true }
+        "x-component-props": {
+          "orientation": "left",
+          "dashed": true
+        }
       },
       "instanceTable": {
         "type": "void",
@@ -186,16 +266,57 @@
         "x-component-props": {
           "rowKey": "id",
           "columns": [
-            { "title": "实例", "dataIndex": "id", "width": 10 },
-            { "title": "服务", "dataIndex": "service", "width": 10 },
-            { "title": "状态", "dataIndex": "status", "width": 8, "align": "center" },
-            { "title": "CPU", "dataIndex": "cpu", "width": 6, "align": "right" },
-            { "title": "内存", "dataIndex": "mem", "width": 8, "align": "right" }
+            {
+              "title": "实例",
+              "dataIndex": "id",
+              "width": 10
+            },
+            {
+              "title": "服务",
+              "dataIndex": "service",
+              "width": 10
+            },
+            {
+              "title": "状态",
+              "dataIndex": "status",
+              "width": 8,
+              "align": "center"
+            },
+            {
+              "title": "CPU",
+              "dataIndex": "cpu",
+              "width": 6,
+              "align": "right"
+            },
+            {
+              "title": "内存",
+              "dataIndex": "mem",
+              "width": 8,
+              "align": "right"
+            }
           ],
           "dataSource": [
-            { "id": "i-01", "service": "gateway", "status": "运行中", "cpu": "41%", "mem": "512Mi" },
-            { "id": "i-02", "service": "user-api", "status": "运行中", "cpu": "23%", "mem": "384Mi" },
-            { "id": "i-03", "service": "billing", "status": "重启中", "cpu": "87%", "mem": "896Mi" }
+            {
+              "id": "i-01",
+              "service": "gateway",
+              "status": "运行中",
+              "cpu": "41%",
+              "mem": "512Mi"
+            },
+            {
+              "id": "i-02",
+              "service": "user-api",
+              "status": "运行中",
+              "cpu": "23%",
+              "mem": "384Mi"
+            },
+            {
+              "id": "i-03",
+              "service": "billing",
+              "status": "重启中",
+              "cpu": "87%",
+              "mem": "896Mi"
+            }
           ]
         }
       }

@@ -124,7 +124,7 @@ describe("service-dashboard E2E", () => {
     t.destroy()
   })
 
-  test("热键 +/-：Progress percent 随 form.values 联动", async () => {
+  test("热键 +/-：Progress percent 随 $state 联动", async () => {
     const t = await render(schema)
 
     expect(t.frame()).toContain("42%")
@@ -156,14 +156,15 @@ describe("service-dashboard E2E", () => {
     t.destroy()
   })
 
-  test("Esc 回传当前值（含隐藏状态字段）", async () => {
+  test("Esc 回传：$state/展示数据不混入，只回传用户输入", async () => {
     let finished: Record<string, unknown> | null = null
     const t = await render(schema, (v) => (finished = v))
 
     await t.type("+")
     await t.escape()
     await t.waitUntil(() => finished !== null)
-    expect(finished!).toMatchObject({ current: 0, cpu: 52, loading: false })
+    // dashboard 无任何用户输入字段：$state（current/cpu/loading）与静态展示值都不应回传
+    expect(finished!).toEqual({})
     t.destroy()
   })
 })
