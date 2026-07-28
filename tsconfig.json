@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@antd-tui/components": ["packages/components/src/index.ts"],
+      "@antd-tui/formily": ["packages/formily/src/index.tsx"],
+      "@antd-tui/test-utils": ["packages/test-utils/src/index.tsx"]
+    }
+  },
+  "include": ["packages/*/src/**/*", "packages/*/tests/**/*"]
+}

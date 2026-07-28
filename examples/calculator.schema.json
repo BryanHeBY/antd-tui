@@ -1,0 +1,530 @@
+{
+  "version": "0.1",
+  "page": {
+    "title": "TUI 计算器",
+    "description": "鼠标点击 / 方向键 / 数字热键，逻辑全由 schema 表达式驱动"
+  },
+  "form": {
+    "type": "object",
+    "properties": {
+      "screen": {
+        "type": "void",
+        "x-component": "Card",
+        "properties": {
+          "display": {
+            "type": "string",
+            "default": "0",
+            "x-component": "ResultText",
+            "x-component-props": {
+              "align": "right",
+              "type": "warning"
+            }
+          }
+        }
+      },
+      "r1": {
+        "type": "void",
+        "x-component": "Row",
+        "x-component-props": {
+          "gutter": 1,
+          "style": {
+            "flex": 1
+          }
+        },
+        "properties": {
+          "cac": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kac": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "AC",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "c",
+                  "onClick": "{{ () => $form.setValuesIn('display', '0') }}"
+                }
+              }
+            }
+          },
+          "cdel": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kdel": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "DEL",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "backspace",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '错误' || s.length <= 1 ? '0' : s.slice(0, -1)) } }}"
+                }
+              }
+            }
+          },
+          "cpct": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kpct": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "%",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "%",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误' || '+-×÷%'.includes(s.slice(-1))) return; $form.setValuesIn('display', s + '%') } }}"
+                }
+              }
+            }
+          },
+          "cdiv": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kdiv": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "÷",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "type": "primary",
+                  "tuiHotkey": "/",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '÷') } }}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "r2": {
+        "type": "void",
+        "x-component": "Row",
+        "x-component-props": {
+          "gutter": 1,
+          "style": {
+            "flex": 1
+          }
+        },
+        "properties": {
+          "c7": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k7": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "7",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "7",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '7' : s + '7') } }}"
+                }
+              }
+            }
+          },
+          "c8": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k8": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "8",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "8",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '8' : s + '8') } }}"
+                }
+              }
+            }
+          },
+          "c9": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k9": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "9",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "9",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '9' : s + '9') } }}"
+                }
+              }
+            }
+          },
+          "cmul": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kmul": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "×",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "type": "primary",
+                  "tuiHotkey": "*",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '×') } }}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "r3": {
+        "type": "void",
+        "x-component": "Row",
+        "x-component-props": {
+          "gutter": 1,
+          "style": {
+            "flex": 1
+          }
+        },
+        "properties": {
+          "c4": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k4": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "4",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "4",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '4' : s + '4') } }}"
+                }
+              }
+            }
+          },
+          "c5": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k5": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "5",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "5",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '5' : s + '5') } }}"
+                }
+              }
+            }
+          },
+          "c6": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k6": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "6",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "6",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '6' : s + '6') } }}"
+                }
+              }
+            }
+          },
+          "csub": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "ksub": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "-",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "type": "primary",
+                  "tuiHotkey": "-",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '-') } }}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "r4": {
+        "type": "void",
+        "x-component": "Row",
+        "x-component-props": {
+          "gutter": 1,
+          "style": {
+            "flex": 1
+          }
+        },
+        "properties": {
+          "c1": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k1": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "1",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "1",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '1' : s + '1') } }}"
+                }
+              }
+            }
+          },
+          "c2": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k2": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "2",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "2",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '2' : s + '2') } }}"
+                }
+              }
+            }
+          },
+          "c3": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "k3": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "3",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "3",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '0' || s === '错误' ? '3' : s + '3') } }}"
+                }
+              }
+            }
+          },
+          "cadd": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kadd": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "+",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "type": "primary",
+                  "tuiHotkey": "+",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '错误') return; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + '+') } }}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "r5": {
+        "type": "void",
+        "x-component": "Row",
+        "x-component-props": {
+          "gutter": 1,
+          "style": {
+            "flex": 1
+          }
+        },
+        "properties": {
+          "c0": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 2
+            },
+            "properties": {
+              "k0": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "0",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": "0",
+                  "onClick": "{{ () => { const s = $form.values.display; if (s === '0') return; $form.setValuesIn('display', s === '错误' ? '0' : s + '0') } }}"
+                }
+              }
+            }
+          },
+          "cdot": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "kdot": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": ".",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "tuiHotkey": ".",
+                  "onClick": "{{ () => { const s = $form.values.display; $form.setValuesIn('display', s === '错误' ? '0.' : s + '.') } }}"
+                }
+              }
+            }
+          },
+          "ceq": {
+            "type": "void",
+            "x-component": "Col",
+            "x-component-props": {
+              "flex": 1
+            },
+            "properties": {
+              "keq": {
+                "type": "void",
+                "x-component": "Button",
+                "x-component-props": {
+                  "children": "=",
+                  "tuiSize": "small",
+                  "block": true,
+                  "style": {
+                    "height": "100%"
+                  },
+                  "type": "primary",
+                  "tuiHotkey": "=",
+                  "onClick": "{{ () => { const s = $form.values.display; try { const r = Function('return (' + s.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100') + ')')(); $form.setValuesIn('display', Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : '错误') } catch (e) { $form.setValuesIn('display', '错误') } } }}"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "actions": []
+}

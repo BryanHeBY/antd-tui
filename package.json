@@ -1,0 +1,20 @@
+{
+  "name": "antd-tui",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test packages",
+    "examples:calc": "bun packages/engine/src/cli.ts --schema examples/calculator.schema.json",
+    "examples:calc:dry": "bun packages/engine/src/cli.ts --schema examples/calculator.schema.json --dry-run",
+    "build:bin": "bun build --compile packages/engine/src/cli.ts --outfile dist/antd-tui-engine"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

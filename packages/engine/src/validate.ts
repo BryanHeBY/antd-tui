@@ -1,0 +1,116 @@
+/**
+ * 页面 schema 协议定义与校验。
+ * 不引入 ajv，用轻量结构校验 + 组件白名单遍历，错误信息带 JSON 路径。
+ */
+
+export interface PageAction {
+  type: "submit" | "cancel"
+  label?: string
+}
+
+export interface PageSchema {
+  version: string
+  page?: {
+    title?: string
+    description?: string
+  }
+  /** Formily JSON Schema（根节点须为 type: "object"） */
+  form: Record<string, unknown>
+  actions?: PageAction[]
+}
+
+export interface ValidationResult {
+  ok: boolean
+  errors: string[]
+}
+
+const ACTION_TYPES = new Set(["submit", "cancel"])
+
+export function validatePageSchema(input: unknown, whitelist: string[]): ValidationResult {
+  const errors: string[] = []
+  const allow = new Set(whitelist)
+
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return { ok: false, errors: ["根节点必须是 JSON 对象"] }
+  }
+  const root = input as Record<string, unknown>
+
+  if (typeof root.version !== "string") {
+    errors.push("/version 必须是字符串")
+  }
+
+  if (root.page !== undefined) {
+    if (typeof root.page !== "object" || root.page === null) {
+      errors.push("/page 必须是对象")
+    }
+  }
+
+  if (typeof root.form !== "object" || root.form === null) {
+    errors.push("/form 必须是 Formily schema 对象")
+  } else {
+    const form = root.form as Record<string, unknown>
+    if (form.type !== "object") {
+      errors.push('/form/type 必须为 "object"')
+    }
+    walkSchema(form, "/form", allow, errors)
+  }
+
+  if (root.actions !== undefined) {
+    if (!Array.isArray(root.actions)) {
+      errors.push("/actions 必须是数组")
+    } else {
+      root.actions.forEach((action, i) => {
+        if (typeof action !== "object" || action === null) {
+          errors.push(`/actions/${i} 必须是对象`)
+          return
+        }
+        const a = action as Record<string, unknown>
+        if (typeof a.type !== "string" || !ACTION_TYPES.has(a.type)) {
+          errors.push(`/actions/${i}/type 必须是 "submit" 或 "cancel"`)
+        }
+      })
+    }
+  }
+
+  return { ok: errors.length === 0, errors }
+}
+
+/** 递归遍历 Formily schema，校验 x-component / x-decorator 是否在白名单内 */
+function walkSchema(
+  node: Record<string, unknown>,
+  path: string,
+  allow: Set<string>,
+  errors: string[],
+): void {
+  for (const key of ["x-component", "x-decorator"] as const) {
+    const name = node[key]
+    if (name !== undefined) {
+      if (typeof name !== "string") {
+        errors.push(`${path}/${key} 必须是字符串`)
+      } else if (!allow.has(name)) {
+        errors.push(`${path}/${key} "${name}" 不在组件白名单内（可用：${[...allow].join(", ")}）`)
+      }
+    }
+  }
+
+  const properties = node.properties
+  if (properties !== undefined) {
+    if (typeof properties !== "object" || properties === null) {
+      errors.push(`${path}/properties 必须是对象`)
+      return
+    }
+    for (const [name, child] of Object.entries(properties as Record<string, unknown>)) {
+      if (typeof child !== "object" || child === null) {
+        errors.push(`${path}/properties/${name} 必须是对象`)
+        continue
+      }
+      walkSchema(child as Record<string, unknown>, `${path}/properties/${name}`, allow, errors)
+    }
+  }
+
+  // items（数组场景，PoC 预留）
+  const items = node.items
+  if (items !== undefined && typeof items === "object" && items !== null && !Array.isArray(items)) {
+    walkSchema(items as Record<string, unknown>, `${path}/items`, allow, errors)
+  }
+}
