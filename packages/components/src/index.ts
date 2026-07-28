@@ -33,6 +33,13 @@ export {
 export { Spin, type SpinProps } from "./components/Spin"
 export { Table, type TableProps, type TableColumn } from "./components/Table"
 export { Modal, type ModalProps } from "./components/Modal"
+export {
+  message,
+  useMessage,
+  type MessageInstance,
+  type MessageArgs,
+  type MessageType,
+} from "./components/message"
 export { Row, Col, type RowProps, type ColProps } from "./components/grid"
 export { toBoxStyle, type CssLikeStyle } from "./style"
 export { FormItem, type FormItemProps } from "./components/FormItem"
