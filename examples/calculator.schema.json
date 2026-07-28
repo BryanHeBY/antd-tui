@@ -8,7 +8,7 @@
   "scope": {
     "pressDigit": "{{ (d) => { const s = $form.values.display; if ($memo.justEvaluated) { $memo.justEvaluated = false; $form.setValuesIn('display', d); return } if (s.slice(-1) === '%') return; $form.setValuesIn('display', s === '0' || s === '错误' ? d : s + d) } }}",
     "pressOp": "{{ (op) => { const s = $form.values.display; if (s === '错误') return; $memo.justEvaluated = false; const t = '+-×÷'.includes(s.slice(-1)) ? s.slice(0, -1) : s; $form.setValuesIn('display', t + op) } }}",
-    "pressDot": "{{ () => { const s = $form.values.display; if (s === '错误' || $memo.justEvaluated) { $memo.justEvaluated = false; $form.setValuesIn('display', '0.'); return } const seg = s.split(/[+\\-×÷%]/).pop(); if (seg.includes('.')) return; $form.setValuesIn('display', s + '.') } }}",
+    "pressDot": "{{ () => { const s = $form.values.display; if (s === '错误' || $memo.justEvaluated) { $memo.justEvaluated = false; $form.setValuesIn('display', '0.'); return } const seg = s.split(/[+\\-×÷%]/).pop(); if (seg.includes('.')) return; $form.setValuesIn('display', seg === '' ? s + '0.' : s + '.') } }}",
     "pressPercent": "{{ () => { const s = $form.values.display; if (s === '错误' || '+-×÷%.'.includes(s.slice(-1))) return; $memo.justEvaluated = false; $form.setValuesIn('display', s + '%') } }}",
     "clearAll": "{{ () => { $memo.justEvaluated = false; $form.setValuesIn('display', '0') } }}",
     "deleteOne": "{{ () => { const s = $form.values.display; $memo.justEvaluated = false; $form.setValuesIn('display', s === '错误' || s.length <= 1 ? '0' : s.slice(0, -1)) } }}",

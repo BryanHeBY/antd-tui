@@ -134,6 +134,16 @@ describe("计算器 E2E", () => {
     t.destroy()
   })
 
+  test("运算符后直接按点补成 0.（5+. → 5+0.）", async () => {
+    const t = await render(() => {})
+
+    await t.type("5+.")
+    await t.waitUntil(() => t.frame().includes("5+0."))
+    await t.type("5=")
+    await t.waitUntil(() => t.frame().includes("5.5"))
+    t.destroy()
+  })
+
   test("% 后按数字被忽略，须先接运算符", async () => {
     const t = await render(() => {})
 
