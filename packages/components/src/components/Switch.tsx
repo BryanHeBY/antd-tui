@@ -52,8 +52,15 @@ export function Switch({
     if (focused && isActiveScope() && key.name === "space") toggle()
   })
 
-  const backgroundColor = locked ? "#262626" : checked ? token.colorPrimary : "#373737"
-  const textColor = locked ? token.colorTextDisabled : "#ffffff"
+  // 聚焦用反色高亮而非边框：设置 borderColor 会让盒子长出边框，高度 1→3 行导致布局跳变
+  const backgroundColor = locked
+    ? "#262626"
+    : focused
+      ? "#e6e6e6"
+      : checked
+        ? token.colorPrimary
+        : "#373737"
+  const textColor = locked ? token.colorTextDisabled : focused ? "#141414" : "#ffffff"
   const label = checked ? checkedChildren : unCheckedChildren
   const knob = loading ? "◌" : "●"
 
@@ -67,7 +74,6 @@ export function Switch({
         paddingRight: 1,
         flexDirection: "row",
         alignSelf: "flex-start",
-        borderColor: focused ? token.colorPrimaryHover : undefined,
       }}
       onMouseDown={() => {
         // 浏览器直觉：点击控件同时把焦点转移过去
