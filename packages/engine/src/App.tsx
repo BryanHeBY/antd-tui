@@ -10,6 +10,7 @@ import {
   Space,
   Typography,
   message,
+  useFocusScopeState,
   type ThemeTokens,
 } from "@antd-tui/components"
 import { FormProvider, SchemaField, compileScope } from "@antd-tui/formily"
@@ -25,6 +26,15 @@ const DEFAULT_ACTIONS: PageAction[] = [{ type: "submit" }, { type: "cancel" }]
 
 // 校验消息用中文（formily 默认 en，会出现 "The field value is required"）
 setValidateLanguage("zh-CN")
+
+/** 页面级 Esc：须在 FocusScope 内且带圈闭守卫，浮层（Modal）打开时不响应 */
+function EscapeHandler({ onEscape }: { onEscape: () => void }) {
+  const { isActiveScope } = useFocusScopeState()
+  useKeyboard((key) => {
+    if (key.name === "escape" && isActiveScope()) onEscape()
+  })
+  return null
+}
 
 export function App({ schema, onFinish, onCancel }: AppProps) {
   const form = useMemo(() => createForm(), [])
@@ -42,12 +52,10 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
   const interactive = schema.page?.mode === "interactive"
   const actions = interactive ? [] : schema.actions?.length ? schema.actions : DEFAULT_ACTIONS
 
-  useKeyboard((key) => {
-    if (key.name === "escape") {
-      if (interactive) onFinish(form.values as Record<string, unknown>)
-      else onCancel()
-    }
-  })
+  const handleEscape = () => {
+    if (interactive) onFinish(form.values as Record<string, unknown>)
+    else onCancel()
+  }
 
   const handleSubmit = () => {
     form
@@ -69,6 +77,7 @@ export function App({ schema, onFinish, onCancel }: AppProps) {
   return (
     <ConfigProvider theme={schema.theme as { token?: Partial<ThemeTokens> } | undefined}>
       <FocusScope>
+        <EscapeHandler onEscape={handleEscape} />
         {messageHolder}
         <box style={{ flexDirection: "column", padding: 1, gap: 1, width: "100%", height: "100%" }}>
           {schema.page?.title ? <Typography.Title>{schema.page.title}</Typography.Title> : null}

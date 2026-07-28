@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { useState } from "react"
+import { useKeyboard } from "@opentui/react"
 import { renderTui, KeyCodes } from "@antd-tui/test-utils"
-import { Button, Checkbox, ConfigProvider, FocusScope, Modal } from "../src"
+import { Button, Checkbox, ConfigProvider, FocusScope, Modal, useFocusScopeState } from "../src"
 
 /**
  * Modal：浮层渲染、确认/取消回调、Esc 关闭，以及焦点圈闭
@@ -190,5 +191,105 @@ describe("Modal 焦点圈闭", () => {
     await t.type(" ")
     expect(t.frame()).toContain("[x] 下层选项")
     t.destroy()
+  })
+
+  test("Esc 圈闭：浮层打开时只关浮层，外层 Esc 回调不触发", async () => {
+    const events: string[] = []
+    // 模拟 engine App 的页面级 Esc 处理（带圈闭守卫）
+    function PageEscape() {
+      const { isActiveScope } = useFocusScopeState()
+      useKeyboard((key) => {
+        if (key.name === "escape" && isActiveScope()) events.push("page-escape")
+      })
+      return null
+    }
+    function Demo() {
+      const [open, setOpen] = useState(true)
+      return (
+        <ConfigProvider>
+          <FocusScope>
+            <PageEscape />
+            <box style={{ flexDirection: "column" }}>
+              <Button>占位</Button>
+              <Modal open={open} title="浮层" footer={null} onCancel={() => setOpen(false)}>
+                <text>浮层正文</text>
+              </Modal>
+            </box>
+          </FocusScope>
+        </ConfigProvider>
+      )
+    }
+    const t = await renderTui(<Demo />, { width: 60, height: 20 })
+
+    // 第一次 Esc：只关浮层，页面回调静默
+    await t.escape()
+    await t.waitUntil(() => !t.frame().includes("浮层正文"))
+    expect(events).toEqual([])
+
+    // 浮层关闭后 Esc 归页面
+    await t.escape()
+    expect(events).toEqual(["page-escape"])
+    t.destroy()
+  })
+
+  test("兄弟浮层：后开者独占键盘，Esc 逐层关闭", async () => {
+    function Demo() {
+      const [openA, setOpenA] = useState(true)
+      const [openB, setOpenB] = useState(true)
+      return (
+        <ConfigProvider>
+          <FocusScope>
+            <box style={{ flexDirection: "column" }}>
+              <Button>占位</Button>
+              <Modal open={openA} title="浮层A" footer={null} onCancel={() => setOpenA(false)}>
+                <text>A 正文</text>
+              </Modal>
+              <Modal open={openB} title="浮层B" footer={null} onCancel={() => setOpenB(false)}>
+                <text>B 正文</text>
+              </Modal>
+            </box>
+          </FocusScope>
+        </ConfigProvider>
+      )
+    }
+    const t = await renderTui(<Demo />, { width: 60, height: 20 })
+
+    // B 后注册为栈顶：第一次 Esc 只关 B
+    await t.escape()
+    await t.waitUntil(() => !t.frame().includes("B 正文"))
+    expect(t.frame()).toContain("A 正文")
+
+    await t.escape()
+    await t.waitUntil(() => !t.frame().includes("A 正文"))
+    t.destroy()
+  })
+
+  test("多 root 隔离：上一棵树的浮层作用域不污染下一棵树", async () => {
+    // 第一棵树：Modal 打开（深层作用域在注册表中），直接销毁（不保证 effect cleanup）
+    const a = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <Modal open title="残留浮层" footer={null}>
+            <text>正文</text>
+          </Modal>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 10 },
+    )
+    a.destroy()
+
+    // 第二棵树：若深度表是模块级全局，残留的深层作用域会让这里的键盘全部静默
+    let clicked = false
+    const b = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <Button onClick={() => (clicked = true)}>按钮</Button>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 10 },
+    )
+    await b.enter()
+    expect(clicked).toBe(true)
+    b.destroy()
   })
 })

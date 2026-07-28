@@ -1,7 +1,7 @@
 import { type ReactNode } from "react"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
-import { FocusScope } from "../focus"
+import { FocusScope, useFocusScopeState } from "../focus"
 import { Button } from "./Button"
 
 /**
@@ -90,8 +90,10 @@ function ModalBody({
   borderStyle,
   children,
 }: ModalBodyProps) {
+  // 圈闭守卫：多层浮层并存时，只有栈顶的 Modal 响应 Esc（逐层关闭）
+  const { isActiveScope } = useFocusScopeState()
   useKeyboard((key) => {
-    if (keyboard && key.name === "escape") onCancel?.()
+    if (keyboard && key.name === "escape" && isActiveScope()) onCancel?.()
   })
 
   return (

@@ -56,27 +56,50 @@ const FocusContext = createContext<FocusContextValue | null>(null)
 const FocusDepthContext = createContext<number>(-1)
 
 /**
- * 已挂载作用域的深度表。仅深度最大者响应键盘，浮层因此获得焦点圈闭，
- * 卸载后外层自动恢复。不能用挂载顺序判断：React 的 effect 是子先父后。
+ * 每棵 React 树一份的作用域注册表（顶层 FocusScope 创建并经 context 下发）。
+ * 仅「深度最大者」响应键盘；同深度并列（兄弟浮层）时后注册者为栈顶。
+ * 不能挂模块级：同进程多 root（测试常见）会互相污染；也不能用挂载顺序判深度：
+ * React 的 effect 是子先父后。
  */
-const scopeDepths = new Map<string, number>()
+interface ScopeRegistry {
+  entries: Map<string, { depth: number; seq: number }>
+  counter: number
+}
+
+const ScopeRegistryContext = createContext<ScopeRegistry | null>(null)
 
 export function FocusScope({ children }: { children?: ReactNode }) {
   const scopeId = useId()
   const depth = useContext(FocusDepthContext) + 1
+  const parentRegistry = useContext(ScopeRegistryContext)
+  const ownRegistryRef = useRef<ScopeRegistry | null>(null)
+  if (!parentRegistry && ownRegistryRef.current === null) {
+    ownRegistryRef.current = { entries: new Map(), counter: 0 }
+  }
+  const registry = parentRegistry ?? ownRegistryRef.current!
   const entriesRef = useRef<FocusableEntry[]>([])
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const focusedIdRef = useRef<string | null>(null)
   focusedIdRef.current = focusedId
 
   useEffect(() => {
-    scopeDepths.set(scopeId, depth)
+    registry.entries.set(scopeId, { depth, seq: ++registry.counter })
     return () => {
-      scopeDepths.delete(scopeId)
+      registry.entries.delete(scopeId)
     }
-  }, [scopeId, depth])
+  }, [registry, scopeId, depth])
 
-  const isActiveScope = () => depth >= Math.max(...scopeDepths.values())
+  const isActiveScope = () => {
+    const mine = registry.entries.get(scopeId)
+    if (!mine) return true
+    for (const [id, entry] of registry.entries) {
+      if (id === scopeId) continue
+      if (entry.depth > mine.depth || (entry.depth === mine.depth && entry.seq > mine.seq)) {
+        return false
+      }
+    }
+    return true
+  }
 
   const enabled = () => entriesRef.current.filter((e) => !e.disabled)
 
@@ -190,10 +213,21 @@ export function FocusScope({ children }: { children?: ReactNode }) {
   )
 
   return (
-    <FocusDepthContext.Provider value={depth}>
-      <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
-    </FocusDepthContext.Provider>
+    <ScopeRegistryContext.Provider value={registry}>
+      <FocusDepthContext.Provider value={depth}>
+        <FocusContext.Provider value={value}>{children}</FocusContext.Provider>
+      </FocusDepthContext.Provider>
+    </ScopeRegistryContext.Provider>
   )
+}
+
+/**
+ * 非 focusable 的作用域状态访问：供 Esc 等全局键盘处理在动手前
+ * 判断本层是否在栈顶（浮层打开时下层的 Esc 必须静默）。
+ */
+export function useFocusScopeState() {
+  const ctx = useContext(FocusContext)
+  return { isActiveScope: ctx?.isActiveScope ?? (() => true) }
 }
 
 export interface UseFocusableOptions {
