@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { useState, type ReactNode } from "react"
 import { renderTui, KeyCodes } from "@antd-tui/test-utils"
-import { Checkbox, ConfigProvider, FocusScope, Radio, Switch } from "../src"
+import { Checkbox, ConfigProvider, FocusScope, Radio, Select, Switch } from "../src"
 
 /**
- * 选择类控件：Checkbox / Checkbox.Group / Radio.Group / Switch。
+ * 选择类控件：Checkbox / Checkbox.Group / Radio.Group / Switch / Select。
  * 交互：Enter 或 Space 切换，方向键在组内移动焦点。
  */
 
@@ -211,6 +211,65 @@ describe("Switch", () => {
       { width: 40, height: 6 },
     )
     await t.enter()
+    expect(called).toBe(false)
+    t.destroy()
+  })
+})
+
+describe("Select", () => {
+  test("鼠标点击选项行直接选中，并把焦点转移过来", async () => {
+    const seen: Array<string | number | boolean> = []
+    function Demo() {
+      const [value, setValue] = useState<string | number | boolean>("dev")
+      return (
+        <>
+          <Checkbox>占位焦点</Checkbox>
+          <Select
+            value={value}
+            onChange={(v) => {
+              seen.push(v)
+              setValue(v)
+            }}
+            options={[
+              { label: "开发", value: "dev" },
+              { label: "测试", value: "test" },
+              { label: "生产", value: "prod" },
+            ]}
+          />
+        </>
+      )
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 10 })
+
+    // 布局：Checkbox 占 y=0，Select 上边框 y=1，选项行 y=2/3/4；点第二行选中「测试」
+    await t.raw.mockMouse.click(2, 3)
+    await t.settle()
+    expect(seen).toEqual(["test"])
+
+    // 点击已转移焦点：↓ 由 Select 消费，移到「生产」
+    await t.press(KeyCodes.ARROW_DOWN)
+    expect(seen).toEqual(["test", "prod"])
+    t.destroy()
+  })
+
+  test("disabled 时鼠标点击不生效", async () => {
+    let called = false
+    const t = await renderTui(
+      wrap(
+        <Select
+          disabled
+          value="a"
+          onChange={() => (called = true)}
+          options={[
+            { label: "甲", value: "a" },
+            { label: "乙", value: "b" },
+          ]}
+        />,
+      ),
+      { width: 40, height: 8 },
+    )
+    await t.raw.mockMouse.click(2, 2)
+    await t.settle()
     expect(called).toBe(false)
     t.destroy()
   })

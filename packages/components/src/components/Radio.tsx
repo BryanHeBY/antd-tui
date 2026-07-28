@@ -33,7 +33,7 @@ function RadioBase({
   const select = () => {
     if (!disabled && !checked) tuiOnChange?.(true)
   }
-  const { focused, isActiveScope } = useFocusable({
+  const { focused, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
     disabled,
     onActivate: select,
@@ -46,6 +46,12 @@ function RadioBase({
   useKeyboard((key) => {
     if (focused && isActiveScope() && key.name === "space") select()
   })
+
+  // 浏览器直觉：点击控件同时把焦点转移过去
+  const handleMouseDown = () => {
+    requestFocus()
+    select()
+  }
 
   if (tuiButtonStyle) {
     const backgroundColor = disabled
@@ -73,7 +79,7 @@ function RadioBase({
           alignItems: "center",
           justifyContent: "center",
         }}
-        onMouseDown={select}
+        onMouseDown={handleMouseDown}
       >
         <text fg={textColor} bg={backgroundColor}>
           {focused ? <b>{children}</b> : children}
@@ -89,7 +95,7 @@ function RadioBase({
       : token.colorText
 
   return (
-    <box ref={boxRef} style={{ flexDirection: "row", minHeight: 1 }} onMouseDown={select}>
+    <box ref={boxRef} style={{ flexDirection: "row", minHeight: 1 }} onMouseDown={handleMouseDown}>
       <text fg={color}>
         {checked ? "(o) " : "( ) "}
         {focused ? <b>{children}</b> : children}

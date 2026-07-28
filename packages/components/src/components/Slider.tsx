@@ -1,3 +1,4 @@
+import type { MouseEvent } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
@@ -6,7 +7,7 @@ import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
- * 终端形态：━━━●────── 轨道；聚焦后 ←/→ 按 step 调节，Home/End 到端点。
+ * 终端形态：━━━●────── 轨道；聚焦后 ←/→ 按 step 调节，Home/End 到端点；鼠标点击/拖动轨道换值。
  */
 export interface SliderProps {
   /** 同 antd：最小值 */
@@ -44,7 +45,7 @@ export function Slider({
   const current = Math.min(Math.max(value ?? min, min), max)
 
   // 注册为 input 类：方向键归组件消费（调节数值），用 Tab 离开
-  const { focused, isActiveScope } = useFocusable({
+  const { focused, isActiveScope, requestFocus } = useFocusable({
     kind: "input",
     disabled,
     getRect: () => {
@@ -87,10 +88,25 @@ export function Slider({
   const trackColor = disabled ? token.colorTextDisabled : token.colorPrimary
   const restColor = disabled ? token.colorTextDisabled : token.colorBorder
 
+  // 点击/拖动：把鼠标横坐标换算成轨道比例再取值（emit 会按 step 对齐）
+  const handleMouse = (event: MouseEvent) => {
+    if (disabled) return
+    const el = boxRef.current
+    if (!el) return
+    const pos = Math.min(Math.max(event.x - el.x, 0), width - 1)
+    const nextRatio = width <= 1 ? 0 : pos / (width - 1)
+    emit(min + nextRatio * (max - min))
+  }
+
   return (
     <box
       ref={boxRef}
       style={{ flexDirection: "row", minHeight: 1, alignItems: "center", ...toBoxStyle(style) }}
+      onMouseDown={(event) => {
+        requestFocus()
+        handleMouse(event)
+      }}
+      onMouseDrag={handleMouse}
     >
       <text>
         <span fg={trackColor}>{filled}</span>

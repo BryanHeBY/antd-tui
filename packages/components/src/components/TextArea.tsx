@@ -31,7 +31,7 @@ export function TextArea({
 }: TextAreaProps) {
   const token = useToken()
   const areaRef = useRef<TextareaRenderable | null>(null)
-  const { focused } = useFocusable({ kind: "input", disabled })
+  const { focused, requestFocus } = useFocusable({ kind: "input", disabled })
 
   return (
     <box
@@ -40,6 +40,9 @@ export function TextArea({
         borderStyle: token.borderStyle,
         borderColor: focused ? token.colorPrimary : token.colorBorder,
         height: rows + 2,
+      }}
+      onMouseDown={() => {
+        if (!disabled) requestFocus()
       }}
     >
       <textarea

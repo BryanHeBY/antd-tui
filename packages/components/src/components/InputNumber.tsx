@@ -27,7 +27,7 @@ const NUMERIC_RE = /^-?\d*\.?\d*$/
  */
 export function InputNumber({ value, onChange, placeholder, disabled = false }: InputNumberProps) {
   const token = useToken()
-  const { focused, focusNext } = useFocusable({ kind: "input", disabled })
+  const { focused, focusNext, requestFocus } = useFocusable({ kind: "input", disabled })
   const initial = value != null ? String(value) : ""
   const [draft, setDraft] = useState<string>(initial)
   const draftRef = useRef<string>(initial)
@@ -74,6 +74,9 @@ export function InputNumber({ value, onChange, placeholder, disabled = false }: 
         height: 3,
         paddingLeft: 1,
         paddingRight: 1,
+      }}
+      onMouseDown={() => {
+        if (!disabled) requestFocus()
       }}
     >
       <input

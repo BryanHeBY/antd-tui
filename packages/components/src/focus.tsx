@@ -42,6 +42,8 @@ interface FocusContextValue {
   register: (entry: FocusableEntry) => () => void
   focusNext: () => void
   focusPrev: () => void
+  /** 鼠标点击组件时把焦点转移过去（entry 需未禁用） */
+  focusById: (id: string) => void
   /** 当前焦点元素的类别（热键组件用它避免吞掉输入框按键） */
   getFocusedKind: () => FocusableKind | null
   /** 本作用域是否在栈顶（浮层打开时下层作用域的按键须静默） */
@@ -167,18 +169,24 @@ export function FocusScope({ children }: { children?: ReactNode }) {
     }
   })
 
+  const focusById = useCallback((id: string) => {
+    const entry = entriesRef.current.find((e) => e.id === id)
+    if (entry && !entry.disabled) setFocusedId(id)
+  }, [])
+
   const value = useMemo<FocusContextValue>(
     () => ({
       focusedId,
       register,
       focusNext: () => move(1),
       focusPrev: () => move(-1),
+      focusById,
       getFocusedKind: () =>
         entriesRef.current.find((e) => e.id === focusedIdRef.current)?.kind ?? null,
       isActiveScope,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [focusedId, register, move],
+    [focusedId, register, move, focusById],
   )
 
   return (
@@ -218,6 +226,8 @@ export function useFocusable({ kind, disabled = false, onActivate, getRect }: Us
 
   return {
     focused: ctx?.focusedId === id,
+    /** 鼠标点击时调用，把焦点转移到本组件 */
+    requestFocus: () => ctx?.focusById(id),
     focusNext: ctx?.focusNext ?? (() => {}),
     focusPrev: ctx?.focusPrev ?? (() => {}),
     getFocusedKind: ctx?.getFocusedKind ?? (() => null),

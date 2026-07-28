@@ -37,7 +37,7 @@ export function Switch({
   const toggle = () => {
     if (!locked) onChange?.(!checked)
   }
-  const { focused, isActiveScope } = useFocusable({
+  const { focused, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
     disabled: locked,
     onActivate: toggle,
@@ -68,7 +68,11 @@ export function Switch({
         alignSelf: "flex-start",
         borderColor: focused ? token.colorPrimary : undefined,
       }}
-      onMouseDown={toggle}
+      onMouseDown={() => {
+        // 浏览器直觉：点击控件同时把焦点转移过去
+        requestFocus()
+        toggle()
+      }}
     >
       <text fg={textColor} bg={backgroundColor}>
         {checked ? (

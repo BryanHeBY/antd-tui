@@ -40,6 +40,32 @@ describe("Input.TextArea", () => {
   })
 })
 
+describe("Input 鼠标聚焦", () => {
+  test("点击第二个输入框后按键归它", async () => {
+    function Demo() {
+      const [a, setA] = useState("")
+      const [b, setB] = useState("")
+      return (
+        <>
+          <Input value={a} tuiOnChange={setA} placeholder="甲" />
+          <Input value={b} tuiOnChange={setB} placeholder="乙" />
+        </>
+      )
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 10 })
+
+    // 初始焦点在第一个输入框；点击第二个（其边框盒从 y=3 起，点内容行 y=4）
+    await t.raw.mockMouse.click(3, 4)
+    await t.settle()
+    await t.type("hi")
+    const frame = t.frame()
+    // 文本落在第二个输入框，第一个仍是占位符
+    expect(frame).toContain("甲")
+    expect(frame).toContain("hi")
+    t.destroy()
+  })
+})
+
 describe("Slider", () => {
   test("←→ 按 step 调节，Home/End 到端点", async () => {
     function Demo() {
@@ -88,6 +114,37 @@ describe("Slider", () => {
     await t.press(KeyCodes.ARROW_RIGHT)
     // 0.1 + 0.1 + 0.1 应显示 0.3 而非 0.30000000000000004
     expect(t.frame()).toContain("0.3")
+    t.destroy()
+  })
+
+  test("鼠标点击/拖动轨道按位置取值", async () => {
+    function Demo() {
+      const [value, setValue] = useState(0)
+      return <Slider min={0} max={100} step={10} value={value} onChange={setValue} />
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 6 })
+
+    // 轨道宽 = 40 - 8(数值区) = 32，点击末端(x=31) → 100
+    await t.raw.mockMouse.click(31, 0)
+    await t.settle()
+    expect(t.frame()).toContain("100")
+
+    // 拖到中部(x=16)：16/31 ≈ 51.6，按 step 10 对齐 → 50
+    await t.raw.mockMouse.drag(31, 0, 16, 0)
+    await t.settle()
+    expect(t.frame()).toContain("50")
+    t.destroy()
+  })
+
+  test("disabled 时鼠标点击不生效", async () => {
+    let called = false
+    const t = await renderTui(
+      wrap(<Slider disabled value={30} onChange={() => (called = true)} />),
+      { width: 40, height: 6 },
+    )
+    await t.raw.mockMouse.click(31, 0)
+    await t.settle()
+    expect(called).toBe(false)
     t.destroy()
   })
 })

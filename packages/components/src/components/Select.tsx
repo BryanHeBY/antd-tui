@@ -1,4 +1,5 @@
-import { useMemo } from "react"
+import { useMemo, useRef } from "react"
+import type { BoxRenderable, MouseEvent } from "@opentui/core"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
 
@@ -15,11 +16,20 @@ export interface SelectProps {
 }
 
 /**
- * 选择器。终端形态为内联列表（而非浮层下拉），聚焦后用 ↑/↓ 选择。
+ * 选择器。终端形态为内联列表（而非浮层下拉），聚焦后用 ↑/↓ 选择，
+ * 鼠标点击选项行直接选中（并把焦点转移过来）。
  */
 export function Select({ value, onChange, options = [], disabled = false }: SelectProps) {
   const token = useToken()
-  const { focused } = useFocusable({ kind: "input", disabled })
+  const boxRef = useRef<BoxRenderable | null>(null)
+  const { focused, requestFocus } = useFocusable({
+    kind: "input",
+    disabled,
+    getRect: () => {
+      const el = boxRef.current
+      return el ? { x: el.x, y: el.y, width: el.width, height: el.height } : null
+    },
+  })
 
   const tuiOptions = useMemo(
     () =>
@@ -52,13 +62,26 @@ export function Select({ value, onChange, options = [], disabled = false }: Sele
     options.findIndex((o) => o.value === value),
   )
 
+  // showDescription=false 时每选项占 1 行，首行紧贴上边框，据此把点击 y 换算为选项下标
+  const handleMouseDown = (event: MouseEvent) => {
+    if (disabled) return
+    requestFocus()
+    const el = boxRef.current
+    if (!el) return
+    const idx = event.y - el.y - 1
+    const picked = options[idx]
+    if (picked !== undefined) onChange?.(picked.value)
+  }
+
   return (
     <box
+      ref={boxRef}
       border
       style={{
         borderStyle: token.borderStyle,
         borderColor: focused ? token.colorPrimary : token.colorBorder,
       }}
+      onMouseDown={handleMouseDown}
     >
       <select
         options={tuiOptions}

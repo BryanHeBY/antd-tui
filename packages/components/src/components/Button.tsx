@@ -42,7 +42,7 @@ export function Button({
 }: ButtonProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
-  const { focused, getFocusedKind, isActiveScope } = useFocusable({
+  const { focused, getFocusedKind, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
     disabled,
     onActivate: onClick,
@@ -51,6 +51,13 @@ export function Button({
       return el ? { x: el.x, y: el.y, width: el.width, height: el.height } : null
     },
   })
+
+  // 浏览器直觉：点击按钮同时把焦点转移过去
+  const handleMouseDown = () => {
+    if (disabled) return
+    requestFocus()
+    onClick?.()
+  }
 
   useKeyboard((key) => {
     if (!tuiHotkey || disabled || !isActiveScope()) return
@@ -84,9 +91,7 @@ export function Button({
           ...(block ? { width: "100%" } : { paddingLeft: 1, paddingRight: 1 }),
           ...toBoxStyle(style),
         }}
-        onMouseDown={() => {
-          if (!disabled) onClick?.()
-        }}
+        onMouseDown={handleMouseDown}
       >
         <text fg={textColor} bg={backgroundColor}>
           {focused ? <b>{children}</b> : children}
@@ -127,9 +132,7 @@ export function Button({
         ...(block ? { width: "100%" } : null),
         ...toBoxStyle(style),
       }}
-      onMouseDown={() => {
-        if (!disabled) onClick?.()
-      }}
+      onMouseDown={handleMouseDown}
     >
       <text fg={textColor}>{focused ? <b>{children}</b> : children}</text>
     </box>

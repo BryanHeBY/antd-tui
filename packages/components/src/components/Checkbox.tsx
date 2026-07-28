@@ -25,7 +25,7 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
   const toggle = () => {
     if (!disabled) tuiOnChange?.(!checked)
   }
-  const { focused, isActiveScope } = useFocusable({
+  const { focused, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
     disabled,
     onActivate: toggle,
@@ -51,7 +51,11 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
     <box
       ref={boxRef}
       style={{ flexDirection: "row", minHeight: 1 }}
-      onMouseDown={toggle}
+      onMouseDown={() => {
+        // 浏览器直觉：点击控件同时把焦点转移过去
+        requestFocus()
+        toggle()
+      }}
     >
       <text fg={color}>
         {checked ? "[x] " : "[ ] "}
