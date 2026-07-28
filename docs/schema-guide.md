@@ -1,6 +1,6 @@
 # antd-tui 页面 Schema 编写规范
 
-面向生成页面 Schema 的 Agent 与人类作者。engine 读入一份 JSON(信封协议),校验后渲染为交互式终端界面,交互结果以 NDJSON 写回 stdout。完整可运行的黄金样例见 `examples/calculator.schema.json`。
+面向生成页面 Schema 的 Agent 与人类作者。engine 读入一份 JSON(信封协议),校验后渲染为交互式终端界面,交互结果以 NDJSON 写回 stdout。完整可运行的黄金样例见 `examples/`(索引见第 7 节)。
 
 两级概念:外层信封整体是本引擎的「页面 Schema」;其中 `form` 字段的值才是 Formily 生态定义的「表单 Schema」(ISchema,由 SchemaField 消费)。
 
@@ -132,3 +132,22 @@ void 节点名不参与取值,但影响可读性与 LLM 模仿质量。用语义
 ```sh
 bun packages/engine/src/cli.ts --schema your.schema.json --dry-run
 ```
+
+## 7. 示例索引:什么场景抄哪个
+
+每个示例对应一种页面范式,生成时先归类场景、再照抄对应示例的结构:
+
+| 示例 | 范式 | 覆盖的知识点 |
+|---|---|---|
+| `examples/deploy-config.schema.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox(Group)/RadioGroup/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
+| `examples/service-dashboard.schema.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、scope + `$memo` 驱动交互、`x-component-props` 动态表达式、无组件的隐藏状态字段 |
+| `examples/calculator.schema.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
+
+Formily 习惯写法提示(与 @formily/antd 一致):
+
+- 字段标签用 schema `title`(FormItem 自动读取),不要写进 `x-component-props`
+- 选项用 schema `enum`(自动转组件 `options`),初始值用 `default`,必填用 `required`
+- 展示"表单值"的组件(如 Statistic、ResultText)必须挂在**数据字段**上(`type: "number"` 等),值走 `field.value`;void 节点的 `x-component-props.value` 会被 Formily 覆盖为 undefined
+- 联动显隐用标准 `x-reactions`:`{ "dependencies": ["其他字段"], "fulfill": { "state": { "visible": "{{ $deps[0] === true }}" } } }`
+
+注意:终端无滚动,页面自然高度应控制在目标终端行数内(内容超高会被压缩变形)。

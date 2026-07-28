@@ -9,6 +9,10 @@
     "test": "bun test packages",
     "examples:calc": "bun packages/engine/src/cli.ts --schema examples/calculator.schema.json",
     "examples:calc:dry": "bun packages/engine/src/cli.ts --schema examples/calculator.schema.json --dry-run",
+    "examples:deploy": "bun packages/engine/src/cli.ts --schema examples/deploy-config.schema.json",
+    "examples:deploy:dry": "bun packages/engine/src/cli.ts --schema examples/deploy-config.schema.json --dry-run",
+    "examples:dash": "bun packages/engine/src/cli.ts --schema examples/service-dashboard.schema.json",
+    "examples:dash:dry": "bun packages/engine/src/cli.ts --schema examples/service-dashboard.schema.json --dry-run",
     "build:bin": "bun build --compile packages/engine/src/cli.ts --outfile dist/antd-tui-engine"
   },
   "devDependencies": {
