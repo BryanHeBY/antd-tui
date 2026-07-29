@@ -30,13 +30,37 @@ function counterSchema(n: number): Record<string, unknown> {
   }
 }
 
+let mcpUrl: string | null = null
+
+/** 以 MCP HTTP 客户端身份调用 vibe-tui 画布工具（无状态传输,单次 POST 即可） */
+async function callCanvas(code: string): Promise<void> {
+  if (!mcpUrl) throw new Error("session/new 未注入 MCP 地址")
+  await fetch(mcpUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "vibetui_eval", arguments: { code } },
+    }),
+  })
+}
+
 const app = agent()
   .onRequest("initialize", () => ({
     protocolVersion: 1,
     agentCapabilities: { loadSession: true, sessionCapabilities: { list: {} } },
     authMethods: [],
   }))
-  .onRequest("session/new", () => ({ sessionId: "mock-session" }))
+  .onRequest("session/new", (cx) => {
+    const servers = (cx.params.mcpServers ?? []) as Array<{ url?: string }>
+    mcpUrl = servers[0]?.url ?? null
+    return { sessionId: "mock-session" }
+  })
   .onRequest("session/load", async (cx) => {
     // 恢复会话：把历史对话经 session/update 回放（与真实 agent 一致）
     for (const line of ["> 历史提问", "历史回答第一行", "历史回答第二行"]) {
@@ -77,6 +101,21 @@ const app = agent()
     // vibe-tui 启动注入的硬编码引导：确认身份即可，不主动渲染（保持测试可控）
     if (text.includes("你已连接 vibe-tui")) {
       await say("mock 就绪，等待指令\n")
+      return { stopReason: "end_turn" as const }
+    }
+
+    // 增量搭建场景：经 $schema 代理一块一块把页面搭出来（REPL 行为验收）
+    if (text.includes("build")) {
+      await callCanvas('$schema.page.title = "增量构建"')
+      await say("已设标题\n")
+      await callCanvas(
+        '$schema.form.properties.b1 = { type: "void", "x-component": "Button", "x-content": "第一块", "x-component-props": { "tuiSize": "small" } }',
+      )
+      await say("已加第一块\n")
+      await callCanvas(
+        '$schema.form.properties.b2 = { type: "void", "x-component": "Button", "x-content": "第二块", "x-component-props": { "tuiSize": "small" } }',
+      )
+      await say("已加第二块\n")
       return { stopReason: "end_turn" as const }
     }
 

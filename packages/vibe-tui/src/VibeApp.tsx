@@ -9,7 +9,7 @@ import {
   truncateToWidth,
   useToken,
 } from "@antd-tui/components"
-import { PageView, validatePageSchema, type PageSchema } from "@antd-tui/engine"
+import { PageView, SchemaStore, validatePageSchema, type PageSchema } from "@antd-tui/engine"
 import { AcpClient } from "./acp"
 import { evalInScope } from "./eval"
 import { BOOT_PROMPT, SCHEMA_GUIDE } from "./knowledge"
@@ -83,13 +83,30 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     if (rest) pushLines([rest])
   }
 
-  /** 渲染入口：MCP 工具与 ACP 扩展共用（校验失败带路径回传，agent 可自修） */
+  /** 渲染入口（vibetui_render / ACP 扩展）：全量换页语义——重挂载、状态重置 */
   const renderSchema = (raw: unknown): { ok: boolean; errors?: string[] } => {
-    const result = validatePageSchema(raw, componentWhitelist, componentPropsWhitelist)
-    if (!result.ok) return { ok: false, errors: result.errors }
+    const store = storeRef.current!
+    const result = store.replace(raw)
+    if (!result.ok) return result
     pageKeyRef.current += 1
-    setPage({ schema: raw as PageSchema, key: pageKeyRef.current })
+    setPage({ schema: store.current() as unknown as PageSchema, key: pageKeyRef.current })
     return { ok: true }
+  }
+
+  // Schema REPL 存储：$schema 代理的每次合法修改经 onChange 热更上屏
+  // （同 key 重渲染不重挂载，表单值/$state 保留——"一点一点搭页面"）
+  const storeRef = useRef<SchemaStore | null>(null)
+  if (storeRef.current === null) {
+    storeRef.current = new SchemaStore({
+      validate: (schema) =>
+        validatePageSchema(schema, componentWhitelist, componentPropsWhitelist),
+      onChange: (schema) => {
+        const next = schema as unknown as PageSchema
+        setPage((prev) =>
+          prev ? { schema: next, key: prev.key } : { schema: next, key: ++pageKeyRef.current },
+        )
+      },
+    })
   }
 
   // 活页面桥：eval 需要当前页编译后的表达式作用域（PageView 每次挂载回传）
@@ -102,7 +119,9 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     const boot = async () => {
       mcp = await startMcpCanvasServer({
         render: renderSchema,
-        evaluate: (code) => evalInScope(code, scopeRef.current),
+        // $schema：schema 草稿深代理，每次赋值即校验即上屏（REPL 增量搭建通道）
+        evaluate: (code) =>
+          evalInScope(code, { $schema: storeRef.current!.proxy(), ...scopeRef.current }),
         snapshot: () => {
           const buffer = renderer?.currentRenderBuffer
           if (!buffer) throw new Error("画布尚未就绪")

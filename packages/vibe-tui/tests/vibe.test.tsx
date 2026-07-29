@@ -195,3 +195,22 @@ describe("全局退出（Esc×2）", () => {
     t.destroy()
   }, 20000)
 })
+
+describe("$schema REPL：增量搭建", () => {
+  test("agent 经 vibetui_eval 逐块搭页面，每步即时上屏", async () => {
+    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+      width: 100,
+      height: 24,
+    })
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
+
+    await t.type("build")
+    await t.enter()
+    // 三步依次生效：标题 → 第一块 → 第二块（空画布起步，无需先 render）
+    await t.waitUntil(() => t.frame().includes("增量构建"), 8000)
+    await t.waitUntil(() => t.frame().includes("第一块"), 8000)
+    await t.waitUntil(() => t.frame().includes("第二块"), 8000)
+    t.destroy()
+  }, 20000)
+})
+
