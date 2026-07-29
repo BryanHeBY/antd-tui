@@ -65,7 +65,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   List: ["dataSource", "renderItem", "loading", "header", "footer", "bordered", "split", "locale"],
   "List.Item": ["extra", "actions"],
   Card: ["title"],
-  Space: ["direction", "size"],
+  Space: ["direction", "size", "wrap"],
   Flex: ["vertical", "gap", "justify", "align", "wrap", "flex", "style", "tuiScroll"],
   Button: ["type", "disabled", "block", "tuiSize", "style", "tuiHotkey", "tuiOnClick"],
   Alert: ["type", "message", "description", "showIcon"],

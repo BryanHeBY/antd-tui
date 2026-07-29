@@ -27,11 +27,12 @@ describe("LiveTree × $ui", () => {
 
   test("无配置的容器可省略 init 对象并继续嵌套", () => {
     const { ui } = makeTree()
-    const space = ui.add("Space")
+    const space = ui.add("Space", { props: { wrap: true } })
     const row = space.add("Row")
     row.add("Divider")
 
     expect(ui.children.map((node) => node.component)).toEqual(["Space"])
+    expect(space.props.wrap).toBe(true)
     expect(space.children.map((node) => node.component)).toEqual(["Row"])
     expect(row.children.map((node) => node.component)).toEqual(["Divider"])
   })

@@ -6,6 +6,7 @@ import { Button } from "../src/components/Button"
 import { Input } from "../src/components/Input"
 import { InputNumber } from "../src/components/InputNumber"
 import { Flex } from "../src/components/Flex"
+import { Space } from "../src/components/layout"
 import { List } from "../src/components/List"
 import { Typography } from "../src/components/Typography"
 
@@ -152,6 +153,36 @@ describe("Flex", () => {
     const line = t.frame().split("\n").find((item) => item.includes("left"))
     expect(line).toBeDefined()
     expect(line!.indexOf("right")).toBeGreaterThan(30)
+    t.destroy()
+  })
+})
+
+describe("Space", () => {
+  test("wrap 使用 antd 同名语义，在可用宽度不足时换行", async () => {
+    const t = await renderTui(
+      wrap(
+        <Space wrap size={1}>
+          <Button tuiSize="small" style={{ width: 8 }} tuiOnClick={() => {}}>
+            first
+          </Button>
+          <Button tuiSize="small" style={{ width: 8 }} tuiOnClick={() => {}}>
+            second
+          </Button>
+          <Button tuiSize="small" style={{ width: 8 }} tuiOnClick={() => {}}>
+            third
+          </Button>
+        </Space>,
+      ),
+      { width: 20, height: 8 },
+    )
+
+    const lines = t.frame().split("\n")
+    expect(lines.findIndex((line) => line.includes("first"))).toBe(
+      lines.findIndex((line) => line.includes("second")),
+    )
+    expect(lines.findIndex((line) => line.includes("third"))).toBeGreaterThan(
+      lines.findIndex((line) => line.includes("first")),
+    )
     t.destroy()
   })
 })
