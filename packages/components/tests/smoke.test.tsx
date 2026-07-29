@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { BaseRenderable, ScrollBoxRenderable } from "@opentui/core"
 import { renderTui } from "@antd-tui/test-utils"
 import { ConfigProvider } from "../src/theme"
 import { FocusScope } from "../src/focus"
@@ -16,6 +17,15 @@ function wrap(children: React.ReactNode) {
       <FocusScope>{children}</FocusScope>
     </ConfigProvider>
   )
+}
+
+function findScrollbox(node: BaseRenderable): ScrollBoxRenderable | undefined {
+  if (node instanceof ScrollBoxRenderable) return node
+  for (const child of node.getChildren()) {
+    const match = findScrollbox(child)
+    if (match) return match
+  }
+  return undefined
 }
 
 describe("Button", () => {
@@ -153,6 +163,26 @@ describe("Flex", () => {
     const line = t.frame().split("\n").find((item) => item.includes("left"))
     expect(line).toBeDefined()
     expect(line!.indexOf("right")).toBeGreaterThan(30)
+    t.destroy()
+  })
+
+  test("纵向 tuiScroll 将滚动条固定在视口右侧", async () => {
+    const t = await renderTui(
+      wrap(
+        <Flex vertical tuiScroll style={{ height: 8 }}>
+          {Array.from({ length: 12 }, (_, i) => (
+            <Typography.Text key={i}>{String(i)}</Typography.Text>
+          ))}
+        </Flex>,
+      ),
+      { width: 40, height: 10 },
+    )
+
+    const scrollbox = findScrollbox(t.raw.renderer.root)
+    expect(scrollbox).toBeDefined()
+    expect(scrollbox!.verticalScrollBar.x).toBe(scrollbox!.x + scrollbox!.width - 1)
+    expect(scrollbox!.verticalScrollBar.y).toBe(scrollbox!.y)
+    expect(scrollbox!.verticalScrollBar.height).toBe(scrollbox!.height)
     t.destroy()
   })
 })

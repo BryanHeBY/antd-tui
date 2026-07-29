@@ -48,7 +48,11 @@ export function Flex({
     // ScrollBox 内部的 content 是独立 Yoga 根节点。它若只按内容测量，父 FocusScope
     // 重新挂起/恢复时可能丢失可用宽度，导致带 flex 的 Row/Col 退化成内容宽度。
     // 纵向滚动区是页面布局的块级容器，视口与内容都必须显式撑满横轴。
-    const scrollLayout = vertical && style?.width === undefined ? { ...layout, width: "100%" } : layout
+    // 不能把 Flex 的方向传给 ScrollBox 外层：其固定的 row 根节点负责并排放置
+    // 视口与右侧滚动条；内容方向只应由 contentOptions 控制。
+    const { flexDirection: _contentDirection, ...scrollRootLayout } = layout
+    const scrollLayout =
+      vertical && style?.width === undefined ? { ...scrollRootLayout, width: "100%" } : scrollRootLayout
     return (
       <scrollbox
         style={scrollLayout}
