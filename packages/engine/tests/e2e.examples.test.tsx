@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { renderTui } from "@antd-tui/test-utils"
 import { App } from "../src/App"
 import type { PageSchema } from "../src/validate"
-import deploySchema from "../../../examples/deploy-config.schema.json"
-import dashboardSchema from "../../../examples/service-dashboard.schema.json"
+import deploySchema from "../../../examples/schema/deploy-config.json"
+import dashboardSchema from "../../../examples/schema/service-dashboard.json"
 
 /**
  * E2E（进程内）：deploy-config（form 模式全录入组件 + x-reactions 显隐 + 校验）

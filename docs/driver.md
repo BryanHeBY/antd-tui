@@ -55,7 +55,7 @@ engine --schema x.schema.json --drive [--size 80x24]
   echo '{"id":4,"op":"click","text":"="}'
   echo '{"id":5,"op":"values"}'
   echo '{"id":6,"op":"press","key":"escape"}'
-} | bun packages/engine/src/cli.ts --schema examples/calculator.schema.json --drive
+} | bun packages/engine/src/cli.ts --schema examples/schema/calculator.json --drive
 # → …{"id":5,"ok":true,"values":{"display":"15"}}
 # → {"event":"submit","values":{"display":"15"}}   退出码 0
 ```

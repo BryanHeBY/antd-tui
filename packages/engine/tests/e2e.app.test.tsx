@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { renderTui } from "@antd-tui/test-utils"
 import { App } from "../src/App"
 import type { PageSchema } from "../src/validate"
-import calculatorSchema from "../../../examples/calculator.schema.json"
+import calculatorSchema from "../../../examples/schema/calculator.json"
 
 /**
  * E2E（进程内）：手机风格计算器（逻辑全在 schema，page.mode = interactive）。

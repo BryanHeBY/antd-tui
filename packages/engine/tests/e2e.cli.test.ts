@@ -8,7 +8,7 @@ import { join } from "node:path"
  */
 
 const CLI = join(import.meta.dir, "../src/cli.ts")
-const CALC_SCHEMA = join(import.meta.dir, "../../../examples/calculator.schema.json")
+const CALC_SCHEMA = join(import.meta.dir, "../../../examples/schema/calculator.json")
 
 interface RunResult {
   exitCode: number

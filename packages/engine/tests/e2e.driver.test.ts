@@ -8,7 +8,7 @@ import { join } from "node:path"
  */
 
 const CLI = join(import.meta.dir, "../src/cli.ts")
-const EXAMPLES = join(import.meta.dir, "../../../examples")
+const EXAMPLES = join(import.meta.dir, "../../../examples/schema")
 
 interface DriveResult {
   exitCode: number
@@ -48,7 +48,7 @@ async function drive(
 
 describe("deploy-config × drive：填表提交全流程", () => {
   test("空表单点部署被拦（帧含校验反馈）→ 补名称改环境后提交成功", async () => {
-    const r = await drive("deploy-config.schema.json", [
+    const r = await drive("deploy-config.json", [
       // 空表单直接点部署：required 拦截；校验反馈是异步渲染，用 wait 同步。
       // 页面描述里也含「部署」二字，用按钮内的带边距文本消歧
       { id: 1, op: "click", text: "  部署  ", return: "none" },
@@ -81,7 +81,7 @@ describe("deploy-config × drive：填表提交全流程", () => {
 
   test("点击开关展开高级配置：帧里出现联动区域", async () => {
     const r = await drive(
-      "deploy-config.schema.json",
+      "deploy-config.json",
       [
         { id: 1, op: "locate", text: "CPU 上限" },
         { id: 2, op: "click", text: "关" },
@@ -103,7 +103,7 @@ describe("deploy-config × drive：填表提交全流程", () => {
 describe("service-dashboard × drive：展示页交互", () => {
   test("加负载/切服务的帧联动，Esc 回传空对象", async () => {
     const r = await drive(
-      "service-dashboard.schema.json",
+      "service-dashboard.json",
       [
         { id: 1, op: "snapshot" },
         { id: 2, op: "click", text: "负载 +10" },
@@ -134,7 +134,7 @@ describe("service-dashboard × drive：展示页交互", () => {
 describe("calculator × drive：键盘流与热键", () => {
   test("type 表达式 + 等号求值 + backspace 退格", async () => {
     const r = await drive(
-      "calculator.schema.json",
+      "calculator.json",
       [
         { id: 1, op: "type", text: "12+34*5" },
         { id: 2, op: "press", key: "=" },
@@ -156,7 +156,7 @@ describe("calculator × drive：键盘流与热键", () => {
 
   test("locate 与坐标点击等价：定位 AC 后按坐标点击复位", async () => {
     const r = await drive(
-      "calculator.schema.json",
+      "calculator.json",
       [
         { id: 1, op: "type", text: "99", return: "none" },
         { id: 2, op: "locate", text: "AC" },
@@ -169,7 +169,7 @@ describe("calculator × drive：键盘流与热键", () => {
 
     // 用上一步返回的坐标继续第二段会话（协议无状态，坐标可复用）
     const r2 = await drive(
-      "calculator.schema.json",
+      "calculator.json",
       [
         { id: 1, op: "type", text: "99", return: "none" },
         { id: 2, op: "click", x: pos.x as number, y: pos.y as number },

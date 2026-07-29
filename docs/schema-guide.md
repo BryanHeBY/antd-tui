@@ -174,9 +174,9 @@ bun packages/engine/src/cli.ts --schema your.schema.json --check
 
 | 示例 | 范式 | 覆盖的知识点 |
 |---|---|---|
-| `examples/deploy-config.schema.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox/Checkbox.Group/Radio.Group/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
-| `examples/service-dashboard.schema.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、`state` 段 + `$state` 驱动交互、`x-component-props` 动态表达式 |
-| `examples/calculator.schema.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
+| `examples/schema/deploy-config.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox/Checkbox.Group/Radio.Group/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
+| `examples/schema/service-dashboard.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、`state` 段 + `$state` 驱动交互、`x-component-props` 动态表达式 |
+| `examples/schema/calculator.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
 
 Formily 习惯写法提示(与 @formily/antd 一致):
 
