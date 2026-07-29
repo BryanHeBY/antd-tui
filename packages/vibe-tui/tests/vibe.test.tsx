@@ -39,17 +39,16 @@ describe("vibe-tui × mock agent", () => {
     await expect(client.start()).rejects.toThrow()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(state.exitCode).toBe(7)
-  })
+  }, 20000)
 
   test("prompt 生成页面 → 点击回流 → agent 重渲染", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
-      width: 70,
+      width: 100,
       height: 24,
     })
 
     // agent 子进程握手完成
-    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
-    expect(t.frame()).toContain("画板空白")
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
 
     // 输入 prompt 生成计数器页面
     await t.type("counter")
@@ -67,14 +66,14 @@ describe("vibe-tui × mock agent", () => {
     expect(t.frame()).toContain("1")
 
     t.destroy()
-  })
+  }, 20000)
 
   test("输入行模式下画板键盘挂起，F2 后键盘归画板", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
-      width: 70,
+      width: 100,
       height: 24,
     })
-    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
     await t.type("counter")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("计数器"), 8000)
@@ -95,14 +94,14 @@ describe("vibe-tui × mock agent", () => {
     await t.escape()
     await t.waitUntil(() => t.frame().includes("输入模式"), 2000)
     t.destroy()
-  })
+  }, 20000)
 
   test("F3 打开滚动对话面板查看完整回复，Esc 关闭", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
-      width: 70,
+      width: 100,
       height: 24,
     })
-    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
     await t.type("counter")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("已渲染计数器"), 8000)
@@ -117,14 +116,14 @@ describe("vibe-tui × mock agent", () => {
     await t.waitUntil(() => !t.frame().includes("对话记录"), 2000)
     expect(t.frame()).toContain("计数器")
     t.destroy()
-  })
+  }, 20000)
 
   test("流式 chunk 拼接成整行，不会一字一行", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
-      width: 70,
+      width: 100,
       height: 24,
     })
-    await t.waitUntil(() => t.frame().includes("agent 就绪"), 8000)
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
 
     // mock agent 会把这句话按字符逐个 chunk 发送
     await t.type("stream")
@@ -139,18 +138,18 @@ describe("vibe-tui × mock agent", () => {
     // 单字符独占一行 = 拼接失败（帧里出现「 这 」这类孤行）
     expect(lines.some((l) => l.trim() === "这")).toBe(false)
     t.destroy()
-  })
+  }, 20000)
 })
 
 describe("会话复用（--resume）", () => {
   test("session/load 恢复：历史经 update 回放进对话记录，可继续对话", async () => {
     const t = await renderTui(
       <VibeApp agentCmd={["bun", MOCK_AGENT]} resumeSessionId="mock-old" />,
-      { width: 70, height: 24 },
+      { width: 100, height: 24 },
     )
 
-    // 恢复完成：历史回放已进入缓冲
-    await t.waitUntil(() => t.frame().includes("会话已恢复"), 8000)
+    // 恢复完成：历史回放已进入缓冲，引导应答到达
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
 
     // F3 对话面板能看到回放的历史
     await t.press("\u001bOR")

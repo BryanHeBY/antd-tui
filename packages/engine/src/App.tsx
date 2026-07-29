@@ -23,6 +23,11 @@ export interface PageViewProps {
   /** 内部（--drive 会话）：表单实例创建后回传，供驱动协议读取实时 values */
   onFormReady?: (form: ReturnType<typeof createForm>) => void
   /**
+   * 编译后的表达式作用域回传（$form/$state/$memo + scope 函数 + scopeExtras）。
+   * 宿主（vibe-tui 的 eval 工具）用它在页面上下文里执行代码。
+   */
+  onScopeReady?: (scope: Record<string, unknown>) => void
+  /**
    * 追加进表达式作用域的宿主能力（如 vibe-tui 注入 $agent）。
    * 与 $form/$state/$memo 并列，schema 表达式可直接引用。
    */
@@ -66,6 +71,7 @@ export function PageView({
   onFinish,
   onCancel,
   onFormReady,
+  onScopeReady,
   scopeExtras,
   handleEscape = true,
   hideHint = false,
@@ -88,6 +94,7 @@ export function PageView({
       }),
     [schema.scope, schema.state, form, scopeExtras],
   )
+  onScopeReady?.(scope)
 
   // interactive 模式：无操作栏的自包含交互页面，Esc 完成并回传当前值
   const interactive = schema.page?.mode === "interactive"

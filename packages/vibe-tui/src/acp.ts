@@ -33,6 +33,8 @@ export interface AcpClientOptions {
   startupTimeoutMs?: number
   /** 复用既有会话：经 session/load 恢复（需 agent 声明 loadSession 能力），历史经 update 回放 */
   sessionId?: string
+  /** 注入给 agent 的 MCP server 列表（session/new 与 session/load 均携带） */
+  mcpServers?: unknown[]
 }
 
 interface SessionUpdateParams {
@@ -40,6 +42,10 @@ interface SessionUpdateParams {
   update?: { content?: { text?: string } }
 }
 
+interface PermissionRequestParams {
+  toolCall?: { title?: string }
+  options?: Array<{ optionId: string; kind?: string }>
+}
 
 export class AcpClient {
   private proc: ReturnType<typeof Bun.spawn> | null = null
@@ -135,6 +141,22 @@ export class AcpClient {
         const text = params.update?.content?.text
         if (text) this.handlers.onUpdate(text)
       })
+      // 工具权限自动放行：vibe-tui 是 agent 自治画布，交互式确认会卡死无人值守闭环。
+      // 优先选 allow_always 减少重复请求；日志里留痕保证透明。
+      .onRequest(
+        "session/request_permission",
+        (params: unknown) => params as PermissionRequestParams,
+        (cx) => {
+          const options = cx.params.options ?? []
+          const pick =
+            options.find((o) => o.kind === "allow_always") ??
+            options.find((o) => o.kind === "allow_once") ??
+            options[0]
+          if (!pick) return { outcome: { outcome: "cancelled" as const } }
+          this.handlers.onUpdate(`[自动授权] ${cx.params.toolCall?.title ?? "工具调用"}\n`)
+          return { outcome: { outcome: "selected" as const, optionId: pick.optionId } }
+        },
+      )
 
     // 长驻连接：会话建立后保持挂起，通知经上面的 handler 分发，连接关闭时结束
     void app
@@ -159,12 +181,12 @@ export class AcpClient {
           await ctx.request("session/load", {
             sessionId: this.options.sessionId,
             cwd: process.cwd(),
-            mcpServers: [],
+            mcpServers: (this.options.mcpServers ?? []) as never,
           })
         } else {
           const created = (await ctx.request("session/new", {
             cwd: process.cwd(),
-            mcpServers: [],
+            mcpServers: (this.options.mcpServers ?? []) as never,
           })) as { sessionId: string }
           this.sessionId = created.sessionId
         }

@@ -74,6 +74,12 @@ const app = agent()
       })
     }
 
+    // vibe-tui 启动注入的硬编码引导：确认身份即可，不主动渲染（保持测试可控）
+    if (text.includes("你已连接 vibe-tui")) {
+      await say("mock 就绪，等待指令\n")
+      return { stopReason: "end_turn" as const }
+    }
+
     // 流式场景：把一句话拆成字符级 chunk 发出（模拟真实 LLM 流式输出）
     if (text.includes("stream")) {
       for (const ch of "这是一段流式拼接的完整回复") await say(ch)

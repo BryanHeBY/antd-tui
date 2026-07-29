@@ -11,9 +11,11 @@
     "@antd-tui/components": "workspace:*",
     "@antd-tui/engine": "workspace:*",
     "@antd-tui/formily": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@opentui/core": "latest",
     "@opentui/react": "latest",
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@antd-tui/test-utils": "workspace:*"

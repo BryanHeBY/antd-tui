@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes } from "@opentui/core"
-import { useKeyboard, useTerminalDimensions } from "@opentui/react"
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/formily"
 import { PageView, validatePageSchema, type PageSchema } from "@antd-tui/engine"
 import { AcpClient } from "./acp"
+import { evalInScope } from "./eval"
+import { BOOT_PROMPT, SCHEMA_GUIDE } from "./knowledge"
+import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
 
 /**
  * vibe-tui：完全由 agent 驱动的 TUI 操作界面。
  *
- * 布局：画板（agent 经 _vibetui/render 下发的 antd-tui 页面）+ 状态行 + 单行输入框。
+ * 布局：画板（agent 下发的 antd-tui 页面）+ 状态行 + 单行输入框。
+ * agent 驱动通道（双轨）：MCP 工具 vibetui_render/eval/snapshot/guide（通用 agent 原生可用，
+ * 经 session/new 的 mcpServers 注入）；ACP 扩展 _vibetui/render（懂协议的 agent 可直调）。
  * 键盘分区：默认输入行模式（画板 FocusScope 挂起）；F2 进入页面模式把键盘交给画板，
  * Esc 返回输入行。鼠标在两种模式下都直达画板。
- * 双向通道：输入框 → session/prompt；页面事件经 $agent.send(text, payload?) 回流为 prompt。
+ * 人类 → agent：输入框 prompt；页面事件经 $agent.send(text, payload?) 回流为 "[page] ..."。
+ * 会话就绪后自动注入硬编码引导（新建与恢复都注入：agent 必须知道自己身处 vibe-tui）。
  */
 export interface VibeAppProps {
   /** agent 启动命令（argv 形式），如 ["bun", "mock-agent.ts"] */
@@ -40,6 +46,7 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
   const [pageMode, setPageMode] = useState(false)
   const [input, setInput] = useState("")
   const pageKeyRef = useRef(0)
+  const renderer = useRenderer()
 
   const pushLines = (lines: string[]) => {
     const cleaned = lines.filter((l) => l.trim() !== "")
@@ -66,42 +73,63 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
     if (rest) pushLines([rest])
   }
 
-  const clientRef = useRef<AcpClient | null>(null)
-  if (clientRef.current === null) {
-    clientRef.current = new AcpClient(
-      agentCmd,
-      {
-      onRender: (raw) => {
-        const result = validatePageSchema(raw, componentWhitelist, componentPropsWhitelist)
-        if (!result.ok) return { ok: false, errors: result.errors }
-        pageKeyRef.current += 1
-        setPage({ schema: raw as PageSchema, key: pageKeyRef.current })
-        return { ok: true }
-      },
-      onUpdate: appendChunk,
-      onTurnEnd: flushPartial,
-      onExit: (code) => {
-        flushPartial()
-        pushLines([`agent 已退出（code ${code ?? "?"}）`])
-        setStatus(`agent 已退出（code ${code ?? "?"}）`)
-      },
-      },
-      { sessionId: resumeSessionId },
-    )
+  /** 渲染入口：MCP 工具与 ACP 扩展共用（校验失败带路径回传，agent 可自修） */
+  const renderSchema = (raw: unknown): { ok: boolean; errors?: string[] } => {
+    const result = validatePageSchema(raw, componentWhitelist, componentPropsWhitelist)
+    if (!result.ok) return { ok: false, errors: result.errors }
+    pageKeyRef.current += 1
+    setPage({ schema: raw as PageSchema, key: pageKeyRef.current })
+    return { ok: true }
   }
-  const acp = clientRef.current
+
+  // 活页面桥：eval 需要当前页编译后的表达式作用域（PageView 每次挂载回传）
+  const scopeRef = useRef<Record<string, unknown>>({})
+
+  const clientRef = useRef<AcpClient | null>(null)
 
   useEffect(() => {
-    void acp
-      .start()
-      .then(() =>
-        setStatus(
-          resumeSessionId ? "会话已恢复（F3 查看历史），继续输入 prompt" : "agent 就绪，输入 prompt 开始",
-        ),
+    let mcp: McpCanvasServer | null = null
+    const boot = async () => {
+      mcp = await startMcpCanvasServer({
+        render: renderSchema,
+        evaluate: (code) => evalInScope(code, scopeRef.current),
+        snapshot: () => {
+          const buffer = renderer?.currentRenderBuffer
+          if (!buffer) throw new Error("画布尚未就绪")
+          return new TextDecoder().decode(buffer.getRealCharBytes(true))
+        },
+        guide: () => SCHEMA_GUIDE,
+      })
+      const client = new AcpClient(
+        agentCmd,
+        {
+          onRender: renderSchema,
+          onUpdate: appendChunk,
+          onTurnEnd: flushPartial,
+          onExit: (code) => {
+            flushPartial()
+            pushLines([`agent 已退出（code ${code ?? "?"}）`])
+            setStatus(`agent 已退出（code ${code ?? "?"}）`)
+          },
+        },
+        {
+          sessionId: resumeSessionId,
+          mcpServers: [{ type: "http", name: "vibetui", url: mcp.url, headers: [] }],
+        },
       )
-      .catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
+      clientRef.current = client
+      await client.start()
+      setStatus(
+        resumeSessionId ? "会话已恢复（F3 查看历史），引导注入中…" : "agent 就绪，引导注入中…",
+      )
+      // 硬编码引导：新建与恢复都注入——agent 必须知道自己身处 vibe-tui 并主动画初始界面
+      pushLines(["[已注入 vibe-tui 引导]"])
+      client.prompt(BOOT_PROMPT)
+    }
+    void boot().catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
     return () => {
-      void acp.stop()
+      void clientRef.current?.stop()
+      mcp?.close()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -112,18 +140,20 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
       $agent: {
         send: (text: unknown, payload?: unknown) => {
           const suffix = payload === undefined ? "" : ` ${JSON.stringify(payload)}`
-          acp.prompt(`[page] ${String(text)}${suffix}`)
+          clientRef.current?.prompt(`[page] ${String(text)}${suffix}`)
         },
       },
     }),
-    [acp],
+    [],
   )
 
   // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板，Esc 逐层返回；
   // Ctrl+C 自行接管：先清理临时会话（session/delete）再退出
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
-      void acp.stop().finally(() => process.exit(0))
+      const client = clientRef.current
+      if (client) void client.stop().finally(() => process.exit(0))
+      else process.exit(0)
     } else if (key.name === "f2") setPageMode((v) => !v)
     else if (key.name === "f3") setShowLog((v) => !v)
     else if (key.name === "escape") {
@@ -140,7 +170,7 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
     flushPartial()
     pushLines([`> ${text}`])
     setStatus(`> ${text}`)
-    acp.prompt(text)
+    clientRef.current?.prompt(text)
   }
 
   return (
@@ -160,8 +190,13 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
                     schema={page.schema}
                     handleEscape={false}
                     hideHint
-                    onFinish={(values) => acp.prompt(`[page] submit ${JSON.stringify(values)}`)}
-                    onCancel={() => acp.prompt("[page] cancel")}
+                    onFinish={(values) =>
+                      clientRef.current?.prompt(`[page] submit ${JSON.stringify(values)}`)
+                    }
+                    onCancel={() => clientRef.current?.prompt("[page] cancel")}
+                    onScopeReady={(scope) => {
+                      scopeRef.current = scope
+                    }}
                     scopeExtras={scopeExtras}
                   />
                 ) : (
