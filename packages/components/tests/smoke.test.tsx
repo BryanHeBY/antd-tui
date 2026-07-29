@@ -5,6 +5,7 @@ import { FocusScope } from "../src/focus"
 import { Button } from "../src/components/Button"
 import { Input } from "../src/components/Input"
 import { InputNumber } from "../src/components/InputNumber"
+import { Flex } from "../src/components/Flex"
 
 function wrap(children: React.ReactNode) {
   return (
@@ -56,7 +57,7 @@ describe("Input + FocusScope", () => {
       height: 5,
     })
 
-    const line = t.frame().split("\\n").find((item) => item.includes("antd"))
+    const line = t.frame().split("\n").find((item) => item.includes("antd"))
     expect(line).toBeDefined()
     expect(line).not.toContain("Console")
     expect(line).not.toContain("Copy")
@@ -89,6 +90,31 @@ describe("Input + FocusScope", () => {
     await t.tab(true) // Shift+Tab 回到第一个
     await t.type("!")
     expect(a).toBe("hello!")
+    t.destroy()
+  })
+})
+
+describe("Flex", () => {
+  test("vertical / gap 采用 antd Flex 语义", async () => {
+    const t = await renderTui(
+      wrap(
+        <Flex vertical gap={1} style={{ width: "100%" }}>
+          <Button tuiSize="small" block tuiOnClick={() => {}}>
+            first
+          </Button>
+          <Button tuiSize="small" block tuiOnClick={() => {}}>
+            second
+          </Button>
+        </Flex>,
+      ),
+      { width: 40, height: 6 },
+    )
+
+    const lines = t.frame().split("\n")
+    const firstLine = lines.findIndex((line) => line.includes("first"))
+    const secondLine = lines.findIndex((line) => line.includes("second"))
+    expect(firstLine).toBeGreaterThanOrEqual(0)
+    expect(secondLine).toBeGreaterThan(firstLine + 1)
     t.destroy()
   })
 })

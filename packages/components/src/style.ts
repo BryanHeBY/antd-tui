@@ -9,6 +9,7 @@ export interface CssLikeStyle {
   height?: number | `${number}%`
   minWidth?: number
   minHeight?: number
+  padding?: number
   marginTop?: number
   marginBottom?: number
   marginLeft?: number
@@ -28,6 +29,7 @@ export function toBoxStyle(style?: CssLikeStyle): Record<string, unknown> {
     "height",
     "minWidth",
     "minHeight",
+    "padding",
     "marginTop",
     "marginBottom",
     "marginLeft",

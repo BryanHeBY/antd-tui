@@ -25,6 +25,17 @@ describe("LiveTree × $ui", () => {
     expect(() => ui.add("Card", { id: "main" })).toThrow("已存在")
   })
 
+  test("无配置的容器可省略 init 对象并继续嵌套", () => {
+    const { ui } = makeTree()
+    const space = ui.add("Space")
+    const row = space.add("Row")
+    row.add("Divider")
+
+    expect(ui.children.map((node) => node.component)).toEqual(["Space"])
+    expect(space.children.map((node) => node.component)).toEqual(["Row"])
+    expect(row.children.map((node) => node.component)).toEqual(["Divider"])
+  })
+
   test("未知组件 / 非法 prop 键：抛错且树不变", () => {
     const { ui } = makeTree()
     expect(() => ui.add("Evil")).toThrow("未知组件")

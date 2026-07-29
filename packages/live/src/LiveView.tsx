@@ -7,7 +7,7 @@ import { createElement, type ReactNode } from "react"
 import { toJS } from "@formily/reactive"
 import { observer } from "@formily/reactive-react"
 import { useKeyboard } from "@opentui/react"
-import { Typography, useFocusScopeState } from "@antd-tui/components"
+import { Flex, Typography, useFocusScopeState } from "@antd-tui/components"
 import { DISPLAY_BINDING_COMPONENT, inputBindings, liveComponents } from "./registry"
 import type { LiveTree } from "./tree"
 
@@ -82,24 +82,19 @@ export const LiveView = observer(
       ? `方向键 移动 · Enter 确认${escapeOn ? " · Esc 退出" : ""}`
       : `Tab 切换焦点 · Enter 确认${escapeOn ? " · Esc 取消" : ""}`
     return (
-      <box style={{ flexDirection: "column", padding: 1, gap: 1, width: "100%", height: "100%" }}>
+      <Flex vertical gap={1} style={{ padding: 1, width: "100%", height: "100%" }}>
         {escapeOn ? <EscapeHandler onEscape={onEscape} /> : null}
         {page.title ? <Typography.Title>{page.title}</Typography.Title> : null}
         {page.description ? (
           <Typography.Text type="secondary">{page.description}</Typography.Text>
         ) : null}
-        <scrollbox
-          style={{ flexGrow: 1, flexShrink: 1 }}
-          scrollY
-          scrollX={false}
-          contentOptions={{ flexDirection: "column", gap: 1, minHeight: "100%" }}
-        >
+        <Flex vertical gap={1} flex={1} tuiScroll>
           {tree.rootChildIds.map((id) => (
             <NodeView key={id} tree={tree} id={id} />
           ))}
-        </scrollbox>
+        </Flex>
         {hideHint ? null : <Typography.Text type="secondary">{hint}</Typography.Text>}
-      </box>
+      </Flex>
     )
   },
 )

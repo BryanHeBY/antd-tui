@@ -28,6 +28,7 @@ export {
 } from "./components/Radio"
 export { Switch, type SwitchProps } from "./components/Switch"
 export { Space, Card, type SpaceProps, type CardProps } from "./components/layout"
+export { Flex, type FlexProps } from "./components/Flex"
 export { Alert, type AlertProps } from "./components/Alert"
 export { Tag, type TagProps } from "./components/Tag"
 export { Divider, type DividerProps } from "./components/Divider"
