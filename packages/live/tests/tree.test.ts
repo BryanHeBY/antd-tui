@@ -1,0 +1,153 @@
+import { describe, expect, test } from "bun:test"
+import { LiveTree } from "../src/tree"
+
+/**
+ * 活对象树契约：操作级校验（非法抛错不改树）、结构操作、
+ * name/default 数据绑定、watch/disposer、onMutate 时机。
+ */
+
+function makeTree() {
+  let mutations = 0
+  const tree = new LiveTree({ onMutate: () => (mutations += 1) })
+  return { tree, ui: tree.ui, count: () => mutations }
+}
+
+describe("LiveTree × $ui", () => {
+  test("add：自动 id 按组件递增，显式 id 冲突抛错", () => {
+    const { ui } = makeTree()
+    const a = ui.add("Button", { content: "A" })
+    const b = ui.add("Button", { content: "B" })
+    expect(a.id).toBe("button0")
+    expect(b.id).toBe("button1")
+    const c = ui.add("Typography.Text", { content: "文本" })
+    expect(c.id).toBe("typographytext0")
+    ui.add("Card", { id: "main" })
+    expect(() => ui.add("Card", { id: "main" })).toThrow("已存在")
+  })
+
+  test("未知组件 / 非法 prop 键：抛错且树不变", () => {
+    const { ui } = makeTree()
+    expect(() => ui.add("Evil")).toThrow("未知组件")
+    expect(() => ui.add("Button", { props: { onclick: 1 } })).toThrow('不接受 prop "onclick"')
+    expect(ui.children.length).toBe(0)
+  })
+
+  test("回调 prop 传 {{ }} 字符串：抛错（活树用真函数）", () => {
+    const { ui } = makeTree()
+    expect(() => ui.add("Button", { props: { tuiOnClick: "{{ () => run() }}" } })).toThrow(
+      "真 JS 函数",
+    )
+    const btn = ui.add("Button")
+    expect(() => {
+      btn.props.tuiOnClick = "{{ () => run() }}"
+    }).toThrow("真 JS 函数")
+    const fn = () => {}
+    btn.props.tuiOnClick = fn
+    expect(btn.props.tuiOnClick).toBe(fn)
+  })
+
+  test("props 代理：非法键抛错、合法读写、delete", () => {
+    const { ui } = makeTree()
+    const btn = ui.add("Button", { props: { type: "primary" } })
+    expect(() => {
+      btn.props.percent = 50
+    }).toThrow("不接受 prop")
+    expect(btn.props.type).toBe("primary")
+    btn.props.disabled = true
+    expect(btn.props.disabled).toBe(true)
+    delete btn.props.disabled
+    expect("disabled" in btn.props).toBe(false)
+    expect(Object.keys(btn.props)).toEqual(["type"])
+  })
+
+  test("remove：级联删除子树，句柄操作报节点不存在", () => {
+    const { ui } = makeTree()
+    const card = ui.add("Card", { id: "card" })
+    const row = card.add("Row", { id: "row" })
+    row.add("Button", { id: "btn" })
+    card.remove()
+    expect(ui.has("card")).toBe(false)
+    expect(ui.has("btn")).toBe(false)
+    expect(() => row.props.gutter).toThrow("不存在")
+    expect(() => ui.get("btn")).toThrow("节点不存在")
+  })
+
+  test("insert 定位与 moveTo：跨父移动、移入自身子树抛错", () => {
+    const { ui } = makeTree()
+    const a = ui.add("Card", { id: "a" })
+    const b = ui.add("Card", { id: "b" })
+    const text = a.add("Typography.Text", { id: "t", content: "内容" })
+    ui.insert(0, "Divider", { id: "d" })
+    expect(ui.children.map((n) => n.id)).toEqual(["d", "a", "b"])
+
+    text.moveTo(b)
+    expect(a.children.length).toBe(0)
+    expect(b.children.map((n) => n.id)).toEqual(["t"])
+    expect(text.parent?.id).toBe("b")
+
+    text.moveTo(null, 0)
+    expect(ui.children.map((n) => n.id)).toEqual(["t", "d", "a", "b"])
+
+    expect(() => a.moveTo(a)).toThrow("自身或其后代")
+    const inner = a.add("Row", { id: "inner" })
+    expect(() => a.moveTo(inner)).toThrow("自身或其后代")
+  })
+
+  test("name 绑定：仅输入组件与 Typography.Text；default 不覆盖已有值", () => {
+    const { ui } = makeTree()
+    expect(() => ui.add("Card", { name: "x" })).toThrow("不支持 name 绑定")
+    ui.add("Input", { name: "keyword", default: "初始" })
+    expect(ui.data.keyword).toBe("初始")
+    ui.add("Typography.Text", { name: "keyword", default: "不应覆盖" })
+    expect(ui.data.keyword).toBe("初始")
+  })
+
+  test("watch：数据变更触发回调，disposer 与 clear 都能注销", () => {
+    const { ui } = makeTree()
+    const seen: unknown[] = []
+    const dispose = ui.watch(
+      () => ui.data.n,
+      (value) => seen.push(value),
+    )
+    ui.data.n = 1
+    expect(seen).toEqual([1])
+    dispose()
+    ui.data.n = 2
+    expect(seen).toEqual([1])
+
+    const seen2: unknown[] = []
+    ui.watch(
+      () => ui.data.m,
+      (value) => seen2.push(value),
+    )
+    ui.clear()
+    ui.data.m = 3
+    expect(seen2).toEqual([])
+  })
+
+  test("clear：清树、清 data；onMutate 只在结构/props 变更时触发", () => {
+    const { ui, count } = makeTree()
+    ui.page({ title: "标题" })
+    const btn = ui.add("Button")
+    btn.props.disabled = true
+    btn.content = "文案"
+    expect(count()).toBe(4)
+
+    ui.data.free = 1
+    expect(count()).toBe(4)
+
+    ui.clear()
+    expect(count()).toBe(4)
+    expect(ui.children.length).toBe(0)
+    expect("free" in ui.data).toBe(false)
+  })
+
+  test("toJSON：函数值以占位符回显（MCP stringify 安全）", () => {
+    const { ui } = makeTree()
+    const btn = ui.add("Button", { content: "跑", props: { tuiOnClick: () => {} } })
+    const json = JSON.parse(JSON.stringify(btn)) as Record<string, unknown>
+    expect(json.component).toBe("Button")
+    expect(json.content).toBe("跑")
+    expect((json.props as Record<string, unknown>).tuiOnClick).toBe("[function]")
+  })
+})
