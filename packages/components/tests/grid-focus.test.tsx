@@ -44,6 +44,55 @@ function renderGrid(log: string[]) {
 }
 
 describe("Row/Col 栅格", () => {
+  test("Row 常用布局 props 与 Col flex 组合出紧凑输入栏", async () => {
+    let value = ""
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <Row gutter={[1, 1]} align="middle" justify="space-between" wrap>
+            <Col flex={1}>
+              <Input value={value} tuiOnChange={(next) => (value = next)} placeholder="搜索" />
+            </Col>
+            <Col>
+              <Button tuiSize="small" tuiOnClick={() => {}}>
+                搜索
+              </Button>
+            </Col>
+          </Row>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 6 },
+    )
+
+    const line = t.frame().split("\n").find((item) => item.includes("搜索"))
+    expect(line).toBeDefined()
+    expect(line!.match(/搜索/g)?.length).toBe(2)
+    expect(line).toContain("│")
+    t.destroy()
+  })
+
+  test("Col offset 按 24 栅格留出左侧空间", async () => {
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <Row>
+            <Col offset={12} span={12}>
+              <Button tuiSize="small" block tuiOnClick={() => {}}>
+                R
+              </Button>
+            </Col>
+          </Row>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 4 },
+    )
+
+    const line = t.frame().split("\n").find((item) => item.includes("R"))
+    expect(line).toBeDefined()
+    expect(line!.indexOf("R")).toBeGreaterThanOrEqual(20)
+    t.destroy()
+  })
+
   test("Col flex 均分：同一 Row 的按钮同行且各占半区", async () => {
     const t = await renderGrid([])
     const lines = t.frame().split("\n")

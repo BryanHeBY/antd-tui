@@ -92,6 +92,18 @@ describe("Input + FocusScope", () => {
     expect(a).toBe("hello!")
     t.destroy()
   })
+
+  test("tuiOnPressEnter 只响应输入框内的 Enter", async () => {
+    let submits = 0
+    const t = await renderTui(
+      wrap(<Input value="query" tuiOnChange={() => {}} tuiOnPressEnter={() => submits++} />),
+      { width: 40, height: 5 },
+    )
+
+    await t.enter()
+    expect(submits).toBe(1)
+    t.destroy()
+  })
 })
 
 describe("Flex", () => {

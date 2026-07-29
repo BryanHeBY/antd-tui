@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import type { TextareaRenderable } from "@opentui/core"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -22,6 +23,8 @@ export interface TextAreaProps {
   disabled?: boolean
   /** 同 antd：可见行数 */
   rows?: number
+  /** 同 antd：CSS 布局样式 */
+  style?: CssLikeStyle
 }
 
 export function TextArea({
@@ -31,6 +34,7 @@ export function TextArea({
   placeholder,
   disabled = false,
   rows = 3,
+  style,
 }: TextAreaProps) {
   const token = useToken()
   const areaRef = useRef<TextareaRenderable | null>(null)
@@ -47,7 +51,9 @@ export function TextArea({
       style={{
         borderStyle: token.borderStyle,
         borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
+        width: "100%",
         height: rows + 2,
+        ...toBoxStyle(style),
       }}
       onMouseDown={() => {
         if (!disabled) requestFocus()

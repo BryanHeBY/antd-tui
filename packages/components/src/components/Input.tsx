@@ -1,5 +1,6 @@
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 import { TextArea, type TextAreaProps } from "./TextArea"
 
 export type { TextAreaProps }
@@ -16,6 +17,8 @@ export interface InputProps {
   placeholder?: string
   /** 同 antd：禁用 */
   disabled?: boolean
+  /** 同 antd：CSS 布局样式；可用 width / flex 控制栅格中的宽度 */
+  style?: CssLikeStyle
   /** 类似 antd onPressEnter，但无 DOM 事件参数；未提供时默认移动焦点到下一个控件 */
   tuiOnPressEnter?: () => void
 }
@@ -25,6 +28,7 @@ export function InputBase({
   tuiOnChange,
   placeholder,
   disabled = false,
+  style,
   tuiOnPressEnter,
 }: InputProps) {
   const token = useToken()
@@ -42,6 +46,7 @@ export function InputBase({
         height: 3,
         paddingLeft: 1,
         paddingRight: 1,
+        ...toBoxStyle(style),
       }}
       onMouseDown={() => {
         if (!disabled) requestFocus()

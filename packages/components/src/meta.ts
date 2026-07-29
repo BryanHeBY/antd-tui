@@ -40,8 +40,8 @@ export const componentWhitelist: string[] = [
  */
 export const componentPropsWhitelist: Record<string, readonly string[]> = {
   FormItem: ["label", "required", "help", "validateStatus"],
-  Input: ["placeholder", "disabled", "value", "tuiOnChange", "tuiOnPressEnter"],
-  TextArea: ["placeholder", "disabled", "rows", "value", "defaultValue", "tuiOnChange"],
+  Input: ["placeholder", "disabled", "value", "style", "tuiOnChange", "tuiOnPressEnter"],
+  TextArea: ["placeholder", "disabled", "rows", "style", "value", "defaultValue", "tuiOnChange"],
   InputNumber: ["placeholder", "disabled", "value", "onChange"],
   Slider: ["min", "max", "step", "disabled", "tuiShowValue", "style", "value", "onChange"],
   Select: ["options", "disabled", "value", "tuiOnChange"],
@@ -70,6 +70,6 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   Descriptions: ["title", "items", "column", "bordered"],
   Spin: ["spinning", "tip", "tuiIntervalMs"],
   Table: ["columns", "dataSource", "rowKey", "bordered", "tuiEmptyText"],
-  Row: ["gutter", "style"],
-  Col: ["span", "flex", "style"],
+  Row: ["gutter", "align", "justify", "wrap", "style"],
+  Col: ["span", "offset", "flex", "style"],
 }

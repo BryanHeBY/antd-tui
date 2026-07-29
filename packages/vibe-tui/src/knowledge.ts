@@ -40,8 +40,16 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   未知组件名与未知 props 键会立即抛错，按错误信息里的可用列表修
 - Flex：antd Flex 语义，props 可用 vertical / gap / justify / align / wrap / flex / style；
   终端滚动内容区用 tuiScroll: true（TUI 扩展）。
+- 栅格：用 Row + Col，不要把 Input/Button 直接并排放进 Row。Row 的 gutter / align / justify / wrap
+  与 antd 同名；Col 用 flex: 1 均分、span: 12 占半行、offset 留空。Input / TextArea 的 style
+  可传 width 或 flex；紧凑搜索栏可写：
+  \`var row = $ui.add("Row", { props: { gutter: 1, align: "middle" } });
+   row.add("Col", { props: { flex: 1 } }).add("Input", { name: "query", props: { placeholder: "搜索" } });
+   row.add("Col").add("Button", { content: "搜索", props: { tuiOnClick: () => $agent.send("search", $ui.data.query) } })\`
 - 文案用 content（Button 文案、Typography.Text 文本）
 - props 值可以是真函数：{ tuiOnClick: () => $agent.send('run') }；禁止 "{{ }}" 字符串
+- Input 的 \`tuiOnPressEnter\` 是“输入框内按 Enter”事件（终端没有 DOM event 参数，故用 tui 前缀）；
+  它与 Button 的 \`tuiHotkey: "enter"\` 无关，输入框聚焦时按钮热键不会触发。
 - 修改即刻生效：$ui.get(id).props.percent = 60、$ui.get(id).content = "新文案"、
   $ui.get(id).remove()、节点.moveTo(target, index?)
 
