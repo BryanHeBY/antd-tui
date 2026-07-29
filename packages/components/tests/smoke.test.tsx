@@ -50,6 +50,19 @@ describe("Button", () => {
 })
 
 describe("Input + FocusScope", () => {
+  test("默认占满父容器，文本不被原生控件标题装饰遮挡", async () => {
+    const t = await renderTui(wrap(<Input value="antd" tuiOnChange={() => {}} />), {
+      width: 40,
+      height: 5,
+    })
+
+    const line = t.frame().split("\\n").find((item) => item.includes("antd"))
+    expect(line).toBeDefined()
+    expect(line).not.toContain("Console")
+    expect(line).not.toContain("Copy")
+    t.destroy()
+  })
+
   test("输入进入聚焦控件，Tab 切换焦点", async () => {
     let a = ""
     let b = ""

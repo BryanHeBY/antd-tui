@@ -36,6 +36,9 @@ export function InputBase({
       style={{
         borderStyle: token.borderStyle,
         borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
+        // antd Input 在可用行宽内默认占满；终端列布局中也不能被压缩。
+        width: "100%",
+        flexShrink: 0,
         height: 3,
         paddingLeft: 1,
         paddingRight: 1,
