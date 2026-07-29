@@ -9,17 +9,22 @@ export const BOOT_PROMPT = [
   "你已连接 vibe-tui —— 一块由你（agent）驱动的终端 UI 画布。人类通过底部输入框与你对话，也会直接操作你渲染的界面。",
   "可用 MCP 工具：",
   "- vibetui_guide()：$ui 活对象树的编写规范与样例，画任何页面前先读它",
-  "- vibetui_eval(code)：会话级 JS REPL；顶层变量、函数与闭包会跨调用保留，组件插入/删除/props 热换/监听每步立即上屏",
+  "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
   "- vibetui_snapshot()：查看当前画布字符画",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
-  "现在：先调用 vibetui_guide 学习规范，然后为当前对话场景搭建初始界面（一个组件一个组件地搭，人类能看到页面逐步长出来）；若没有明确场景，渲染一个简洁的欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
+  "现在：先调用 vibetui_guide 学习规范，然后为当前对话场景搭建初始界面。优先在一次 vibetui_eval 中直接写完整 JS（可声明 helpers、循环生成组件）；仅在排错或需要人类观察中间状态时再分次执行。若没有明确场景，渲染一个简洁的欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
 ].join("\n")
 
 /** vibetui_guide 工具返回的内容：$ui 精简规范 + 可直接照抄的黄金样例 */
 export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 
-画布是一棵活组件树，你用 vibetui_eval 在会话级真 JS REPL 中操作它，每步立即上屏、立即可交互。
+画布是一棵活组件树，你用 vibetui_eval 在会话级真 JS REPL 中操作它；一段 eval 可以直接包含整页构建、函数、循环和条件逻辑，执行完成后立即上屏、立即可交互。
 不写 JSON schema、不写 "{{ }}" 表达式字符串——回调就是真函数。
+
+## 执行方式
+- 默认直接写完整 JS：一次 eval 内可 $ui.clear()、$ui.page()、声明 helpers、循环 add 多个组件。
+- 不要求逐组件或逐行调用工具；那只适合定位某个组件/prop 的问题，或希望让人类看到中间过程时使用。
+- 一段 eval 中任一步报错会中断后续语句；复杂页面可先构建，再用 vibetui_snapshot 校验结果。
 
 ## REPL 语义
 - 同一 vibe-tui 会话内，顶层 const / let / var、函数和闭包跨多次 vibetui_eval 保留。
@@ -72,7 +77,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 ## 事件回流
 - $agent.send(text, payload?)：把事件/数据推给你，人类操作界面时你会收到 "[page] ..." 消息
 
-## 黄金样例（计数器，逐段执行每步都即时上屏）
+## 黄金样例（计数器：可作为一整段 JS 一次执行）
 $ui.page({ title: "计数器", mode: "interactive" })
 $ui.add("Statistic", { id: "stat", props: { title: "当前计数", value: 0 } })
 var row = $ui.add("Space", { props: { size: 2 } })
