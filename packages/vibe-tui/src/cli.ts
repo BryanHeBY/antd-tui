@@ -78,10 +78,43 @@ async function main(): Promise<void> {
     process.exit(3)
   }
 
-  // Ctrl+C 由 VibeApp 接管：先删临时会话再退出
+  // Ctrl+C / Esc×2 由 VibeApp 接管：先删临时会话，再经 onQuit 走这里的收尾
   const renderer = await createCliRenderer({ exitOnCtrlC: false })
+
+  // 退出前必须销毁 renderer：它负责发终端恢复序列（关鼠标追踪/退备用屏/显示光标）。
+  // 直接 process.exit 会把终端留在鼠标上报模式，退出后满屏 "35;x;yM" 乱码。
+  let torndown = false
+  const shutdown = (code: number) => {
+    if (!torndown) {
+      torndown = true
+      try {
+        renderer.destroy()
+      } catch {
+        // 恢复失败也要退出
+      }
+    }
+    process.exit(code)
+  }
+  process.on("SIGTERM", () => shutdown(0))
+  process.on("uncaughtException", (err) => {
+    if (!torndown) {
+      torndown = true
+      try {
+        renderer.destroy()
+      } catch {
+        // 忽略
+      }
+    }
+    process.stderr.write(`${err.stack ?? String(err)}\n`)
+    process.exit(1)
+  })
+
   createRoot(renderer).render(
-    React.createElement(VibeApp, { agentCmd, resumeSessionId: resume || undefined }),
+    React.createElement(VibeApp, {
+      agentCmd,
+      resumeSessionId: resume || undefined,
+      onQuit: () => shutdown(0),
+    }),
   )
 }
 

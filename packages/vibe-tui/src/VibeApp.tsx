@@ -25,6 +25,8 @@ export interface VibeAppProps {
   agentCmd: string[]
   /** 复用既有会话：经 session/load 恢复，历史回放进对话记录；此类会话退出时不删除 */
   resumeSessionId?: string
+  /** 退出回调（Esc×2 / Ctrl+C 触发，会话清理完成后调用）；缺省 process.exit(0) */
+  onQuit?: () => void
 }
 
 interface PageState {
@@ -35,7 +37,7 @@ interface PageState {
 
 const LOG_LIMIT = 300
 
-export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
+export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   const [page, setPage] = useState<PageState | null>(null)
   const [status, setStatus] = useState("agent 启动中…")
   const [log, setLog] = useState<string[]>([])
@@ -150,18 +152,34 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
     [],
   )
 
-  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板，Esc 逐层返回；
-  // Ctrl+C 自行接管：先清理临时会话（session/delete）再退出
+  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板；
+  // Esc 逐层返回（日志面板 → 页面模式 → 顶层双击退出）；
+  // 退出（Esc×2 / Ctrl+C）先清理临时会话（session/delete）再走 onQuit
+  const lastEscRef = useRef(0)
+  const quit = () => {
+    const done = onQuit ?? (() => process.exit(0))
+    const client = clientRef.current
+    if (client) void client.stop().finally(done)
+    else done()
+  }
+
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
-      const client = clientRef.current
-      if (client) void client.stop().finally(() => process.exit(0))
-      else process.exit(0)
+      quit()
     } else if (key.name === "f2") setPageMode((v) => !v)
     else if (key.name === "f3") setShowLog((v) => !v)
     else if (key.name === "escape") {
       if (showLog) setShowLog(false)
       else if (pageMode) setPageMode(false)
+      else {
+        // 顶层 Esc：双击确认退出，防止误触丢会话
+        const now = Date.now()
+        if (now - lastEscRef.current < 2000) quit()
+        else {
+          lastEscRef.current = now
+          setStatus("再按一次 Esc 退出 vibe-tui")
+        }
+      }
     }
   })
 
@@ -304,7 +322,11 @@ function StatusLine({
   }, [busy])
 
   const indicator = busy ? `${SPINNER_FRAMES[tick % SPINNER_FRAMES.length]} 运行中` : "· 空闲"
-  const tag = showLog ? "[对话记录 Esc 关闭]" : pageMode ? "[页面模式 Esc 返回]" : "[输入模式 F2 页面 · F3 对话]"
+  const tag = showLog
+    ? "[对话记录 Esc 关闭]"
+    : pageMode
+      ? "[页面模式 Esc 返回]"
+      : "[输入模式 F2 页面 · F3 对话 · Esc×2 退出]"
   const line = truncateToWidth(
     `${indicator} ${tag} ${status.replace(/\s+/g, " ")}`,
     Math.max(1, width - 2),

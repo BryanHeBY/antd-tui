@@ -169,3 +169,29 @@ describe("会话复用（--resume）", () => {
     t.destroy()
   }, 20000)
 })
+
+describe("全局退出（Esc×2）", () => {
+  test("顶层第一次 Esc 提示，第二次触发退出回调；面板/页面模式的 Esc 不受影响", async () => {
+    let quitted = false
+    const t = await renderTui(
+      <VibeApp agentCmd={["bun", MOCK_AGENT]} onQuit={() => (quitted = true)} />,
+      { width: 100, height: 24 },
+    )
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
+
+    // F3 面板里的 Esc 只关面板，不算退出计数
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    await t.escape()
+    await t.waitUntil(() => !t.frame().includes("对话记录"), 2000)
+    expect(quitted).toBe(false)
+
+    // 顶层：第一次 Esc 提示，第二次退出
+    await t.escape()
+    await t.waitUntil(() => t.frame().includes("再按一次 Esc 退出"), 2000)
+    expect(quitted).toBe(false)
+    await t.escape()
+    await t.waitUntil(() => quitted, 3000)
+    t.destroy()
+  }, 20000)
+})
