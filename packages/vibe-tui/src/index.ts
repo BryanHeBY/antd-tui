@@ -1,2 +1,9 @@
 export { VibeApp, type VibeAppProps } from "./VibeApp"
-export { AcpClient, type AcpClientHandlers, type AcpClientOptions, type RenderResult } from "./acp"
+export {
+  AcpClient,
+  listAgentSessions,
+  type AcpClientHandlers,
+  type AcpClientOptions,
+  type AgentSessionInfo,
+  type RenderResult,
+} from "./acp"

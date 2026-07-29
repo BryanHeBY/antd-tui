@@ -17,6 +17,8 @@ import { AcpClient } from "./acp"
 export interface VibeAppProps {
   /** agent 启动命令（argv 形式），如 ["bun", "mock-agent.ts"] */
   agentCmd: string[]
+  /** 复用既有会话：经 session/load 恢复，历史回放进对话记录；此类会话退出时不删除 */
+  resumeSessionId?: string
 }
 
 interface PageState {
@@ -27,7 +29,7 @@ interface PageState {
 
 const LOG_LIMIT = 300
 
-export function VibeApp({ agentCmd }: VibeAppProps) {
+export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
   const [page, setPage] = useState<PageState | null>(null)
   const [status, setStatus] = useState("agent 启动中…")
   const [log, setLog] = useState<string[]>([])
@@ -66,7 +68,9 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
 
   const clientRef = useRef<AcpClient | null>(null)
   if (clientRef.current === null) {
-    clientRef.current = new AcpClient(agentCmd, {
+    clientRef.current = new AcpClient(
+      agentCmd,
+      {
       onRender: (raw) => {
         const result = validatePageSchema(raw, componentWhitelist, componentPropsWhitelist)
         if (!result.ok) return { ok: false, errors: result.errors }
@@ -81,14 +85,20 @@ export function VibeApp({ agentCmd }: VibeAppProps) {
         pushLines([`agent 已退出（code ${code ?? "?"}）`])
         setStatus(`agent 已退出（code ${code ?? "?"}）`)
       },
-    })
+      },
+      { sessionId: resumeSessionId },
+    )
   }
   const acp = clientRef.current
 
   useEffect(() => {
     void acp
       .start()
-      .then(() => setStatus("agent 就绪，输入 prompt 开始"))
+      .then(() =>
+        setStatus(
+          resumeSessionId ? "会话已恢复（F3 查看历史），继续输入 prompt" : "agent 就绪，输入 prompt 开始",
+        ),
+      )
       .catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
     return () => {
       void acp.stop()

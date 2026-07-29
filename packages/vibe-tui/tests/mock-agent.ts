@@ -33,10 +33,32 @@ function counterSchema(n: number): Record<string, unknown> {
 const app = agent()
   .onRequest("initialize", () => ({
     protocolVersion: 1,
-    agentCapabilities: {},
+    agentCapabilities: { loadSession: true, sessionCapabilities: { list: {} } },
     authMethods: [],
   }))
   .onRequest("session/new", () => ({ sessionId: "mock-session" }))
+  .onRequest("session/load", async (cx) => {
+    // 恢复会话：把历史对话经 session/update 回放（与真实 agent 一致）
+    for (const line of ["> 历史提问", "历史回答第一行", "历史回答第二行"]) {
+      await cx.client.notify("session/update", {
+        sessionId: cx.params.sessionId,
+        update: {
+          sessionUpdate: "agent_message_chunk",
+          content: { type: "text", text: `${line}\n` },
+        },
+      })
+    }
+    return {}
+  })
+  .onRequest(
+    "session/list",
+    (params: unknown) => params as Record<string, never>,
+    () => ({
+      sessions: [
+        { sessionId: "mock-old", title: "历史会话", updatedAt: "2026-07-29T00:00:00Z" },
+      ],
+    }),
+  )
   .onRequest("session/prompt", async (cx) => {
     const text = cx.params.prompt
       .map((block) => ("text" in block ? block.text : ""))

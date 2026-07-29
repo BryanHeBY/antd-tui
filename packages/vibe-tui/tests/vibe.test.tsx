@@ -141,3 +141,28 @@ describe("vibe-tui × mock agent", () => {
     t.destroy()
   })
 })
+
+describe("会话复用（--resume）", () => {
+  test("session/load 恢复：历史经 update 回放进对话记录，可继续对话", async () => {
+    const t = await renderTui(
+      <VibeApp agentCmd={["bun", MOCK_AGENT]} resumeSessionId="mock-old" />,
+      { width: 70, height: 24 },
+    )
+
+    // 恢复完成：历史回放已进入缓冲
+    await t.waitUntil(() => t.frame().includes("会话已恢复"), 8000)
+
+    // F3 对话面板能看到回放的历史
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    expect(t.frame()).toContain("历史回答第一行")
+    expect(t.frame()).toContain("历史回答第二行")
+    await t.escape()
+
+    // 恢复的会话可继续正常对话（prompt → 渲染页面）
+    await t.type("counter")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("计数器"), 8000)
+    t.destroy()
+  }, 20000)
+})

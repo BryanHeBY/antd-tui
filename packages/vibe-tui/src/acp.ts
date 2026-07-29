@@ -2,12 +2,13 @@
  * ACP 客户端桥：基于官方 @agentclientprotocol/sdk（不自研 JSON-RPC）。
  *
  * vibe-tui 是 client，agent 是子进程（NDJSON stdio）：
- *   client → agent：initialize / session/new / session/prompt（人类输入与页面事件都走 prompt）
- *   agent → client 通知：session/update（流式文本，喂状态行）
+ *   client → agent：initialize / session/new 或 session/load（复用会话，历史回放）
+ *                    / session/prompt（人类输入与页面事件都走 prompt）
+ *   agent → client 通知：session/update（流式文本，喂状态行；load 的历史回放同通道）
  *   agent → client 扩展请求：_vibetui/render { schema } —— 渲染/替换画板页面，
  *     校验失败时响应携带 errors，agent 可据此自修
  */
-import { client, ndJsonStream, type ActiveSession, type ClientContext } from "@agentclientprotocol/sdk"
+import { client, ndJsonStream, type ClientContext } from "@agentclientprotocol/sdk"
 
 export interface RenderResult {
   ok: boolean
@@ -19,22 +20,31 @@ export interface AcpClientHandlers {
   onRender: (schema: unknown) => RenderResult
   /** session/update 流式文本片段（chunk 是碎片而非整行，由上层拼接） */
   onUpdate: (text: string) => void
-  /** 一轮 prompt 结束（stop 消息），上层可冲刷未完的流式行 */
+  /** 一轮 prompt 结束，上层可冲刷未完的流式行 */
   onTurnEnd?: () => void
   /** agent 进程退出 */
   onExit: (code: number | null) => void
 }
 
 export interface AcpClientOptions {
-  /** 退出时删除临时 ACP session，默认开启 */
+  /** 退出时删除临时 ACP session，默认开启；恢复的会话（sessionId 指定）永不删除 */
   ephemeral?: boolean
-  /** 等待 initialize + session/new 完成的最长时间，默认 10 秒 */
+  /** 等待 initialize + session 建立完成的最长时间，默认 10 秒 */
   startupTimeoutMs?: number
+  /** 复用既有会话：经 session/load 恢复（需 agent 声明 loadSession 能力），历史经 update 回放 */
+  sessionId?: string
 }
+
+interface SessionUpdateParams {
+  sessionId?: string
+  update?: { content?: { text?: string } }
+}
+
 
 export class AcpClient {
   private proc: ReturnType<typeof Bun.spawn> | null = null
-  private session: ActiveSession | null = null
+  private sessionId: string | null = null
+  private resumed = false
   private ctx: ClientContext | null = null
   private canDeleteSession = false
   private stopped = false
@@ -112,38 +122,58 @@ export class AcpClient {
     }
     void this.proc.exited.then(handleExit)
 
-    const app = client().onRequest(
-      "_vibetui/render",
-      (params: unknown) => params as { schema: unknown },
-      (cx) => this.handlers.onRender(cx.params.schema),
-    )
+    const app = client()
+      .onRequest(
+        "_vibetui/render",
+        (params: unknown) => params as { schema: unknown },
+        (cx) => this.handlers.onRender(cx.params.schema),
+      )
+      // 统一的 update 通道：新会话的流式输出与 session/load 的历史回放走同一处理
+      .onNotification("session/update", (cx) => {
+        const params = cx.params as SessionUpdateParams
+        if (this.sessionId && params.sessionId !== this.sessionId) return
+        const text = params.update?.content?.text
+        if (text) this.handlers.onUpdate(text)
+      })
 
-    // 长驻连接：建会话后持续泵 session/update 到状态行，连接关闭时结束
+    // 长驻连接：会话建立后保持挂起，通知经上面的 handler 分发，连接关闭时结束
     void app
       .connectWith(stream, async (ctx) => {
         this.ctx = ctx
         const init = (await ctx.request("initialize", {
           protocolVersion: 1,
           clientCapabilities: {},
-        })) as { agentCapabilities?: { sessionCapabilities?: { delete?: unknown } } }
+        })) as {
+          agentCapabilities?: { loadSession?: boolean; sessionCapabilities?: { delete?: unknown } }
+        }
         // ACP 用 null/undefined 都表示未声明该能力；只有对象才代表支持 delete。
         this.canDeleteSession = init.agentCapabilities?.sessionCapabilities?.delete != null
-        const session = await ctx.buildSession(process.cwd()).start()
-        this.session = session
-        this.resolveReady()
-        for (;;) {
-          const msg = await session.nextUpdate()
-          if (msg.kind === "session_update") {
-            const update = msg.update as { content?: { text?: string } }
-            if (update.content?.text) this.handlers.onUpdate(update.content.text)
-          } else if (msg.kind === "stop") {
-            // 一轮 prompt 结束，通知上层冲刷流式缓冲，继续等下一轮
-            this.handlers.onTurnEnd?.()
+
+        if (this.options.sessionId) {
+          if (init.agentCapabilities?.loadSession !== true) {
+            throw new Error("该 agent 不支持恢复会话（未声明 loadSession 能力）")
           }
+          // 先记 sessionId：load 期间历史就开始经 session/update 回放
+          this.sessionId = this.options.sessionId
+          this.resumed = true
+          await ctx.request("session/load", {
+            sessionId: this.options.sessionId,
+            cwd: process.cwd(),
+            mcpServers: [],
+          })
+        } else {
+          const created = (await ctx.request("session/new", {
+            cwd: process.cwd(),
+            mcpServers: [],
+          })) as { sessionId: string }
+          this.sessionId = created.sessionId
         }
+        this.resolveReady()
+        // 保持连接存活（op 返回即断开）
+        await new Promise<never>(() => {})
       })
       .catch(async (err: unknown) => {
-        // initialize/session/new 失败时必须让 start() 返回失败，不能永远停在「启动中」。
+        // initialize/session 建立失败时必须让 start() 返回失败，不能永远停在「启动中」。
         // 如果连接正因子进程退出而断开，先等待退出码并触发 onExit，确保 start()
         // 失败时宿主状态不会短暂落后于真实进程状态。
         const proc = this.proc
@@ -158,29 +188,45 @@ export class AcpClient {
     await this.ready
   }
 
-  /** 发送一轮 prompt（人类输入或页面事件回流）；不阻塞等待轮次结束 */
+  /** 发送一轮 prompt（人类输入或页面事件回流）；轮次结束时触发 onTurnEnd */
   prompt(text: string): void {
-    void this.ready.then(() => {
-      void this.session?.prompt(text).catch(() => {
-        // 轮次失败不致命：agent 侧可经 session/update 反馈
+    void this.ready
+      .then(() => {
+        if (!this.ctx || !this.sessionId) return
+        void this.ctx
+          .request("session/prompt", {
+            sessionId: this.sessionId,
+            prompt: [{ type: "text", text }],
+          })
+          .then(() => this.handlers.onTurnEnd?.())
+          .catch(() => {
+            // 轮次失败不致命：agent 侧可经 session/update 反馈
+          })
       })
-    }).catch(() => {
-      // agent 尚未成功启动或已退出：丢弃无法送达的输入，避免未处理拒绝。
-    })
+      .catch(() => {
+        // agent 尚未成功启动或已退出：丢弃无法送达的输入，避免未处理拒绝。
+      })
   }
 
   /**
    * 结束会话。ephemeral（默认开启）且 agent 声明支持 session/delete 时，
    * 退出前删除本次会话，避免临时使用在 agent 侧堆积会话记录。
+   * 恢复的会话（--resume）是持久资产，永不删除。
    */
   async stop(): Promise<void> {
     this.stopped = true
     this.rejectReady(new Error("agent 已停止"))
-    if (this.options.ephemeral !== false && this.canDeleteSession && this.ctx && this.session) {
+    if (
+      this.options.ephemeral !== false &&
+      !this.resumed &&
+      this.canDeleteSession &&
+      this.ctx &&
+      this.sessionId
+    ) {
       try {
         await this.ctx.request(
           "session/delete",
-          { sessionId: this.session.sessionId },
+          { sessionId: this.sessionId },
           { timeout: 2000 } as never,
         )
       } catch {
@@ -188,5 +234,37 @@ export class AcpClient {
       }
     }
     this.proc?.kill()
+  }
+}
+
+export interface AgentSessionInfo {
+  sessionId: string
+  title?: string
+  cwd?: string
+  updatedAt?: string
+}
+
+/**
+ * 列出 agent 侧的会话（session/list，qodercli 等在 sessionCapabilities.list 声明）。
+ * 一次性连接：initialize → session/list → 断开。
+ */
+export async function listAgentSessions(cmd: string[]): Promise<AgentSessionInfo[]> {
+  const proc = Bun.spawn(cmd, { stdin: "pipe", stdout: "pipe", stderr: "ignore" })
+  const sink = proc.stdin as import("bun").FileSink
+  const output = new WritableStream<Uint8Array>({
+    write: (chunk) => {
+      sink.write(chunk)
+      void sink.flush()
+    },
+  })
+  const stream = ndJsonStream(output, proc.stdout as ReadableStream<Uint8Array>)
+  try {
+    return await client().connectWith(stream, async (ctx) => {
+      await ctx.request("initialize", { protocolVersion: 1, clientCapabilities: {} })
+      const result = (await ctx.request("session/list", {})) as { sessions?: AgentSessionInfo[] }
+      return result.sessions ?? []
+    })
+  } finally {
+    proc.kill()
   }
 }
