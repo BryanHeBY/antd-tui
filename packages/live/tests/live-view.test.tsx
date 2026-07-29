@@ -3,6 +3,7 @@ import { renderTui } from "@antd-tui/test-utils"
 import { ConfigProvider, FocusScope, displayWidth } from "@antd-tui/components"
 import { LiveTree } from "../src/tree"
 import { LiveView } from "../src/LiveView"
+import { buildCalculator } from "../../../examples/repl/calculator"
 
 /**
  * LiveView 渲染契约：$ui 每步操作即时上屏（observable 自驱）、
@@ -33,6 +34,45 @@ async function mount(tree: LiveTree) {
 }
 
 describe("LiveView × $ui", () => {
+  test("挂起/恢复页面 FocusScope 后，滚动内容仍保留完整可用宽度", async () => {
+    const { useState } = await import("react")
+    const tree = new LiveTree()
+    buildCalculator(tree.ui)
+    let setPageMode: (value: boolean) => void = () => {}
+
+    function Demo() {
+      const [pageMode, setMode] = useState(false)
+      setPageMode = setMode
+      return (
+        <ConfigProvider>
+          <FocusScope>
+            <box style={{ width: "100%", height: "100%", flexDirection: "column" }}>
+              <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
+                <FocusScope suspended={!pageMode}>
+                  <LiveView tree={tree} hideHint handleEscape={false} />
+                </FocusScope>
+              </box>
+            </box>
+          </FocusScope>
+        </ConfigProvider>
+      )
+    }
+
+    const t = await renderTui(<Demo />, { width: 80, height: 24 })
+    const wideX = locate(t.frame(), "÷").x
+    expect(wideX).toBeGreaterThan(55)
+
+    // 对应 vibe-tui F2 的连续页面模式切换。
+    setPageMode(true)
+    await t.settle()
+    setPageMode(false)
+    await t.settle()
+    setPageMode(true)
+    await t.settle()
+    expect(locate(t.frame(), "÷").x).toBeGreaterThan(55)
+    t.destroy()
+  }, 20000)
+
   test("逐步 add 即时上屏；中途插入兄弟不丢已有输入", async () => {
     const tree = new LiveTree()
     const ui = tree.ui

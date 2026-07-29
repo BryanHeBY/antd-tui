@@ -45,12 +45,21 @@ export function Flex({
   }
 
   if (tuiScroll) {
+    // ScrollBox 内部的 content 是独立 Yoga 根节点。它若只按内容测量，父 FocusScope
+    // 重新挂起/恢复时可能丢失可用宽度，导致带 flex 的 Row/Col 退化成内容宽度。
+    // 纵向滚动区是页面布局的块级容器，视口与内容都必须显式撑满横轴。
+    const scrollLayout = vertical && style?.width === undefined ? { ...layout, width: "100%" } : layout
     return (
       <scrollbox
-        style={layout}
+        style={scrollLayout}
         scrollY
         scrollX={false}
-        contentOptions={{ flexDirection: vertical ? "column" : "row", gap, minHeight: "100%" }}
+        contentOptions={{
+          flexDirection: vertical ? "column" : "row",
+          gap,
+          minHeight: "100%",
+          ...(vertical ? { width: "100%" } : {}),
+        }}
       >
         {children}
       </scrollbox>

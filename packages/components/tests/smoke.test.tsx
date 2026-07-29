@@ -131,6 +131,29 @@ describe("Flex", () => {
     expect(secondLine).toBeGreaterThan(firstLine + 1)
     t.destroy()
   })
+
+  test("tuiScroll 的纵向内容保持父容器全宽", async () => {
+    const t = await renderTui(
+      wrap(
+        <Flex vertical tuiScroll style={{ height: "100%" }}>
+          <Flex gap={1}>
+            <Button tuiSize="small" block style={{ width: 30 }} tuiOnClick={() => {}}>
+              left
+            </Button>
+            <Button tuiSize="small" block style={{ width: 30 }} tuiOnClick={() => {}}>
+              right
+            </Button>
+          </Flex>
+        </Flex>,
+      ),
+      { width: 80, height: 8 },
+    )
+
+    const line = t.frame().split("\n").find((item) => item.includes("left"))
+    expect(line).toBeDefined()
+    expect(line!.indexOf("right")).toBeGreaterThan(30)
+    t.destroy()
+  })
 })
 
 describe("List + Typography.Link", () => {
