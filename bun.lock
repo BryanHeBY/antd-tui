@@ -5,9 +5,14 @@
     "": {
       "name": "antd-tui",
       "devDependencies": {
+        "@antd-tui/components": "workspace:*",
+        "@antd-tui/live": "workspace:*",
+        "@opentui/core": "latest",
+        "@opentui/react": "latest",
         "@types/bun": "^1.2.0",
         "@types/node": "^22.0.0",
         "@types/react": "^19.0.0",
+        "react": "^19.0.0",
         "typescript": "^5.7.0",
       },
     },
@@ -57,6 +62,21 @@
         "@antd-tui/test-utils": "workspace:*",
       },
     },
+    "packages/live": {
+      "name": "@antd-tui/live",
+      "version": "0.1.0",
+      "dependencies": {
+        "@antd-tui/components": "workspace:*",
+        "@formily/reactive": "^2.3.7",
+        "@formily/reactive-react": "^2.3.7",
+        "@opentui/core": "latest",
+        "@opentui/react": "latest",
+        "react": "^19.0.0",
+      },
+      "devDependencies": {
+        "@antd-tui/test-utils": "workspace:*",
+      },
+    },
     "packages/test-utils": {
       "name": "@antd-tui/test-utils",
       "version": "0.1.0",
@@ -74,6 +94,7 @@
         "@antd-tui/components": "workspace:*",
         "@antd-tui/engine": "workspace:*",
         "@antd-tui/formily": "workspace:*",
+        "@antd-tui/live": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@opentui/core": "latest",
         "@opentui/react": "latest",
@@ -93,6 +114,8 @@
     "@antd-tui/engine": ["@antd-tui/engine@workspace:packages/engine"],
 
     "@antd-tui/formily": ["@antd-tui/formily@workspace:packages/formily"],
+
+    "@antd-tui/live": ["@antd-tui/live@workspace:packages/live"],
 
     "@antd-tui/test-utils": ["@antd-tui/test-utils@workspace:packages/test-utils"],
 
