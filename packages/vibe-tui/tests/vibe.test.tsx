@@ -7,8 +7,8 @@ import { AcpClient } from "../src/acp"
 
 /**
  * vibe-tui × mock agent 的闭环 E2E：
- * 输入 prompt → agent 经 _vibetui/render 下发页面 → 画板渲染 →
- * 鼠标点按钮触发 $agent.send 回流 → agent 重渲染 → 帧更新。
+ * 输入 prompt → agent 经 MCP vibetui_eval 用 $ui 搭页面 → 画板渲染 →
+ * 鼠标点按钮触发 $agent.send 回流 → agent 热换 → 帧更新。
  */
 
 const MOCK_AGENT = join(import.meta.dir, "mock-agent.ts")
@@ -29,7 +29,6 @@ describe("vibe-tui × mock agent", () => {
   test("agent 在握手前退出时，start() 会明确失败而不是永久等待", async () => {
     const state: { exitCode: number | null } = { exitCode: null }
     const client = new AcpClient(["bun", "-e", "process.exit(7)"], {
-      onRender: () => ({ ok: true }),
       onUpdate: () => {},
       onExit: (code) => {
         state.exitCode = code
@@ -196,26 +195,8 @@ describe("全局退出（Esc×2）", () => {
   }, 20000)
 })
 
-describe("$schema REPL：增量搭建", () => {
-  test("agent 经 vibetui_eval 逐块搭页面，每步即时上屏", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
-      width: 100,
-      height: 24,
-    })
-    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
-
-    await t.type("build")
-    await t.enter()
-    // 三步依次生效：标题 → 第一块 → 第二块（空画布起步，无需先 render）
-    await t.waitUntil(() => t.frame().includes("增量构建"), 8000)
-    await t.waitUntil(() => t.frame().includes("第一块"), 8000)
-    await t.waitUntil(() => t.frame().includes("第二块"), 8000)
-    t.destroy()
-  }, 20000)
-})
-
 describe("$ui 活对象树 REPL", () => {
-  test("agent 逐步搭活树 → 真函数点击回流 → render 切回 schema 通路", async () => {
+  test("agent 逐步搭活树 → 真函数点击回流 → 重建时清空旧内容", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
       width: 100,
       height: 24,
@@ -234,7 +215,7 @@ describe("$ui 活对象树 REPL", () => {
     await t.raw.mockMouse.click(pos.x, pos.y)
     await t.waitUntil(() => t.frame().includes("收到 live-hit"), 8000)
 
-    // 最后写者胜：vibetui_render（counter 场景）切回 schema 通路，活树内容消失
+    // 重建页面（counter 场景先 $ui.clear()）：旧活树内容消失
     await t.type("counter")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("当前计数"), 8000)

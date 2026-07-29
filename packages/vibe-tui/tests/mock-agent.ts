@@ -1,35 +1,11 @@
 /**
  * Mock ACP agent（测试替身）：用官方 SDK 的 agent() 实现最小 ACP 服务，
- * 演示/测试 vibe-tui 闭环——收到 prompt 后经 _vibetui/render 下发计数器页面，
- * 页面按钮 $agent.send('inc') 回流后计数 +1 并重渲染。
+ * 演示/测试 vibe-tui 闭环——收到 prompt 后经 MCP vibetui_eval 用 $ui 活对象树搭页面，
+ * 页面按钮 $agent.send('inc') 回流后计数 +1 并热换 Statistic。
  */
 import { agent, ndJsonStream } from "@agentclientprotocol/sdk"
 
 let count = 0
-
-function counterSchema(n: number): Record<string, unknown> {
-  return {
-    version: "0.1",
-    page: { title: "计数器", mode: "interactive" },
-    form: {
-      type: "object",
-      properties: {
-        stat: {
-          type: "void",
-          "x-component": "Statistic",
-          "x-component-props": { title: "当前计数", value: n },
-        },
-        btnInc: {
-          type: "void",
-          "x-component": "Button",
-          "x-content": "+1",
-          "x-component-props": { tuiSize: "small", tuiOnClick: "{{ () => $agent.send('inc') }}" },
-        },
-      },
-    },
-  }
-}
-
 let mcpUrl: string | null = null
 
 /** 以 MCP HTTP 客户端身份调用 vibe-tui 画布工具（无状态传输,单次 POST 即可） */
@@ -62,7 +38,10 @@ const app = agent()
     return { sessionId: "mock-session" }
   })
   .onRequest("session/load", async (cx) => {
-    // 恢复会话：把历史对话经 session/update 回放（与真实 agent 一致）
+    // 恢复会话也携带 mcpServers（与 session/new 一致）：捕获画布地址
+    const servers = (cx.params.mcpServers ?? []) as Array<{ url?: string }>
+    mcpUrl = servers[0]?.url ?? mcpUrl
+    // 把历史对话经 session/update 回放（与真实 agent 一致）
     for (const line of ["> 历史提问", "历史回答第一行", "历史回答第二行"]) {
       await cx.client.notify("session/update", {
         sessionId: cx.params.sessionId,
@@ -104,24 +83,9 @@ const app = agent()
       return { stopReason: "end_turn" as const }
     }
 
-    // 增量搭建场景：经 $schema 代理一块一块把页面搭出来（REPL 行为验收）
-    if (text.includes("build")) {
-      await callCanvas('$schema.page.title = "增量构建"')
-      await say("已设标题\n")
-      await callCanvas(
-        '$schema.form.properties.b1 = { type: "void", "x-component": "Button", "x-content": "第一块", "x-component-props": { "tuiSize": "small" } }',
-      )
-      await say("已加第一块\n")
-      await callCanvas(
-        '$schema.form.properties.b2 = { type: "void", "x-component": "Button", "x-content": "第二块", "x-component-props": { "tuiSize": "small" } }',
-      )
-      await say("已加第二块\n")
-      return { stopReason: "end_turn" as const }
-    }
-
-    // $ui 活对象树场景：真函数 handler、props 热换（live 通路验收）
+    // $ui 活对象树场景：真函数 handler、props 热换（活树验收）
     if (text.includes("live-hit")) {
-      // 活树按钮回流：只确认收到，不渲染（保持画布仍是 live）
+      // 活树按钮回流：只确认收到，不改画布
       await say("收到 live-hit\n")
       return { stopReason: "end_turn" as const }
     }
@@ -148,14 +112,20 @@ const app = agent()
       return { stopReason: "end_turn" as const }
     }
 
-    if (text.includes("inc")) count += 1
-    else count = 0
-
-    const result = await cx.client.request<{ ok: boolean; errors?: string[] }>(
-      "_vibetui/render",
-      { schema: counterSchema(count) },
+    // 计数器场景（$ui 活对象树）：点击 +1 回流 'inc' 后热换 Statistic 值
+    if (text.includes("inc")) {
+      count += 1
+      await callCanvas(`$ui.get("stat").props.value = ${count}`)
+      await say(`已更新计数器（count=${count}）\n`)
+      return { stopReason: "end_turn" as const }
+    }
+    count = 0
+    await callCanvas('$ui.clear(); $ui.page({ title: "计数器", mode: "interactive" })')
+    await callCanvas('$ui.add("Statistic", { id: "stat", props: { title: "当前计数", value: 0 } })')
+    await callCanvas(
+      '$ui.add("Button", { id: "btnInc", content: "+1", props: { tuiSize: "small", tuiOnClick: () => $agent.send("inc") } })',
     )
-    await say(result.ok ? `已渲染计数器（count=${count}）` : `渲染失败：${result.errors?.[0]}`)
+    await say("已渲染计数器（count=0）\n")
     return { stopReason: "end_turn" as const }
   })
 

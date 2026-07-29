@@ -92,8 +92,6 @@
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.3.0",
         "@antd-tui/components": "workspace:*",
-        "@antd-tui/engine": "workspace:*",
-        "@antd-tui/formily": "workspace:*",
         "@antd-tui/live": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.30.0",
         "@opentui/core": "latest",

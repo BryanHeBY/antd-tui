@@ -1,27 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
-import {
-  ConfigProvider,
-  FocusScope,
-  componentPropsWhitelist,
-  componentWhitelist,
-  truncateToWidth,
-  useToken,
-} from "@antd-tui/components"
-import { PageView, SchemaStore, validatePageSchema, type PageSchema } from "@antd-tui/engine"
+import { ConfigProvider, FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { LiveTree, LiveView } from "@antd-tui/live"
 import { AcpClient } from "./acp"
 import { evalInScope } from "./eval"
-import { BOOT_PROMPT, SCHEMA_GUIDE } from "./knowledge"
+import { BOOT_PROMPT, LIVE_GUIDE } from "./knowledge"
 import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
 
 /**
  * vibe-tui：完全由 agent 驱动的 TUI 操作界面。
  *
- * 布局：画板（agent 下发的 antd-tui 页面）+ 状态行 + 单行输入框。
- * agent 驱动通道（双轨）：MCP 工具 vibetui_render/eval/snapshot/guide（通用 agent 原生可用，
- * 经 session/new 的 mcpServers 注入）；ACP 扩展 _vibetui/render（懂协议的 agent 可直调）。
+ * 布局：画板（agent 用 $ui 活对象树搭的页面）+ 状态行 + 单行输入框。
+ * agent 驱动通道：MCP 工具 vibetui_eval/snapshot/guide（经 session/new 的 mcpServers 注入）。
+ * vibetui_eval 在 $ui 活组件树上执行真 JS，组件/props/监听每步即时上屏。
  * 键盘分区：默认输入行模式（画板 FocusScope 挂起）；F2 进入页面模式把键盘交给画板，
  * Esc 返回输入行。鼠标在两种模式下都直达画板。
  * 人类 → agent：输入框 prompt；页面事件经 $agent.send(text, payload?) 回流为 "[page] ..."。
@@ -36,17 +28,11 @@ export interface VibeAppProps {
   onQuit?: () => void
 }
 
-/**
- * 画布真相源（双通路，最后写者胜）：
- * schema = vibetui_render / $schema 代理下发的页面（PageView 渲染，key 变则重挂载）；
- * live   = $ui 活对象树（LiveView 渲染，observable 自驱，无需 key）
- */
-type CanvasState = { kind: "schema"; schema: PageSchema; key: number } | { kind: "live" } | null
-
 const LOG_LIMIT = 300
 
 export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
-  const [canvas, setCanvas] = useState<CanvasState>(null)
+  /** 画布是否已有内容：首次 $ui 变更后置真，之前显示空画板提示 */
+  const [hasCanvas, setHasCanvas] = useState(false)
   const [status, setStatus] = useState("agent 启动中…")
   const [log, setLog] = useState<string[]>([])
   /** 流式未完行：chunk 拼接缓冲，遇 \n 才沉淀成 log 行 */
@@ -57,7 +43,6 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   const [input, setInput] = useState("")
   /** agent 是否有 prompt 轮次在途（运行中/空闲指示） */
   const [busy, setBusy] = useState(false)
-  const pageKeyRef = useRef(0)
   const renderer = useRenderer()
 
   const pushLines = (lines: string[]) => {
@@ -85,55 +70,15 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     if (rest) pushLines([rest])
   }
 
-  /** 渲染入口（vibetui_render / ACP 扩展）：全量换页语义——重挂载、状态重置 */
-  const renderSchema = (raw: unknown): { ok: boolean; errors?: string[] } => {
-    const store = storeRef.current!
-    const result = store.replace(raw)
-    if (!result.ok) return result
-    pageKeyRef.current += 1
-    setCanvas({
-      kind: "schema",
-      schema: store.current() as unknown as PageSchema,
-      key: pageKeyRef.current,
-    })
-    return { ok: true }
-  }
-
-  // Schema REPL 存储：$schema 代理的每次合法修改经 onChange 热更上屏
-  // （同 key 重渲染不重挂载，表单值/$state 保留——"一点一点搭页面"）
-  const storeRef = useRef<SchemaStore | null>(null)
-  if (storeRef.current === null) {
-    storeRef.current = new SchemaStore({
-      validate: (schema) =>
-        validatePageSchema(schema, componentWhitelist, componentPropsWhitelist),
-      onChange: (schema) => {
-        // schema 通路成为最后写者：清掉活树（含 watch），画布落回 schema
-        liveRef.current?.ui.clear()
-        const next = schema as unknown as PageSchema
-        setCanvas((prev) =>
-          prev?.kind === "schema"
-            ? { kind: "schema", schema: next, key: prev.key }
-            : { kind: "schema", schema: next, key: ++pageKeyRef.current },
-        )
-      },
-    })
-  }
-
-  // $ui 活对象树：真 JS 对象 + 真函数的 REPL 真相源；合法变更即把画布切到 live
+  // $ui 活对象树：唯一的画布真相源。合法变更即把画板标记为有内容（渲染由 observable 自驱）
   const liveRef = useRef<LiveTree | null>(null)
   if (liveRef.current === null) {
-    liveRef.current = new LiveTree({
-      onMutate: () => setCanvas((prev) => (prev?.kind === "live" ? prev : { kind: "live" })),
-    })
+    liveRef.current = new LiveTree({ onMutate: () => setHasCanvas(true) })
   }
-
-  // 活页面桥：eval 需要当前页编译后的表达式作用域（PageView 每次挂载回传）
-  const scopeRef = useRef<Record<string, unknown>>({})
 
   const clientRef = useRef<AcpClient | null>(null)
 
-  // 页面 → agent 的回流通道：schema 页经 scopeExtras 注入表达式作用域；
-  // live 页的 handler 是真函数，在 eval 作用域里直接闭包捕获 $agent
+  // 页面 → agent 的回流通道：$ui 的 handler 是真函数，在 eval 作用域里直接闭包捕获 $agent
   const scopeExtras = useMemo(
     () => ({
       $agent: {
@@ -150,27 +95,18 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     let mcp: McpCanvasServer | null = null
     const boot = async () => {
       mcp = await startMcpCanvasServer({
-        render: renderSchema,
-        // $ui：活对象树（真函数，推荐）；$schema：schema 草稿深代理。
-        // $agent 必须独立注入——live 模式没有 PageView 回传的作用域
-        evaluate: (code) =>
-          evalInScope(code, {
-            $ui: liveRef.current!.ui,
-            $schema: storeRef.current!.proxy(),
-            ...scopeRef.current,
-            ...scopeExtras,
-          }),
+        // $ui：活对象树；$agent：事件回流。二者构成 eval 作用域
+        evaluate: (code) => evalInScope(code, { $ui: liveRef.current!.ui, ...scopeExtras }),
         snapshot: () => {
           const buffer = renderer?.currentRenderBuffer
           if (!buffer) throw new Error("画布尚未就绪")
           return new TextDecoder().decode(buffer.getRealCharBytes(true))
         },
-        guide: () => SCHEMA_GUIDE,
+        guide: () => LIVE_GUIDE,
       })
       const client = new AcpClient(
         agentCmd,
         {
-          onRender: renderSchema,
           onUpdate: appendChunk,
           onTurnEnd: flushPartial,
           onBusy: setBusy,
@@ -249,30 +185,15 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     <ConfigProvider>
       <FocusScope>
         <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
-          {/* 画板：agent 下发的页面；输入行模式下挂起（键盘静默，鼠标仍可用）。
+          {/* 画板：agent 用 $ui 搭的页面；输入行模式下挂起（键盘静默，鼠标仍可用）。
               F3 切换为日志面板查看 agent 完整回复 */}
           <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
             {showLog ? (
               <LogPanel log={log} partial={partial} />
             ) : (
               <FocusScope suspended={!pageMode}>
-                {canvas?.kind === "live" ? (
+                {hasCanvas ? (
                   <LiveView tree={liveRef.current!} handleEscape={false} hideHint />
-                ) : canvas ? (
-                  <PageView
-                    key={canvas.key}
-                    schema={canvas.schema}
-                    handleEscape={false}
-                    hideHint
-                    onFinish={(values) =>
-                      clientRef.current?.prompt(`[page] submit ${JSON.stringify(values)}`)
-                    }
-                    onCancel={() => clientRef.current?.prompt("[page] cancel")}
-                    onScopeReady={(scope) => {
-                      scopeRef.current = scope
-                    }}
-                    scopeExtras={scopeExtras}
-                  />
                 ) : (
                   <EmptyCanvas />
                 )}

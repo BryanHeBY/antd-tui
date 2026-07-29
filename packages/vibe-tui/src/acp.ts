@@ -5,19 +5,11 @@
  *   client → agent：initialize / session/new 或 session/load（复用会话，历史回放）
  *                    / session/prompt（人类输入与页面事件都走 prompt）
  *   agent → client 通知：session/update（流式文本，喂状态行；load 的历史回放同通道）
- *   agent → client 扩展请求：_vibetui/render { schema } —— 渲染/替换画板页面，
- *     校验失败时响应携带 errors，agent 可据此自修
+ * 画布由 agent 经注入的 MCP 工具（vibetui_eval 操作 $ui 活对象树）驱动，不走 ACP 扩展。
  */
 import { client, ndJsonStream, type ClientContext } from "@agentclientprotocol/sdk"
 
-export interface RenderResult {
-  ok: boolean
-  errors?: string[]
-}
-
 export interface AcpClientHandlers {
-  /** agent 请求渲染页面；返回校验结果 */
-  onRender: (schema: unknown) => RenderResult
   /** session/update 流式文本片段（chunk 是碎片而非整行，由上层拼接） */
   onUpdate: (text: string) => void
   /** 一轮 prompt 结束，上层可冲刷未完的流式行 */
@@ -131,11 +123,6 @@ export class AcpClient {
     void this.proc.exited.then(handleExit)
 
     const app = client()
-      .onRequest(
-        "_vibetui/render",
-        (params: unknown) => params as { schema: unknown },
-        (cx) => this.handlers.onRender(cx.params.schema),
-      )
       // 统一的 update 通道：新会话的流式输出与 session/load 的历史回放走同一处理
       .onNotification("session/update", (cx) => {
         const params = cx.params as SessionUpdateParams

@@ -4,24 +4,16 @@ import { evalInScope } from "../src/eval"
 
 /**
  * MCP 画布服务：以 Streamable HTTP 客户端视角直连，
- * 验证 tools/list 与四个工具的调用协议(不经 agent)。
+ * 验证 tools/list 与三个工具的调用协议（不经 agent）。
  */
 
-function fakeBridge(): { bridge: CanvasBridge; rendered: unknown[] } {
-  const rendered: unknown[] = []
-  const state: Record<string, unknown> = { count: 1 }
+function fakeBridge(): CanvasBridge {
+  const data: Record<string, unknown> = { count: 1 }
+  const ui = { data }
   return {
-    rendered,
-    bridge: {
-      render: (schema) => {
-        if ((schema as { bad?: boolean }).bad) return { ok: false, errors: ["/form 必须是对象"] }
-        rendered.push(schema)
-        return { ok: true }
-      },
-      evaluate: (code) => evalInScope(code, { $state: state }),
-      snapshot: () => "FRAME",
-      guide: () => "GUIDE",
-    },
+    evaluate: (code) => evalInScope(code, { $ui: ui }),
+    snapshot: () => "FRAME",
+    guide: () => "GUIDE",
   }
 }
 
@@ -61,65 +53,43 @@ function toolText(resp: Record<string, unknown>): string {
 }
 
 describe("MCP 画布服务", () => {
-  test("tools/list 暴露四个工具", async () => {
-    const { bridge } = fakeBridge()
-    const server = await startMcpCanvasServer(bridge)
+  test("tools/list 暴露三个工具", async () => {
+    const server = await startMcpCanvasServer(fakeBridge())
     await initSession(server.url)
     const resp = await rpc(server.url, { id: 1, method: "tools/list", params: {} })
     const names = ((resp.result as { tools: Array<{ name: string }> }).tools ?? []).map(
       (t) => t.name,
     )
-    expect(names.sort()).toEqual([
-      "vibetui_eval",
-      "vibetui_guide",
-      "vibetui_render",
-      "vibetui_snapshot",
-    ])
+    expect(names.sort()).toEqual(["vibetui_eval", "vibetui_guide", "vibetui_snapshot"])
     server.close()
   })
 
-  test("render 成功与校验失败；eval 读写；guide/snapshot 透传", async () => {
-    const { bridge, rendered } = fakeBridge()
-    const server = await startMcpCanvasServer(bridge)
+  test("eval 读写 $ui.data；guide/snapshot 透传", async () => {
+    const server = await startMcpCanvasServer(fakeBridge())
     await initSession(server.url)
 
-    const ok = await rpc(server.url, {
+    // eval 写后读：与画布同一 $ui 作用域
+    await rpc(server.url, {
       id: 2,
       method: "tools/call",
-      params: { name: "vibetui_render", arguments: { schema: { version: "0.1" } } },
-    })
-    expect(toolText(ok)).toContain("已渲染")
-    expect(rendered.length).toBe(1)
-
-    const bad = await rpc(server.url, {
-      id: 3,
-      method: "tools/call",
-      params: { name: "vibetui_render", arguments: { schema: { bad: true } } },
-    })
-    expect(toolText(bad)).toContain("/form 必须是对象")
-
-    // eval 写后读：与页面表达式同一作用域
-    await rpc(server.url, {
-      id: 4,
-      method: "tools/call",
-      params: { name: "vibetui_eval", arguments: { code: "$state.count = 41 + 1" } },
+      params: { name: "vibetui_eval", arguments: { code: "$ui.data.count = 41 + 1" } },
     })
     const read = await rpc(server.url, {
-      id: 5,
+      id: 3,
       method: "tools/call",
-      params: { name: "vibetui_eval", arguments: { code: "$state.count" } },
+      params: { name: "vibetui_eval", arguments: { code: "$ui.data.count" } },
     })
     expect(toolText(read)).toBe("42")
 
     const snap = await rpc(server.url, {
-      id: 6,
+      id: 4,
       method: "tools/call",
       params: { name: "vibetui_snapshot", arguments: {} },
     })
     expect(toolText(snap)).toBe("FRAME")
 
     const guide = await rpc(server.url, {
-      id: 7,
+      id: 5,
       method: "tools/call",
       params: { name: "vibetui_guide", arguments: {} },
     })
