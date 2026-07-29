@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
-import { ConfigProvider, FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
+import { ConfigProvider, FocusScope, Input, truncateToWidth, useToken } from "@antd-tui/components"
 import { LiveTree, LiveView } from "@antd-tui/live"
 import { AcpClient } from "./acp"
-import { evalInScope } from "./eval"
+import { createEvalRepl } from "./eval"
 import { BOOT_PROMPT, LIVE_GUIDE } from "./knowledge"
 import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
 
@@ -91,12 +91,19 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     [],
   )
 
+  // 一个 Vibe 会话对应一个 JS REPL。不要放进 MCP 请求处理器里重建，否则
+  // agent 在前一次 eval 声明的 helpers、actions 与闭包会在下一次调用丢失。
+  const replRef = useRef<ReturnType<typeof createEvalRepl> | null>(null)
+  if (replRef.current === null) {
+    replRef.current = createEvalRepl({ $ui: liveRef.current.ui, ...scopeExtras })
+  }
+
   useEffect(() => {
     let mcp: McpCanvasServer | null = null
     const boot = async () => {
       mcp = await startMcpCanvasServer({
-        // $ui：活对象树；$agent：事件回流。二者构成 eval 作用域
-        evaluate: (code) => evalInScope(code, { $ui: liveRef.current!.ui, ...scopeExtras }),
+        // $ui/$agent 是会话级 REPL 的宿主入口；顶层变量和闭包跨 eval 保留。
+        evaluate: (code) => replRef.current!.evaluate(code),
         snapshot: () => {
           const buffer = renderer?.currentRenderBuffer
           if (!buffer) throw new Error("画布尚未就绪")
@@ -328,27 +335,16 @@ function InputLine({
   onSubmit: () => void
   active: boolean
 }) {
-  const token = useToken()
   return (
-    <box
-      border
-      style={{
-        flexShrink: 0,
-        height: 3,
-        borderStyle: token.borderStyle,
-        borderColor: active ? token.colorPrimaryHover : token.colorBorder,
-        paddingLeft: 1,
-        paddingRight: 1,
-      }}
-    >
-      <input
-        value={value}
-        placeholder="输入 prompt，Enter 发送"
-        focused={active}
-        onInput={onChange}
-        onSubmit={onSubmit}
-        style={{ flexGrow: 1 }}
-      />
-    </box>
+    <FocusScope suspended={!active}>
+      <box style={{ flexShrink: 0, width: "100%" }}>
+        <Input
+          value={value}
+          placeholder="输入 prompt，Enter 发送"
+          tuiOnChange={onChange}
+          tuiOnPressEnter={onSubmit}
+        />
+      </box>
+    </FocusScope>
   )
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { startMcpCanvasServer, type CanvasBridge } from "../src/mcp"
-import { evalInScope } from "../src/eval"
+import { createEvalRepl } from "../src/eval"
 
 /**
  * MCP 画布服务：以 Streamable HTTP 客户端视角直连，
@@ -10,8 +10,9 @@ import { evalInScope } from "../src/eval"
 function fakeBridge(): CanvasBridge {
   const data: Record<string, unknown> = { count: 1 }
   const ui = { data }
+  const repl = createEvalRepl({ $ui: ui })
   return {
-    evaluate: (code) => evalInScope(code, { $ui: ui }),
+    evaluate: (code) => repl.evaluate(code),
     snapshot: () => "FRAME",
     guide: () => "GUIDE",
   }
