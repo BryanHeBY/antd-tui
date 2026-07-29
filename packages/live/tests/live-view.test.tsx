@@ -101,6 +101,29 @@ describe("LiveView × $ui", () => {
     t.destroy()
   }, 20000)
 
+  test("List.Item 与 Typography.Link 在活树中按子节点渲染并响应点击", async () => {
+    const tree = new LiveTree()
+    const ui = tree.ui
+    const t = await mount(tree)
+
+    const list = ui.add("List", { props: { bordered: true }, id: "results" })
+    list.add("List.Item", { content: "第一条结果" })
+    const clicks: string[] = []
+    ui.add("Typography.Link", {
+      content: "查看文档",
+      props: { href: "https://ant.design", tuiOnClick: () => clicks.push("docs") },
+    })
+    await t.settle()
+    expect(t.frame()).toContain("第一条结果")
+    expect(t.frame()).toContain("查看文档")
+
+    const pos = locate(t.frame(), "查看文档")
+    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.settle()
+    expect(clicks).toEqual(["docs"])
+    t.destroy()
+  }, 20000)
+
   test("props 热更（Progress percent）与 remove 即时上屏", async () => {
     const tree = new LiveTree()
     const ui = tree.ui

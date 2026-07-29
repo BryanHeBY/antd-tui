@@ -36,6 +36,19 @@ describe("LiveTree × $ui", () => {
     expect(row.children.map((node) => node.component)).toEqual(["Divider"])
   })
 
+  test("List / List.Item / Typography.Link 可被活树组合", () => {
+    const { ui } = makeTree()
+    const list = ui.add("List", { props: { bordered: true } })
+    list.add("List.Item", { content: "第一条" })
+    const link = ui.add("Typography.Link", {
+      content: "文档",
+      props: { href: "https://ant.design", tuiOnClick: () => {} },
+    })
+
+    expect(list.children[0]?.component).toBe("List.Item")
+    expect(link.props.href).toBe("https://ant.design")
+  })
+
   test("未知组件 / 非法 prop 键：抛错且树不变", () => {
     const { ui } = makeTree()
     expect(() => ui.add("Evil")).toThrow("未知组件")

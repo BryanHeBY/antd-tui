@@ -1,6 +1,9 @@
 import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
+import { Link, type LinkProps } from "./Link"
+
+export type { LinkProps }
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -63,4 +66,5 @@ function Title({ children }: TitleProps) {
   )
 }
 
-export const Typography = { Text, Title }
+/** 复合组件：对齐 antd 的 Typography.Text / Typography.Link。 */
+export const Typography = { Text, Title, Link }

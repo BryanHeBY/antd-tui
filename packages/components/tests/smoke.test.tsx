@@ -6,6 +6,8 @@ import { Button } from "../src/components/Button"
 import { Input } from "../src/components/Input"
 import { InputNumber } from "../src/components/InputNumber"
 import { Flex } from "../src/components/Flex"
+import { List } from "../src/components/List"
+import { Typography } from "../src/components/Typography"
 
 function wrap(children: React.ReactNode) {
   return (
@@ -127,6 +129,60 @@ describe("Flex", () => {
     const secondLine = lines.findIndex((line) => line.includes("second"))
     expect(firstLine).toBeGreaterThanOrEqual(0)
     expect(secondLine).toBeGreaterThan(firstLine + 1)
+    t.destroy()
+  })
+})
+
+describe("List + Typography.Link", () => {
+  test("List.Item 渲染为带分割线的终端结果列表", async () => {
+    const t = await renderTui(
+      wrap(
+        <List bordered header="结果">
+          <List.Item>第一条</List.Item>
+          <List.Item>第二条</List.Item>
+        </List>,
+      ),
+      { width: 40, height: 8 },
+    )
+
+    const frame = t.frame()
+    expect(frame).toContain("结果")
+    expect(frame).toContain("第一条")
+    expect(frame).toContain("第二条")
+    expect(frame).toContain("─")
+    t.destroy()
+  })
+
+  test("dataSource / renderItem 保持 antd List 的常用数据入口", async () => {
+    const t = await renderTui(
+      wrap(
+        <List
+          dataSource={["Ant Design", "Formily"]}
+          renderItem={(item) => <List.Item>{item}</List.Item>}
+        />,
+      ),
+      { width: 40, height: 6 },
+    )
+
+    expect(t.frame()).toContain("Ant Design")
+    expect(t.frame()).toContain("Formily")
+    t.destroy()
+  })
+
+  test("Typography.Link 的 tuiOnClick 可由 Enter 激活", async () => {
+    let clicks = 0
+    const t = await renderTui(
+      wrap(
+        <Typography.Link href="https://ant.design" tuiOnClick={() => clicks++}>
+          Ant Design
+        </Typography.Link>,
+      ),
+      { width: 40, height: 4 },
+    )
+
+    await t.enter()
+    expect(clicks).toBe(1)
+    expect(t.frame()).toContain("Ant Design")
     t.destroy()
   })
 })

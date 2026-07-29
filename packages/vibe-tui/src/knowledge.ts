@@ -35,8 +35,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   节点.add(...) 加子节点；$ui.insert(index, "组件名", {...}) 定位插入
   无 content、name、props 等配置时可直接写 $ui.add("Space") 或 node.add("Row")，无需传 {}。
 - 组件名：Button / Card / Flex / Row / Col / Space / Input / TextArea / InputNumber / Select /
-  Checkbox / Checkbox.Group / Radio.Group / Switch / Slider / Typography.Text / FormItem /
-  Alert / Tag / Divider / Progress / Statistic / Descriptions / Spin / Table
+  Checkbox / Checkbox.Group / Radio.Group / Switch / Slider / Typography.Text / Typography.Link /
+  FormItem / Alert / Tag / Divider / Progress / Statistic / Descriptions / Spin / Table / List / List.Item
   未知组件名与未知 props 键会立即抛错，按错误信息里的可用列表修
 - Flex：antd Flex 语义，props 可用 vertical / gap / justify / align / wrap / flex / style；
   终端滚动内容区用 tuiScroll: true（TUI 扩展）。
@@ -50,6 +50,10 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - props 值可以是真函数：{ tuiOnClick: () => $agent.send('run') }；禁止 "{{ }}" 字符串
 - Input 的 \`tuiOnPressEnter\` 是“输入框内按 Enter”事件（终端没有 DOM event 参数，故用 tui 前缀）；
   它与 Button 的 \`tuiHotkey: "enter"\` 无关，输入框聚焦时按钮热键不会触发。
+- 结果列表：先 \`var results = $ui.add("List", { props: { bordered: true } })\`，再
+  \`results.add("List.Item", { content: "一条结果" })\`；按 id 删除旧条目或直接重建该 List。
+  React 代码也可用 antd 的 dataSource / renderItem。\`Typography.Link\` 用 href 输出真实终端超链接；
+  需要把点击回流给 agent 时用 \`tuiOnClick\`（无 DOM MouseEvent，故不用 onClick）。
 - 修改即刻生效：$ui.get(id).props.percent = 60、$ui.get(id).content = "新文案"、
   $ui.get(id).remove()、节点.moveTo(target, index?)
 
