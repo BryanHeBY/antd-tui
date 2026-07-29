@@ -3,7 +3,7 @@
  * 任意支持 MCP 的 agent（经 ACP session/new 的 mcpServers 注入）都能直接生成/操作界面。
  *
  * 工具集（最小完备闭环）：
- *   vibetui_eval(code)      —— 在 $ui 活对象树上执行 JS（真对象+真函数），每步立即上屏
+ *   vibetui_eval(code)      —— 在 $ui 活对象树上执行 JS（真对象+真函数）；即时变更、非事务
  *   vibetui_snapshot()      —— 当前画布字符画（所见即人类所见）
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
@@ -32,7 +32,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
     "vibetui_eval",
     {
       description:
-        "在会话级 JS REPL 中操作 $ui 活组件树并返回结果——直接传完整 JS 程序即可（可声明函数、循环生成整页）；顶层变量、函数和闭包跨调用保留。常用：$ui.page({ title, mode }) 设页面；$ui.add(\"Button\", { content: \"跑\", props: { tuiOnClick: () => $agent.send('run') } }) 加组件（返回节点，可继续 .add 嵌套）；无配置的容器可直接 $ui.add(\"Space\")，无需 {}；$ui.get(id).props.xxx = 新值 热换；$ui.data 响应式数据域（输入组件经 name 绑定）；$ui.watch(getter, cb) 监听；$ui.clear() 清空重建。每次调用完成后统一校验并上屏；未知组件/props 立即抛错。先调 vibetui_guide 学习写法。",
+        "在会话级 JS REPL 中操作 $ui 活组件树并返回结果——直接传完整 JS 程序即可（可声明函数、循环生成整页）；顶层变量、函数和闭包跨调用保留。常用：$ui.page({ title, mode }) 设页面；$ui.add(\"Button\", { content: \"跑\", props: { tuiOnClick: () => $agent.send('run') } }) 加组件（返回节点，可继续 .add 嵌套）；无配置的容器可直接 $ui.add(\"Space\")，无需 {}；$ui.get(id).props.xxx = 新值 热换；$ui.data 响应式数据域（输入组件经 name 绑定）；$ui.watch(getter, cb) 监听；$ui.clear() 清空重建。$ui 操作按语句即时校验并上屏；一次 eval 非事务，后续报错不会回滚此前已成功的修改。$ui.clear() 会清空树、页面元信息、数据和 watch，只用于有意重建。未知组件/props 立即抛错。先调 vibetui_guide 学习写法。",
       inputSchema: { code: z.string().describe("JS 表达式或语句体") },
     },
     ({ code }) => {

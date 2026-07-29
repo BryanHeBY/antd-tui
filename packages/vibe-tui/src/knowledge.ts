@@ -24,7 +24,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 ## 执行方式
 - 默认直接写完整 JS：一次 eval 内可 $ui.clear()、$ui.page()、声明 helpers、循环 add 多个组件。
 - 不要求逐组件或逐行调用工具；那只适合定位某个组件/prop 的问题，或希望让人类看到中间过程时使用。
-- 一段 eval 中任一步报错会中断后续语句；复杂页面可先构建，再用 vibetui_snapshot 校验结果。
+- 一段 eval 中任一步报错会中断后续语句，但它不是事务：此前已成功执行的 $ui 修改会保留，不会自动回滚。用 vibetui_snapshot 确认后针对性修复。
+- 只有明确要整页重建时才调用 $ui.clear()；它会清空组件树、页面元信息、$ui.data 和全部 watch，不能把它当作普通报错恢复手段。
 
 ## REPL 语义
 - 同一 vibe-tui 会话内，顶层 const / let / var、函数和闭包跨多次 vibetui_eval 保留。
@@ -45,6 +46,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   未知组件名与未知 props 键会立即抛错，按错误信息里的可用列表修
 - Flex：antd Flex 语义，props 可用 vertical / gap / justify / align / wrap / flex / style；
   终端滚动内容区用 tuiScroll: true（TUI 扩展）。
+- Space：props 可用 direction / size / wrap；wrap 与 antd 同名，设为 true 时空间不足的子项换行。
 - 栅格：用 Row + Col，不要把 Input/Button 直接并排放进 Row。Row 的 gutter / align / justify / wrap
   与 antd 同名；Col 用 flex: 1 均分、span: 12 占半行、offset 留空。Input / TextArea 的 style
   可传 width 或 flex；紧凑搜索栏可写：
@@ -70,7 +72,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   例如 \`const actions = { submit: () => $agent.send("submit", $ui.data) }\` 后，后续 eval 和按钮回调都可用 \`actions.submit\`
 
 ## 退出语义
-- $ui.clear()：清空整页（换页/重建前先 clear）
+- $ui.clear()：仅用于有意换页/整页重建；会清空整棵树、页面元信息、$ui.data 和所有 watch
 - Esc 行为默认与页面模式一致（interactive 完成回传 $ui.data、form 取消）；
   $ui.escape(fn) 覆盖、$ui.escape(null) 去除、$ui.escape() 恢复默认
 

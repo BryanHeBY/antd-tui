@@ -39,4 +39,12 @@ describe("vibetui_eval 会话级 REPL", () => {
     // 保持旧版 new Function 的语义：agent 可以执行宿主运行时可见的任意 JS。
     expect(repl.evaluate("typeof Bun")).toBe("object")
   })
+
+  test("异常不会回滚本次 eval 中此前已完成的 $ui 修改", () => {
+    const nodes: string[] = []
+    const repl = createEvalRepl({ $ui: { add: (id: string) => nodes.push(id) } })
+
+    expect(() => repl.evaluate('$ui.add("first"); throw new Error("stop")')).toThrow("stop")
+    expect(nodes).toEqual(["first"])
+  })
 })
