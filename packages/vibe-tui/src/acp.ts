@@ -22,6 +22,8 @@ export interface AcpClientHandlers {
   onUpdate: (text: string) => void
   /** 一轮 prompt 结束，上层可冲刷未完的流式行 */
   onTurnEnd?: () => void
+  /** 运行状态变化：true = 有 prompt 轮次在途（agent 运行中），false = 空闲 */
+  onBusy?: (busy: boolean) => void
   /** agent 进程退出 */
   onExit: (code: number | null) => void
 }
@@ -210,11 +212,25 @@ export class AcpClient {
     await this.ready
   }
 
+  /** 在途 prompt 轮次计数：>0 即 agent 运行中 */
+  private inflight = 0
+
+  private trackTurn(delta: 1 | -1): void {
+    const wasBusy = this.inflight > 0
+    this.inflight = Math.max(0, this.inflight + delta)
+    const busy = this.inflight > 0
+    if (busy !== wasBusy) this.handlers.onBusy?.(busy)
+  }
+
   /** 发送一轮 prompt（人类输入或页面事件回流）；轮次结束时触发 onTurnEnd */
   prompt(text: string): void {
+    this.trackTurn(1)
     void this.ready
       .then(() => {
-        if (!this.ctx || !this.sessionId) return
+        if (!this.ctx || !this.sessionId) {
+          this.trackTurn(-1)
+          return
+        }
         void this.ctx
           .request("session/prompt", {
             sessionId: this.sessionId,
@@ -224,9 +240,11 @@ export class AcpClient {
           .catch(() => {
             // 轮次失败不致命：agent 侧可经 session/update 反馈
           })
+          .finally(() => this.trackTurn(-1))
       })
       .catch(() => {
         // agent 尚未成功启动或已退出：丢弃无法送达的输入，避免未处理拒绝。
+        this.trackTurn(-1)
       })
   }
 

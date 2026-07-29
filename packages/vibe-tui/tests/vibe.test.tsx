@@ -128,7 +128,11 @@ describe("vibe-tui × mock agent", () => {
     // mock agent 会把这句话按字符逐个 chunk 发送
     await t.type("stream")
     await t.enter()
+    // 轮次在途：状态行显示「运行中」
+    await t.waitUntil(() => t.frame().includes("运行中"), 4000)
     await t.waitUntil(() => t.frame().includes("这是一段流式拼接的完整回复"), 8000)
+    // 轮次结束：回到「空闲」
+    await t.waitUntil(() => t.frame().includes("空闲"), 4000)
 
     // 对话面板里必须是完整一行，而不是每个字符各占一行
     await t.press("\u001bOR")

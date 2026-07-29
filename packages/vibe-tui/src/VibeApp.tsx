@@ -45,6 +45,8 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
   const [showLog, setShowLog] = useState(false)
   const [pageMode, setPageMode] = useState(false)
   const [input, setInput] = useState("")
+  /** agent 是否有 prompt 轮次在途（运行中/空闲指示） */
+  const [busy, setBusy] = useState(false)
   const pageKeyRef = useRef(0)
   const renderer = useRenderer()
 
@@ -106,6 +108,7 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
           onRender: renderSchema,
           onUpdate: appendChunk,
           onTurnEnd: flushPartial,
+          onBusy: setBusy,
           onExit: (code) => {
             flushPartial()
             pushLines([`agent 已退出（code ${code ?? "?"}）`])
@@ -206,7 +209,7 @@ export function VibeApp({ agentCmd, resumeSessionId }: VibeAppProps) {
             )}
           </box>
 
-          <StatusLine status={status} pageMode={pageMode} showLog={showLog} />
+          <StatusLine status={status} pageMode={pageMode} showLog={showLog} busy={busy} />
           <InputLine value={input} onChange={setInput} onSubmit={submitPrompt} active={!pageMode} />
         </box>
       </FocusScope>
@@ -273,26 +276,45 @@ function LogPanel({ log, partial }: { log: string[]; partial: string }) {
   )
 }
 
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
 /**
  * 单行状态行：整行一个 text 输出（拆成多个横排 text 会因宽度计算叠字），
  * 并按终端宽度截断，避免长回复换行顶到输入框。完整内容按 F3 看对话面板。
+ * 最左侧是 agent 运行指示：转轮 = prompt 轮次在途，· = 空闲。
  */
 function StatusLine({
   status,
   pageMode,
   showLog,
+  busy,
 }: {
   status: string
   pageMode: boolean
   showLog: boolean
+  busy: boolean
 }) {
   const token = useToken()
   const { width } = useTerminalDimensions()
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!busy) return
+    const timer = setInterval(() => setTick((v) => v + 1), 120)
+    return () => clearInterval(timer)
+  }, [busy])
+
+  const indicator = busy ? `${SPINNER_FRAMES[tick % SPINNER_FRAMES.length]} 运行中` : "· 空闲"
   const tag = showLog ? "[对话记录 Esc 关闭]" : pageMode ? "[页面模式 Esc 返回]" : "[输入模式 F2 页面 · F3 对话]"
-  const line = truncateToWidth(`${tag} ${status.replace(/\s+/g, " ")}`, Math.max(1, width - 2))
+  const line = truncateToWidth(
+    `${indicator} ${tag} ${status.replace(/\s+/g, " ")}`,
+    Math.max(1, width - 2),
+  )
   return (
     <box style={{ flexShrink: 0, height: 1, paddingLeft: 1, paddingRight: 1, overflow: "hidden" }}>
-      <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+      <text
+        attributes={TextAttributes.BOLD}
+        fg={busy ? token.colorPrimaryHover : token.colorTextSecondary}
+      >
         {line}
       </text>
     </box>
