@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
-import { ConfigProvider, FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
-import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/formily"
+import {
+  ConfigProvider,
+  FocusScope,
+  componentPropsWhitelist,
+  componentWhitelist,
+  truncateToWidth,
+  useToken,
+} from "@antd-tui/components"
 import { PageView, validatePageSchema, type PageSchema } from "@antd-tui/engine"
 import { AcpClient } from "./acp"
 import { evalInScope } from "./eval"

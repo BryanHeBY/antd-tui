@@ -18,7 +18,7 @@
  * 退出码：0=submit/valid  1=cancel  2=页面 Schema 无效  3=环境不满足
  */
 import { readFileSync } from "node:fs"
-import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/formily"
+import { componentWhitelist, componentPropsWhitelist } from "@antd-tui/components"
 import { validatePageSchema, type PageSchema } from "./validate"
 
 interface CliArgs {

@@ -1,8 +1,40 @@
 /**
- * 各组件 x-component-props / x-decorator-props 的合法键表。
- * 供 engine 校验 agent 生成的 schema：未知 prop 键直接拒绝（拦 typo 与臆造字段）。
+ * 组件表面元数据：白名单供 engine（schema 校验）与 live（$ui 操作级校验）共用。
+ * 放在 components 包：这两张表描述的就是本包组件的公开 props 表面。
+ */
+
+/** 页面可用的组件名（x-component / $ui.add 的合法取值） */
+export const componentWhitelist: string[] = [
+  "FormItem",
+  "Input",
+  "InputNumber",
+  "TextArea",
+  "Slider",
+  "Select",
+  "Checkbox",
+  "Checkbox.Group",
+  "Radio.Group",
+  "Switch",
+  "Typography.Text",
+  "Card",
+  "Space",
+  "Button",
+  "Alert",
+  "Tag",
+  "Divider",
+  "Progress",
+  "Statistic",
+  "Descriptions",
+  "Spin",
+  "Table",
+  "Row",
+  "Col",
+]
+
+/**
+ * 各组件 props 的合法键表：未知 prop 键直接拒绝（拦 typo 与臆造字段）。
  *
- * 维护约定：键名与组件 Props 接口一致；value/onChange 由 formily 注入，
+ * 维护约定：键名与组件 Props 接口一致；value/onChange 由绑定层注入，
  * 但作者也允许显式书写（如 void Statistic 的静态 value、Button 的 onClick）。
  */
 export const componentPropsWhitelist: Record<string, readonly string[]> = {

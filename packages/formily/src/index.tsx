@@ -224,36 +224,6 @@ export const schemaComponents = {
   Col,
 } as const
 
-/** 供 engine 做 x-component / x-decorator 白名单校验 */
-export const componentWhitelist: string[] = [
-  "FormItem",
-  "Input",
-  "InputNumber",
-  "TextArea",
-  "Slider",
-  "Select",
-  "Checkbox",
-  "Checkbox.Group",
-  "Radio.Group",
-  "Switch",
-  "Typography.Text",
-  "Card",
-  "Space",
-  "Button",
-  "Alert",
-  "Tag",
-  "Divider",
-  "Progress",
-  "Statistic",
-  "Descriptions",
-  "Spin",
-  "Table",
-  "Row",
-  "Col",
-]
-
-export { componentPropsWhitelist } from "./props"
-
 export const SchemaField = createSchemaField({
   components: schemaComponents,
 })
