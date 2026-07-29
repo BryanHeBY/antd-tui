@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { TextAttributes } from "@opentui/core"
+import { BoxRenderable, TextAttributes } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, Input, truncateToWidth, useToken } from "@antd-tui/components"
 import { LiveTree, LiveView } from "@antd-tui/live"
@@ -7,6 +7,7 @@ import { AcpClient } from "./acp"
 import { createEvalRepl } from "./eval"
 import { BOOT_PROMPT, LIVE_GUIDE } from "./knowledge"
 import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
+import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-snapshot"
 
 /**
  * vibe-tui：完全由 agent 驱动的 TUI 操作界面。
@@ -44,6 +45,8 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   /** agent 是否有 prompt 轮次在途（运行中/空闲指示） */
   const [busy, setBusy] = useState(false)
   const renderer = useRenderer()
+  const canvasPaneRef = useRef<BoxRenderable | null>(null)
+  const snapshotRendererRef = useRef<PageSnapshotRenderer | null>(null)
 
   const pushLines = (lines: string[]) => {
     const cleaned = lines.filter((l) => l.trim() !== "")
@@ -98,17 +101,34 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     replRef.current = createEvalRepl({ $ui: liveRef.current.ui, ...scopeExtras })
   }
 
+  /** 读主渲染器完整帧：仅供 host snapshot，故意保留日志层/状态栏/输入框。 */
+  const captureHostFrame = () => {
+    const buffer = renderer?.currentRenderBuffer
+    if (!buffer) throw new Error("画布尚未就绪")
+    return new TextDecoder().decode(buffer.getRealCharBytes(true))
+  }
+
+  /**
+   * 使用独立内存 renderer 截取 $ui 页面。不要从主帧裁剪：主帧可能正显示 F3 日志层，
+   * 并且裁剪不能保证 React 已把最新 LiveTree 变更写入当前渲染缓冲。
+   */
+  const capturePageFrame = async () => {
+    const pane = canvasPaneRef.current
+    if (!pane) throw new Error("页面画板尚未就绪")
+    const snapshotRenderer = snapshotRendererRef.current
+    if (!snapshotRenderer) throw new Error("页面快照渲染器尚未就绪")
+    return snapshotRenderer.capture(pane.width, pane.height)
+  }
+
   useEffect(() => {
     let mcp: McpCanvasServer | null = null
     const boot = async () => {
+      snapshotRendererRef.current = await createPageSnapshotRenderer(liveRef.current!)
       mcp = await startMcpCanvasServer({
         // $ui/$agent 是会话级 REPL 的宿主入口；顶层变量和闭包跨 eval 保留。
         evaluate: (code) => replRef.current!.evaluate(code),
-        snapshot: () => {
-          const buffer = renderer?.currentRenderBuffer
-          if (!buffer) throw new Error("画布尚未就绪")
-          return new TextDecoder().decode(buffer.getRealCharBytes(true))
-        },
+        snapshot: capturePageFrame,
+        hostSnapshot: captureHostFrame,
         guide: () => LIVE_GUIDE,
       })
       const client = new AcpClient(
@@ -141,6 +161,8 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     return () => {
       void clientRef.current?.stop()
       mcp?.close()
+      snapshotRendererRef.current?.destroy()
+      snapshotRendererRef.current = null
       liveRef.current?.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,7 +216,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
         <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>
           {/* 画板：agent 用 $ui 搭的页面；输入行模式下挂起（键盘静默，鼠标仍可用）。
               F3 切换为日志面板查看 agent 完整回复 */}
-          <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
+          <box ref={canvasPaneRef} style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
             {showLog ? (
               <LogPanel log={log} partial={partial} />
             ) : (

@@ -4,7 +4,8 @@
  *
  * 工具集（最小完备闭环）：
  *   vibetui_eval(code)      —— 在 $ui 活对象树上执行 JS（真对象+真函数）；即时变更、非事务
- *   vibetui_snapshot()      —— 当前画布字符画（所见即人类所见）
+ *   vibetui_snapshot()      —— 等待绘制完成后获取 agent 页面字符画（不受宿主覆盖层影响）
+ *   vibetui_host_snapshot() —— 获取当前宿主终端字符画（含日志/状态栏等覆盖层）
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
  * 形态：进程内 HTTP（Streamable HTTP，无状态模式），随机端口。
@@ -17,7 +18,10 @@ import { z } from "zod"
 /** 画布桥：由 VibeApp 提供，工具经它触达活页面 */
 export interface CanvasBridge {
   evaluate: (code: string) => unknown
-  snapshot: () => string
+  /** agent 页面视觉快照；允许等待下一次渲染完成。 */
+  snapshot: () => string | Promise<string>
+  /** 当前宿主画面，用于诊断 F3 日志层等宿主状态。 */
+  hostSnapshot: () => string | Promise<string>
   guide: () => string
 }
 
@@ -54,12 +58,28 @@ function buildServer(bridge: CanvasBridge): McpServer {
   server.registerTool(
     "vibetui_snapshot",
     {
-      description: "获取当前画布的字符画快照(与人类终端所见一致),用于确认渲染效果。",
+      description:
+        "等待 $ui 页面绘制完成后，获取仅包含 agent 页面区域的字符画，用于视觉验收。它不受 F2 键盘模式、F3 对话记录、状态栏或输入框影响；若要诊断宿主当前可见画面，使用 vibetui_host_snapshot。",
       inputSchema: {},
     },
-    () => {
+    async () => {
       try {
-        return textResult(bridge.snapshot())
+        return textResult(await bridge.snapshot())
+      } catch (err) {
+        return textResult(`截帧失败:${(err as Error).message}`, true)
+      }
+    },
+  )
+
+  server.registerTool(
+    "vibetui_host_snapshot",
+    {
+      description: "获取人类当前终端所见的完整宿主画面，含 F3 对话记录、状态栏和输入框；用于诊断宿主层，不用于 $ui 页面视觉验收。",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return textResult(await bridge.hostSnapshot())
       } catch (err) {
         return textResult(`截帧失败:${(err as Error).message}`, true)
       }

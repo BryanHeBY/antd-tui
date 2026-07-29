@@ -117,6 +117,28 @@ describe("vibe-tui × mock agent", () => {
     t.destroy()
   }, 20000)
 
+  test("F3 日志层开启时，agent 页面快照仍等待并读取新 $ui 页面", async () => {
+    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+      width: 100,
+      height: 24,
+    })
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
+
+    await t.type("snapshot-overlay")
+    await t.enter()
+    // mock agent 在 eval 后延迟截帧；期间由人类打开 F3 日志层。
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    await t.waitUntil(() => t.frame().includes("页面快照已确认"), 8000)
+    // 页面快照的临时绘制不会改变人类原本开启的日志层。
+    expect(t.frame()).toContain("对话记录")
+
+    await t.escape()
+    await t.waitUntil(() => t.frame().includes("快照页"), 2000)
+    expect(t.frame()).toContain("页面新标记")
+    t.destroy()
+  }, 20000)
+
   test("流式 chunk 拼接成整行，不会一字一行", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
       width: 100,

@@ -10,7 +10,8 @@ export const BOOT_PROMPT = [
   "可用 MCP 工具：",
   "- vibetui_guide()：$ui 活对象树的编写规范与样例，画任何页面前先读它",
   "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
-  "- vibetui_snapshot()：查看当前画布字符画",
+  "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受 F2/F3、状态栏或输入框影响",
+  "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
   "现在：先调用 vibetui_guide 学习规范，然后为当前对话场景搭建初始界面。优先在一次 vibetui_eval 中直接写完整 JS（可声明 helpers、循环生成组件）；仅在排错或需要人类观察中间状态时再分次执行。若没有明确场景，渲染一个简洁的欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
 ].join("\n")
@@ -26,6 +27,10 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 不要求逐组件或逐行调用工具；那只适合定位某个组件/prop 的问题，或希望让人类看到中间过程时使用。
 - 一段 eval 中任一步报错会中断后续语句，但它不是事务：此前已成功执行的 $ui 修改会保留，不会自动回滚。用 vibetui_snapshot 确认后针对性修复。
 - 只有明确要整页重建时才调用 $ui.clear()；它会清空组件树、页面元信息、$ui.data 和全部 watch，不能把它当作普通报错恢复手段。
+
+## 视觉校验
+- \`vibetui_snapshot()\` 会等待本次页面绘制完成，只返回 $ui 页面区域；F2/F3、状态栏和输入框不会混入结果。搭完或热换复杂页面后用它做视觉验收。
+- \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括 F3 对话记录），仅用于诊断宿主层问题。
 
 ## REPL 语义
 - 同一 vibe-tui 会话内，顶层 const / let / var、函数和闭包跨多次 vibetui_eval 保留。

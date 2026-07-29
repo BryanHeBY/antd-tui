@@ -4,7 +4,7 @@ import { createEvalRepl } from "../src/eval"
 
 /**
  * MCP 画布服务：以 Streamable HTTP 客户端视角直连，
- * 验证 tools/list 与三个工具的调用协议（不经 agent）。
+ * 验证 tools/list 与四个工具的调用协议（不经 agent）。
  */
 
 function fakeBridge(): CanvasBridge {
@@ -13,7 +13,8 @@ function fakeBridge(): CanvasBridge {
   const repl = createEvalRepl({ $ui: ui })
   return {
     evaluate: (code) => repl.evaluate(code),
-    snapshot: () => "FRAME",
+    snapshot: async () => "PAGE_FRAME",
+    hostSnapshot: () => "HOST_FRAME",
     guide: () => "GUIDE",
   }
 }
@@ -54,18 +55,23 @@ function toolText(resp: Record<string, unknown>): string {
 }
 
 describe("MCP 画布服务", () => {
-  test("tools/list 暴露三个工具", async () => {
+  test("tools/list 暴露四个工具", async () => {
     const server = await startMcpCanvasServer(fakeBridge())
     await initSession(server.url)
     const resp = await rpc(server.url, { id: 1, method: "tools/list", params: {} })
     const names = ((resp.result as { tools: Array<{ name: string }> }).tools ?? []).map(
       (t) => t.name,
     )
-    expect(names.sort()).toEqual(["vibetui_eval", "vibetui_guide", "vibetui_snapshot"])
+    expect(names.sort()).toEqual([
+      "vibetui_eval",
+      "vibetui_guide",
+      "vibetui_host_snapshot",
+      "vibetui_snapshot",
+    ])
     server.close()
   })
 
-  test("eval 读写 $ui.data；guide/snapshot 透传", async () => {
+  test("eval 读写 $ui.data；页面/宿主快照与 guide 各自透传", async () => {
     const server = await startMcpCanvasServer(fakeBridge())
     await initSession(server.url)
 
@@ -87,10 +93,17 @@ describe("MCP 画布服务", () => {
       method: "tools/call",
       params: { name: "vibetui_snapshot", arguments: {} },
     })
-    expect(toolText(snap)).toBe("FRAME")
+    expect(toolText(snap)).toBe("PAGE_FRAME")
+
+    const hostSnap = await rpc(server.url, {
+      id: 5,
+      method: "tools/call",
+      params: { name: "vibetui_host_snapshot", arguments: {} },
+    })
+    expect(toolText(hostSnap)).toBe("HOST_FRAME")
 
     const guide = await rpc(server.url, {
-      id: 5,
+      id: 6,
       method: "tools/call",
       params: { name: "vibetui_guide", arguments: {} },
     })

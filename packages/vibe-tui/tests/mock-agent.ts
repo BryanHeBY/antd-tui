@@ -9,9 +9,9 @@ let count = 0
 let mcpUrl: string | null = null
 
 /** 以 MCP HTTP 客户端身份调用 vibe-tui 画布工具（无状态传输,单次 POST 即可） */
-async function callCanvas(code: string): Promise<void> {
+async function callCanvasTool(name: string, args: Record<string, unknown>): Promise<string> {
   if (!mcpUrl) throw new Error("session/new 未注入 MCP 地址")
-  await fetch(mcpUrl, {
+  const response = await fetch(mcpUrl, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -21,9 +21,19 @@ async function callCanvas(code: string): Promise<void> {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "vibetui_eval", arguments: { code } },
+      params: { name, arguments: args },
     }),
   })
+  const raw = await response.text()
+  const dataLine = raw.split("\n").find((line) => line.startsWith("data:"))
+  const payload = JSON.parse(dataLine ? dataLine.slice(5).trim() : raw) as {
+    result?: { content?: Array<{ text?: string }> }
+  }
+  return payload.result?.content?.[0]?.text ?? ""
+}
+
+async function callCanvas(code: string): Promise<void> {
+  await callCanvasTool("vibetui_eval", { code })
 }
 
 const app = agent()
@@ -98,6 +108,18 @@ const app = agent()
       await say("已加触发按钮\n")
       await callCanvas('$ui.add("Typography.Text", { id: "note", content: "活树第二块" })')
       await say("已加第二块\n")
+      return { stopReason: "end_turn" as const }
+    }
+
+    // 页面快照场景：测试 eval 后立刻截帧，以及 F3 日志层不应污染 agent 页面快照。
+    if (text.includes("snapshot-overlay")) {
+      await callCanvas(
+        '$ui.clear(); $ui.page({ title: "快照页" }); $ui.add("Typography.Text", { content: "页面新标记" })',
+      )
+      // 给宿主测试机会切入 F3；真实 agent 在复杂页面构建后也会有这一段思考/校验间隙。
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      const page = await callCanvasTool("vibetui_snapshot", {})
+      await say(page.includes("快照页") && page.includes("页面新标记") ? "页面快照已确认\n" : "页面快照错误\n")
       return { stopReason: "end_turn" as const }
     }
 
