@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useRef } from "react"
 import { useKeyboard } from "@opentui/react"
 import { createForm, setValidateLanguage } from "@formily/core"
 import { observable } from "@formily/reactive"
@@ -83,16 +83,32 @@ export function PageView({
   // $state：响应式 UI 状态（schema.state 声明初值），表达式读取自动联动，不进 form.values、不回传
   // $memo：非渲染状态（timer/标记位），无响应性
   // form.values：只装用户输入，提交/Esc 时回传
+  //
+  // 热更稳定性（agent REPL 逐步搭页面）：schema 变化不重建 $state/$memo——
+  // 重建会把每次增量编辑都变成"整页重置"。$state 只增量补新声明的初值键。
+  const stateRef = useRef<Record<string, unknown> | null>(null)
+  if (stateRef.current === null) {
+    stateRef.current = observable(structuredClone(schema.state ?? {})) as Record<string, unknown>
+  }
+  const memoRef = useRef<Record<string, unknown>>({})
+  useMemo(() => {
+    const state = stateRef.current!
+    for (const [key, value] of Object.entries(schema.state ?? {})) {
+      // structuredClone：$state 可变，共享引用会让草稿被运行时改动污染
+      if (!(key in state)) state[key] = structuredClone(value)
+    }
+  }, [schema.state])
+
+  // scope 函数按 scope 段重编译（绑定同一批 $form/$state/$memo，编辑函数即时生效）
   const scope = useMemo(
-    // structuredClone：$state 可变，浅拷贝会让嵌套对象与原 schema 共享引用
     () =>
       compileScope(schema.scope, {
         $form: form,
-        $state: observable(structuredClone(schema.state ?? {})),
-        $memo: {},
+        $state: stateRef.current!,
+        $memo: memoRef.current,
         ...scopeExtras,
       }),
-    [schema.scope, schema.state, form, scopeExtras],
+    [schema.scope, form, scopeExtras],
   )
   onScopeReady?.(scope)
 
