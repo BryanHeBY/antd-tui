@@ -42,7 +42,9 @@ export async function renderTui(
   node: ReactNode,
   options: TestRendererOptions = {},
 ): Promise<TuiTestSetup> {
-  const raw = await testRender(node, { width: 60, height: 20, ...options })
+  // autoFocus: core 的鼠标点击会聚焦第一个 focusable 祖先并 blur 当前输入框，
+  // 与组件库的 FocusScope 焦点体系冲突（焦点权威在 FocusScope），必须关闭
+  const raw = await testRender(node, { width: 60, height: 20, autoFocus: false, ...options })
 
   const settle = async () => {
     // 两轮「让出宏任务 + flush」：第一轮消化按键回调里的 setState，

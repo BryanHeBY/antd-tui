@@ -78,8 +78,9 @@ async function main(): Promise<void> {
     process.exit(3)
   }
 
-  // Ctrl+C / Esc×2 由 VibeApp 接管：先删临时会话，再经 onQuit 走这里的收尾
-  const renderer = await createCliRenderer({ exitOnCtrlC: false })
+  // Ctrl+C / Esc×2 由 VibeApp 接管：先删临时会话，再经 onQuit 走这里的收尾。
+  // autoFocus 关闭：core 的点击聚焦会 blur 输入框，焦点权威在组件库 FocusScope
+  const renderer = await createCliRenderer({ exitOnCtrlC: false, autoFocus: false })
 
   // 退出前必须销毁 renderer：它负责发终端恢复序列（关鼠标追踪/退备用屏/显示光标）。
   // 直接 process.exit 会把终端留在鼠标上报模式，退出后满屏 "35;x;yM" 乱码。

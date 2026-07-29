@@ -205,7 +205,8 @@ async function main(): Promise<void> {
   ])
 
   const schema = parsed as unknown as PageSchema
-  const renderer = await createCliRenderer({ exitOnCtrlC: true })
+  // autoFocus 关闭：core 的点击聚焦会 blur 当前输入框，焦点权威在组件库 FocusScope
+  const renderer = await createCliRenderer({ exitOnCtrlC: true, autoFocus: false })
 
   const teardown = () => {
     try {

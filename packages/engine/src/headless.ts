@@ -46,7 +46,8 @@ export async function mountHeadless(
         form = f as { values: unknown }
       },
     }),
-    { width, height },
+    // autoFocus 关闭：core 的点击聚焦会 blur 当前输入框，焦点权威在组件库 FocusScope
+    { width, height, autoFocus: false },
   )
 
   const settle = async () => {
