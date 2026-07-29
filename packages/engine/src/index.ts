@@ -6,3 +6,4 @@ export {
   type ValidationResult,
 } from "./validate"
 export { mountHeadless, parseSize, type HeadlessSession, type FinishState } from "./headless"
+export { SchemaStore, type SchemaStoreOptions } from "./schema-store"
