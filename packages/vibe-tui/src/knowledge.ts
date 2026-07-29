@@ -8,16 +8,40 @@
 export const BOOT_PROMPT = [
   "你已连接 vibe-tui —— 一块由你(agent)驱动的终端 UI 画布。人类通过底部输入框与你对话,也会直接操作你渲染的界面。",
   "可用 MCP 工具:",
-  "- vibetui_guide():页面 Schema 编写规范与样例,画任何页面前先读它",
-  "- vibetui_render(schema):整页渲染/换页(状态重置)",
-  "- vibetui_eval(code):在页面上下文执行 JS。$schema 是当前页 schema 的实时代理——对它的每次赋值立即校验并上屏,可以一个组件一个组件地增量搭建/修正页面;$form/$state 读写运行时数据",
+  "- vibetui_guide():页面编写规范与样例,画任何页面前先读它",
+  "- vibetui_eval(code):在页面上下文执行 JS。$ui 是活组件树(推荐通路)——真 JS 对象+真函数,每步操作立即校验并上屏,组件插入/删除/props 热换/监听全部动态",
+  "- vibetui_render(schema):schema 通路,整页渲染/换页(状态重置);$schema 代理可增量改 schema",
   "- vibetui_snapshot():查看当前画布字符画",
-  '界面事件会以 "[page] ..." 开头的消息回流给你(按钮点击、表单 submit 的 JSON 等)。',
-  "现在:先调用 vibetui_guide 学习规范,然后为当前对话场景搭建初始界面(推荐用 $schema 增量搭建,人类能看到页面逐步长出来);若没有明确场景,渲染一个简洁的欢迎页(标题 + 一句能力介绍 + 几个引导按钮,按钮用 $agent.send 把用户意图回流给你)。",
+  '界面事件会以 "[page] ..." 开头的消息回流给你(按钮点击、表单 submit 的 JSON 等);$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
+  "现在:先调用 vibetui_guide 学习规范,然后为当前对话场景搭建初始界面(推荐用 $ui 一个组件一个组件地搭,人类能看到页面逐步长出来);若没有明确场景,渲染一个简洁的欢迎页(标题 + 一句能力介绍 + 几个引导按钮,按钮回调用 $agent.send 把用户意图回流给你)。",
 ].join("\n")
 
-/** vibetui_guide 工具返回的内容:精简规范 + 一个可直接照抄的黄金样例 */
-export const SCHEMA_GUIDE = `# antd-tui 页面 Schema 速成(vibe-tui 版)
+/** vibetui_guide 工具返回的内容:精简规范 + 可直接照抄的黄金样例 */
+export const SCHEMA_GUIDE = `# vibe-tui 页面编写速成
+
+两条通路,最后写者胜,同一页面别混用:
+- $ui 活组件树(vibetui_eval,推荐):真 JS 对象+真函数,每步操作立即校验并上屏
+- schema 文档(vibetui_render 整页 / $schema 增量):可序列化 JSON,适合需要表单校验/required/提交回传语义的页面
+
+## $ui 活组件树(推荐)
+- 插入:$ui.add("组件名", { id?, content?, name?, default?, props? }) / 节点.add(...) 嵌套 / insert(index, ...) 定位
+- 组件名与 schema 通路一致(Button / Card / Row / Col / Input / Typography.Text / Checkbox.Group ...),未知组件与未知 props 键立即抛错,按错误信息里的可用列表修
+- props 值可以是真函数:tuiOnClick: () => $agent.send('run');禁止 "{{ }}" 表达式字符串
+- 修改即刻生效:$ui.get(id).props.percent = 60、.content = "新文案"、.remove()、.moveTo(target, index?)
+- 数据域 $ui.data(响应式):输入组件用 name 绑定双向同步(Input/Select/Checkbox/Slider...);Typography.Text 用 name 单向显示 String($ui.data[name])
+- 监听:$ui.watch(() => $ui.data.x, (v) => { ... }) 返回 disposer;$ui.clear() 清空整页
+- handler 是真闭包,可直接用 $agent.send / $ui / 本次 eval 里定义的函数;每次 eval 作用域独立,需跨 eval 复用的辅助函数可存进 $ui.data(如 $ui.data.fmt = (v) => ...)
+
+黄金样例($ui 计数器,逐步执行每段都即时上屏):
+$ui.page({ title: "计数器", mode: "interactive" })
+$ui.add("Statistic", { id: "stat", props: { title: "当前计数", value: 0 } })
+const row = $ui.add("Space", { props: { size: 2 } })
+row.add("Button", { content: "+1", props: { tuiSize: "small", tuiHotkey: "+",
+  tuiOnClick: () => { $ui.data.count = ($ui.data.count ?? 0) + 1; $ui.get("stat").props.value = $ui.data.count } } })
+row.add("Button", { content: "上报", props: { tuiSize: "small",
+  tuiOnClick: () => $agent.send("count", $ui.data.count) } })
+
+# schema 通路(vibetui_render / $schema)
 
 页面 = 一份 JSON(信封协议),字段与 antd v5 + Formily 完全同语义,不要发明字段。
 

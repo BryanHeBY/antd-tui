@@ -10,6 +10,7 @@ import {
   useToken,
 } from "@antd-tui/components"
 import { PageView, SchemaStore, validatePageSchema, type PageSchema } from "@antd-tui/engine"
+import { LiveTree, LiveView } from "@antd-tui/live"
 import { AcpClient } from "./acp"
 import { evalInScope } from "./eval"
 import { BOOT_PROMPT, SCHEMA_GUIDE } from "./knowledge"
@@ -35,16 +36,17 @@ export interface VibeAppProps {
   onQuit?: () => void
 }
 
-interface PageState {
-  schema: PageSchema
-  /** 每次 render 递增：整页重挂载（新 form/$state） */
-  key: number
-}
+/**
+ * 画布真相源（双通路，最后写者胜）：
+ * schema = vibetui_render / $schema 代理下发的页面（PageView 渲染，key 变则重挂载）；
+ * live   = $ui 活对象树（LiveView 渲染，observable 自驱，无需 key）
+ */
+type CanvasState = { kind: "schema"; schema: PageSchema; key: number } | { kind: "live" } | null
 
 const LOG_LIMIT = 300
 
 export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
-  const [page, setPage] = useState<PageState | null>(null)
+  const [canvas, setCanvas] = useState<CanvasState>(null)
   const [status, setStatus] = useState("agent 启动中…")
   const [log, setLog] = useState<string[]>([])
   /** 流式未完行：chunk 拼接缓冲，遇 \n 才沉淀成 log 行 */
@@ -89,7 +91,11 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     const result = store.replace(raw)
     if (!result.ok) return result
     pageKeyRef.current += 1
-    setPage({ schema: store.current() as unknown as PageSchema, key: pageKeyRef.current })
+    setCanvas({
+      kind: "schema",
+      schema: store.current() as unknown as PageSchema,
+      key: pageKeyRef.current,
+    })
     return { ok: true }
   }
 
@@ -101,11 +107,23 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
       validate: (schema) =>
         validatePageSchema(schema, componentWhitelist, componentPropsWhitelist),
       onChange: (schema) => {
+        // schema 通路成为最后写者：清掉活树（含 watch），画布落回 schema
+        liveRef.current?.ui.clear()
         const next = schema as unknown as PageSchema
-        setPage((prev) =>
-          prev ? { schema: next, key: prev.key } : { schema: next, key: ++pageKeyRef.current },
+        setCanvas((prev) =>
+          prev?.kind === "schema"
+            ? { kind: "schema", schema: next, key: prev.key }
+            : { kind: "schema", schema: next, key: ++pageKeyRef.current },
         )
       },
+    })
+  }
+
+  // $ui 活对象树：真 JS 对象 + 真函数的 REPL 真相源；合法变更即把画布切到 live
+  const liveRef = useRef<LiveTree | null>(null)
+  if (liveRef.current === null) {
+    liveRef.current = new LiveTree({
+      onMutate: () => setCanvas((prev) => (prev?.kind === "live" ? prev : { kind: "live" })),
     })
   }
 
@@ -114,14 +132,34 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
 
   const clientRef = useRef<AcpClient | null>(null)
 
+  // 页面 → agent 的回流通道：schema 页经 scopeExtras 注入表达式作用域；
+  // live 页的 handler 是真函数，在 eval 作用域里直接闭包捕获 $agent
+  const scopeExtras = useMemo(
+    () => ({
+      $agent: {
+        send: (text: unknown, payload?: unknown) => {
+          const suffix = payload === undefined ? "" : ` ${JSON.stringify(payload)}`
+          clientRef.current?.prompt(`[page] ${String(text)}${suffix}`)
+        },
+      },
+    }),
+    [],
+  )
+
   useEffect(() => {
     let mcp: McpCanvasServer | null = null
     const boot = async () => {
       mcp = await startMcpCanvasServer({
         render: renderSchema,
-        // $schema：schema 草稿深代理，每次赋值即校验即上屏（REPL 增量搭建通道）
+        // $ui：活对象树（真函数，推荐）；$schema：schema 草稿深代理。
+        // $agent 必须独立注入——live 模式没有 PageView 回传的作用域
         evaluate: (code) =>
-          evalInScope(code, { $schema: storeRef.current!.proxy(), ...scopeRef.current }),
+          evalInScope(code, {
+            $ui: liveRef.current!.ui,
+            $schema: storeRef.current!.proxy(),
+            ...scopeRef.current,
+            ...scopeExtras,
+          }),
         snapshot: () => {
           const buffer = renderer?.currentRenderBuffer
           if (!buffer) throw new Error("画布尚未就绪")
@@ -160,22 +198,10 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     return () => {
       void clientRef.current?.stop()
       mcp?.close()
+      liveRef.current?.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // 页面 → agent 的回流通道，注入表达式作用域
-  const scopeExtras = useMemo(
-    () => ({
-      $agent: {
-        send: (text: unknown, payload?: unknown) => {
-          const suffix = payload === undefined ? "" : ` ${JSON.stringify(payload)}`
-          clientRef.current?.prompt(`[page] ${String(text)}${suffix}`)
-        },
-      },
-    }),
-    [],
-  )
 
   // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板；
   // Esc 逐层返回（日志面板 → 页面模式 → 顶层双击退出）；
@@ -230,10 +256,12 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
               <LogPanel log={log} partial={partial} />
             ) : (
               <FocusScope suspended={!pageMode}>
-                {page ? (
+                {canvas?.kind === "live" ? (
+                  <LiveView tree={liveRef.current!} handleEscape={false} hideHint />
+                ) : canvas ? (
                   <PageView
-                    key={page.key}
-                    schema={page.schema}
+                    key={canvas.key}
+                    schema={canvas.schema}
                     handleEscape={false}
                     hideHint
                     onFinish={(values) =>

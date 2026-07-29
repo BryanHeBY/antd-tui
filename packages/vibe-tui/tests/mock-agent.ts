@@ -119,6 +119,24 @@ const app = agent()
       return { stopReason: "end_turn" as const }
     }
 
+    // $ui 活对象树场景：真函数 handler、props 热换（live 通路验收）
+    if (text.includes("live-hit")) {
+      // 活树按钮回流：只确认收到，不渲染（保持画布仍是 live）
+      await say("收到 live-hit\n")
+      return { stopReason: "end_turn" as const }
+    }
+    if (text.includes("live")) {
+      await callCanvas('$ui.page({ title: "活树页" })')
+      await say("已设活树标题\n")
+      await callCanvas(
+        '$ui.add("Button", { id: "hit", content: "触发", props: { tuiSize: "small", tuiOnClick: () => $agent.send("live-hit") } })',
+      )
+      await say("已加触发按钮\n")
+      await callCanvas('$ui.add("Typography.Text", { id: "note", content: "活树第二块" })')
+      await say("已加第二块\n")
+      return { stopReason: "end_turn" as const }
+    }
+
     // 流式场景：把一句话拆成字符级 chunk 发出（模拟真实 LLM 流式输出）
     if (text.includes("stream")) {
       for (const ch of "这是一段流式拼接的完整回复") {

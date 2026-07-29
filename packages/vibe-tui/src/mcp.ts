@@ -50,7 +50,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
     "vibetui_eval",
     {
       description:
-        "在当前页面上下文执行 JS 并返回结果。作用域:$schema(当前页 schema 实时代理,每次赋值/删除立即校验并上屏——用它一个组件一个组件地增量搭建与修正页面,非法修改会抛错且不生效)、$form(表单实例)、$state(响应式 UI 状态)、$memo 与页面 scope 函数。读:vibetui_eval(\"$form.values\");改数据:vibetui_eval(\"$state.cpu = 80\");加组件:vibetui_eval(\"$schema.form.properties.btn = {...}\")。",
+        "在当前页面上下文执行 JS 并返回结果。作用域:$ui(活组件树,推荐)——真 JS 对象+真函数,每步操作立即校验并上屏:$ui.add(\"Button\", { content: \"跑\", props: { tuiOnClick: () => $agent.send('run') } }),$ui.get(id).props 热换、$ui.data 数据域、$ui.watch 监听;$schema(schema 草稿实时代理,配合 vibetui_render 的 schema 通路用,每次赋值/删除立即校验并上屏);schema 页在场时还有 $form/$state/$memo 与页面 scope 函数。注意两条通路最后写者胜,同一页面别混用。",
       inputSchema: { code: z.string().describe("JS 表达式或语句体") },
     },
     ({ code }) => {
