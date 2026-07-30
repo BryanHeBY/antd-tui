@@ -22,6 +22,18 @@ describe("知识注入", () => {
     }
   })
 
+  test("引导骨架优先的增量搭建,并在复杂页面前取参考实现", () => {
+    // 首个 eval 必须小:人类的等待时长 = 首个 eval 的生成时长
+    expect(BOOT_PROMPT).toContain("骨架优先")
+    expect(BOOT_PROMPT).toContain("10 行以内")
+    expect(LIVE_GUIDE).toContain("骨架优先")
+    // 复杂页面主动取 example
+    expect(BOOT_PROMPT).toContain("vibetui_example")
+    expect(LIVE_GUIDE.slice(0, 600)).toContain("vibetui_example()")
+    // 反向约束:别中途频繁截帧
+    expect(LIVE_GUIDE).toContain("搭完整页后验收一次")
+  })
+
   test("EXAMPLE_REFERENCE 内联 dashboard 源码与适配说明", () => {
     // 源码全文经 Bun 文本导入内联:关键片段必在
     expect(EXAMPLE_REFERENCE).toContain("buildDashboard")
