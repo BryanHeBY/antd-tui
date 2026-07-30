@@ -59,6 +59,11 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 加组件：$ui.add("组件名", { id?, content?, name?, default?, props? }) → 返回节点，可继续 .add 嵌套
   节点.add(...) 加子节点；$ui.insert(index, "组件名", {...}) 定位插入
   无 content、name、props 等配置时可直接写 $ui.add("Space") 或 node.add("Row")，无需传 {}。
+- ⚠ .add() 返回的是刚创建的子节点，不是父节点：\`A.add("B").add("C")\` 是 A→B→C 深度嵌套。
+  给同一父节点挂多个平级子节点，先存引用再分别 add：
+  \`var card = $ui.add("Card"); card.add("Typography.Text", ...); card.add("Statistic", ...)\`
+- 只有容器组件（Card/Space/Flex/Row/Col/List/List.Item/FormItem/Alert/Spin/Modal/Button.Group）
+  能挂子节点；往叶子组件（Typography.*、Button、Input 等）add 会立即抛错。
 - 组件名与各组件可用 props 见文末「组件 props 速查」——它与运行时校验同源，照抄即对；
   未知组件名与未知 props 键会立即抛错，错误信息里带可用列表
 - style：所有组件都支持 style（CSS 子集）：width / height / flex / padding / margin* /
@@ -67,7 +72,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - Modal：$ui.add("Modal", { content: "内容", props: { open: true, title: "确认",
   tuiOnOk: () => ..., tuiOnCancel: () => ... } })；热换 props.open = false 关闭。
   Esc 关闭浮层（keyboard: false 可禁用）；footer: null 隐藏底部按钮。
-- Typography.Title 用于页内小节标题（页面主标题仍用 $ui.page 的 title）。
+- Typography.Title 用于页内小节标题（页面主标题仍用 $ui.page 的 title）；
+  无 antd 的 level（终端无字号，标题恒为一行粗体）。
 - Button 支持 loading（旋转帧且不可点击）与 danger（错误色），与 antd 同名同义。
 - Flex：antd Flex 语义，props 可用 vertical / gap / justify / align / wrap / flex / style；
   终端滚动内容区用 tuiScroll: true（TUI 扩展）。
