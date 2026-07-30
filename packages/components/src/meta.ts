@@ -46,7 +46,7 @@ export const componentWhitelist: string[] = [
  */
 export const componentPropsWhitelist: Record<string, readonly string[]> = {
   FormItem: ["label", "required", "help", "validateStatus", "style"],
-  Input: ["placeholder", "disabled", "value", "style", "tuiOnChange", "tuiOnPressEnter"],
+  Input: ["placeholder", "disabled", "maxLength", "value", "style", "tuiOnChange", "tuiOnPressEnter"],
   TextArea: ["placeholder", "disabled", "rows", "style", "value", "defaultValue", "tuiOnChange"],
   InputNumber: ["placeholder", "disabled", "value", "onChange", "style"],
   Slider: ["min", "max", "step", "disabled", "tuiShowValue", "style", "value", "onChange"],
@@ -80,7 +80,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   "Typography.Link": ["href", "disabled", "type", "underline", "tuiOnClick", "style"],
   List: ["dataSource", "renderItem", "loading", "header", "footer", "bordered", "split", "locale", "style"],
   "List.Item": ["extra", "actions", "style"],
-  Card: ["title", "style"],
+  Card: ["title", "extra", "bordered", "style"],
   Space: ["direction", "size", "wrap", "style"],
   Flex: ["vertical", "gap", "justify", "align", "wrap", "flex", "style", "tuiScroll"],
   Button: ["type", "disabled", "loading", "danger", "block", "tuiSize", "style", "tuiHotkey", "tuiOnClick"],

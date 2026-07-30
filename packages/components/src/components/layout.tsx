@@ -1,3 +1,4 @@
+import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 import { toBoxStyle, type CssLikeStyle } from "../style"
@@ -29,25 +30,46 @@ export function Space({ direction = "horizontal", size = 1, wrap = false, style,
 
 export interface CardProps {
   title?: string
+  /** 同 antd：标题行右侧的补充内容（字符串或组件） */
+  extra?: ReactNode
+  /** 同 antd：是否带外框；false 时保留内边距形成无框分区 */
+  bordered?: boolean
   /** 同 antd（子集）：CSS 风格布局样式 */
   style?: CssLikeStyle
   children?: ReactNode
 }
 
-export function Card({ title, style, children }: CardProps) {
+export function Card({ title, extra, bordered = true, style, children }: CardProps) {
   const token = useToken()
+  const extraRow =
+    extra !== undefined && extra !== null ? (
+      <box style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+        {typeof extra === "string" || typeof extra === "number" ? (
+          <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{String(extra)}</text>
+        ) : (
+          extra
+        )}
+      </box>
+    ) : null
   return (
     <box
-      border
-      title={title}
+      border={bordered}
+      title={bordered ? title : undefined}
       style={{
-        borderStyle: token.borderStyle,
-        borderColor: token.colorBorder,
+        ...(bordered
+          ? { borderStyle: token.borderStyle, borderColor: token.colorBorder }
+          : {}),
         padding: token.padding,
         flexDirection: "column",
         ...toBoxStyle(style),
       }}
     >
+      {!bordered && title ? (
+        <text attributes={TextAttributes.BOLD} fg={token.colorText}>
+          <b>{title}</b>
+        </text>
+      ) : null}
+      {extraRow}
       {children}
     </box>
   )

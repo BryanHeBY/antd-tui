@@ -17,6 +17,8 @@ export interface InputProps {
   placeholder?: string
   /** 同 antd：禁用 */
   disabled?: boolean
+  /** 同 antd：最大输入长度（超出的键入/粘贴被丢弃） */
+  maxLength?: number
   /** 同 antd：CSS 布局样式；可用 width / flex 控制栅格中的宽度 */
   style?: CssLikeStyle
   /** 类似 antd onPressEnter，但无 DOM 事件参数；未提供时默认移动焦点到下一个控件 */
@@ -28,6 +30,7 @@ export function InputBase({
   tuiOnChange,
   placeholder,
   disabled = false,
+  maxLength,
   style,
   tuiOnPressEnter,
 }: InputProps) {
@@ -54,6 +57,7 @@ export function InputBase({
     >
       <input
         value={value ?? ""}
+        maxLength={maxLength}
         placeholder={placeholder ?? ""}
         focused={focused && !disabled}
         onInput={(v: string) => tuiOnChange?.(v)}
