@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
+import { componentPropsWhitelist, componentWhitelist, containerComponents } from "@antd-tui/components"
 import { inputBindings, liveComponents, rawTextContentComponents } from "../src/registry"
 
 /**
@@ -20,13 +20,16 @@ describe("live 注册表一致性", () => {
     expect(Object.keys(componentPropsWhitelist).sort()).toEqual([...componentWhitelist].sort())
   })
 
-  test("inputBindings / rawTextContentComponents ⊆ componentWhitelist", () => {
+  test("inputBindings / rawTextContentComponents / containerComponents ⊆ componentWhitelist", () => {
     const all = new Set(componentWhitelist)
     for (const name of Object.keys(inputBindings)) {
       expect(all.has(name), `inputBindings 含未白名单组件:${name}`).toBe(true)
     }
     for (const name of rawTextContentComponents) {
       expect(all.has(name), `rawTextContentComponents 含未白名单组件:${name}`).toBe(true)
+    }
+    for (const name of containerComponents) {
+      expect(all.has(name), `containerComponents 含未白名单组件:${name}`).toBe(true)
     }
   })
 })

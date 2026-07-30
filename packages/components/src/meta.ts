@@ -39,6 +39,25 @@ export const componentWhitelist: string[] = [
 ]
 
 /**
+ * 能容纳子节点的容器组件。其余组件是叶子：内容经 content/props 表达，
+ * 子节点要么被静默忽略要么在终端渲染层崩溃，live 通路在 add 时直接拒绝。
+ */
+export const containerComponents: string[] = [
+  "FormItem",
+  "Card",
+  "Space",
+  "Flex",
+  "Row",
+  "Col",
+  "List",
+  "List.Item",
+  "Button.Group",
+  "Alert",
+  "Spin",
+  "Modal",
+]
+
+/**
  * 各组件 props 的合法键表：未知 prop 键直接拒绝（拦 typo 与臆造字段）。
  *
  * 维护约定：键名与组件 Props 接口一致；value/onChange 由绑定层注入，

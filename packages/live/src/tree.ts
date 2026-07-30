@@ -9,7 +9,7 @@
  * 非法操作抛错且不改树——单个操作天然原子，无需副本回滚。
  */
 import { observable, reaction } from "@formily/reactive"
-import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
+import { componentPropsWhitelist, componentWhitelist, containerComponents } from "@antd-tui/components"
 import { DISPLAY_BINDING_COMPONENT, inputBindings } from "./registry"
 
 export interface LivePageMeta {
@@ -295,6 +295,17 @@ export class LiveTree {
     }
     const id = init.id ?? this.nextId(component)
     if (this.records.has(id)) throw new Error(`$ui：节点 id "${id}" 已存在`)
+    if (parentId !== null) {
+      const parent = this.requireRecord(parentId)
+      if (!containerComponents.includes(parent.component)) {
+        throw new Error(
+          `$ui：${parent.component}(${parentId}) 是叶子组件，不接受子节点——` +
+            `文案用 content。注意 node.add() 返回新建节点而非父节点；` +
+            `给同一父节点挂多个子节点请先 var box = $ui.add("Space") 再分别 box.add(...)。` +
+            `可容纳子节点的容器：${containerComponents.join("、")}`,
+        )
+      }
+    }
     if (init.name !== undefined) this.assertNameable(component, id)
     if (init.content !== undefined && typeof init.content !== "string") {
       throw new Error(`$ui：${component}(${id}) 的 content 必须是字符串`)
@@ -346,7 +357,13 @@ export class LiveTree {
   private moveNode(id: string, targetId: string | null, index: number | undefined): void {
     const record = this.requireRecord(id)
     if (targetId !== null) {
-      this.requireRecord(targetId)
+      const target = this.requireRecord(targetId)
+      if (!containerComponents.includes(target.component)) {
+        throw new Error(
+          `$ui：${target.component}(${targetId}) 是叶子组件，不接受子节点；` +
+            `可容纳子节点的容器：${containerComponents.join("、")}`,
+        )
+      }
       for (let cur: string | null = targetId; cur !== null; ) {
         if (cur === id) throw new Error(`$ui：不能把 ${id} 移入自身或其后代`)
         cur = this.records.get(cur)?.parentId ?? null

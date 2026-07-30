@@ -175,4 +175,24 @@ describe("LiveTree × $ui", () => {
     expect(json.content).toBe("跑")
     expect((json.props as Record<string, unknown>).tuiOnClick).toBe("[function]")
   })
+  test("叶子组件拒绝子节点:add 与 moveTo 均抛错并提示容器列表", () => {
+    const tree = new LiveTree()
+    const ui = tree.ui
+    const text = ui.add("Typography.Text", { content: "叶子" })
+    expect(() => text.add("Typography.Title", { content: "被吞" })).toThrow(/叶子组件.*不接受子节点/)
+    // 链式误用场景:错误信息里带修正指引
+    expect(() => ui.add("Button", { content: "按钮" }).add("Tag", { content: "x" })).toThrow(
+      /node\.add\(\) 返回新建节点/,
+    )
+    const tag = ui.add("Tag", { content: "标签" })
+    expect(() => tag.moveTo(text)).toThrow(/叶子组件/)
+    // 容器不受影响
+    const card = ui.add("Card")
+    card.add("Typography.Text", { content: "a" })
+    card.add("Typography.Text", { content: "b" })
+    expect(card.children.length).toBe(2)
+    tag.moveTo(card)
+    expect(card.children.length).toBe(3)
+  })
+
 })

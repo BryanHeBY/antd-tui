@@ -54,4 +54,4 @@ export {
 export { Row, Col, type RowProps, type ColProps } from "./components/grid"
 export { toBoxStyle, type CssLikeStyle } from "./style"
 export { FormItem, type FormItemProps } from "./components/FormItem"
-export { componentWhitelist, componentPropsWhitelist } from "./meta"
+export { componentWhitelist, componentPropsWhitelist, containerComponents } from "./meta"
