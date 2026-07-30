@@ -60,8 +60,8 @@ describe("计算器 E2E", () => {
     await t.enter()
     await t.waitUntil(() => {
       const lines = t.frame().split("\n")
-      // 显示行出现 7（右对齐，行内 7 与按键区分开）
-      return lines.some((l) => l.trimEnd().endsWith("7 │"))
+      // 显示行右对齐且单独占行，可与按键标签区分开。
+      return lines.some((l) => l.trim() === "7")
     })
 
     // 向右到 8，Enter → 78
@@ -152,7 +152,7 @@ describe("计算器 E2E", () => {
     expect(t.frame()).not.toContain("50%5")
 
     await t.type("*2=")
-    await t.waitUntil(() => t.frame().includes("1 │") || t.frame().includes("1│"))
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "1"))
     // 50% × 2 = 1
     t.destroy()
   })
@@ -167,7 +167,7 @@ describe("计算器 E2E", () => {
     await t.type("5")
     await t.waitUntil(() => !t.frame().includes("42"))
     const lines = t.frame().split("\n")
-    expect(lines.some((l) => l.trimEnd().endsWith("5 │"))).toBe(true)
+    expect(lines.some((l) => l.trim() === "5")).toBe(true)
 
     // 再算一次，按运算符在结果上继续
     await t.type("*8=")

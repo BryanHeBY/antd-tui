@@ -14,7 +14,13 @@ export function buildCalculator($ui: LiveUi): void {
     mode: "interactive",
   })
 
-  $ui.add("Card", { id: "screen" }).add("Typography.Text", {
+  // 计算器自身不留行间隙：连体组的边框就是节奏，紧凑布局能在常见终端高度完整呈现。
+  const calculator = $ui.add("Flex", {
+    id: "calculator",
+    props: { vertical: true, gap: 0, style: { width: "100%" } },
+  })
+  // 显示区保持一行，给连体按键组留出完整五行；右对齐本身就是终端里的有效边界。
+  calculator.add("Flex", { id: "screen", props: { vertical: true, style: { width: "100%" } } }).add("Typography.Text", {
     name: "display",
     default: "0",
     props: { tuiAlign: "right", type: "warning", strong: true },
@@ -123,15 +129,20 @@ export function buildCalculator($ui: LiveUi): void {
       { label: "=", onClick: evaluate, primary: true },
     ],
   ]
+  const keypad = calculator.add("Button.Group", {
+    props: {
+      block: true,
+      tuiBordered: true,
+    },
+  })
   for (const cells of rows) {
-    const row = $ui.add("Row", { props: { gutter: 1, style: { flex: 1 } } })
+    // 连体操作组：布局仍使用 antd 的 Row / Col；Button.Group 只负责共享边框。
+    const row = keypad.add("Row", { props: { gutter: 0, wrap: false } })
     for (const cell of cells) {
-      row.add("Col", { props: { flex: cell.flex ?? 1 } }).add("Button", {
+      const col = row.add("Col", { props: { flex: cell.flex ?? 1 } })
+      col.add("Button", {
         content: cell.label,
         props: {
-          tuiSize: "small",
-          block: true,
-          style: { height: "100%" },
           ...(cell.primary ? { type: "primary" } : {}),
           tuiHotkey: cell.hotkey ?? cell.label,
           tuiOnClick: cell.onClick ?? (() => pressDigit(cell.label)),

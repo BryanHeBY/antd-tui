@@ -17,432 +17,71 @@
   "form": {
     "type": "object",
     "properties": {
-      "screen": {
+      "calculator": {
         "type": "void",
-        "x-component": "Card",
+        "x-component": "Flex",
+        "x-component-props": { "vertical": true, "gap": 0, "style": { "width": "100%" } },
         "properties": {
-          "display": {
-            "type": "string",
-            "default": "0",
-            "x-component": "Typography.Text",
-            "x-component-props": {
-              "tuiAlign": "right",
-              "type": "warning",
-              "strong": true
-            }
-          }
-        }
-      },
-      "rowTop": {
-        "type": "void",
-        "x-component": "Row",
-        "x-component-props": {
-          "gutter": 1,
-          "style": { "flex": 1 }
-        },
-        "properties": {
-          "colClear": {
+          "screen": {
             "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
+            "x-component": "Flex",
+            "x-component-props": { "vertical": true, "style": { "width": "100%" } },
             "properties": {
-              "btnClear": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "AC",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "c",
-                  "tuiOnClick": "{{ () => clearAll() }}"
-                }
+              "display": {
+                "type": "string",
+                "default": "0",
+                "x-component": "Typography.Text",
+                "x-component-props": { "tuiAlign": "right", "type": "warning", "strong": true }
               }
             }
           },
-          "colDelete": {
+          "keypad": {
             "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
+            "x-component": "Button.Group",
+            "x-component-props": { "block": true, "tuiBordered": true },
             "properties": {
-              "btnDelete": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "DEL",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "backspace",
-                  "tuiOnClick": "{{ () => deleteOne() }}"
+              "rowTop": {
+                "type": "void", "x-component": "Row", "x-component-props": { "gutter": 0, "wrap": false },
+                "properties": {
+                  "clearCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnClear": { "type": "void", "x-component": "Button", "x-content": "AC", "x-component-props": { "tuiHotkey": "c", "tuiOnClick": "{{ () => clearAll() }}" } } } },
+                  "deleteCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnDelete": { "type": "void", "x-component": "Button", "x-content": "DEL", "x-component-props": { "tuiHotkey": "backspace", "tuiOnClick": "{{ () => deleteOne() }}" } } } },
+                  "percentCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnPercent": { "type": "void", "x-component": "Button", "x-content": "%", "x-component-props": { "tuiHotkey": "%", "tuiOnClick": "{{ () => pressPercent() }}" } } } },
+                  "divideCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnDivide": { "type": "void", "x-component": "Button", "x-content": "÷", "x-component-props": { "type": "primary", "tuiHotkey": "/", "tuiOnClick": "{{ () => pressOp('÷') }}" } } } }
                 }
-              }
-            }
-          },
-          "colPercent": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnPercent": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "%",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "%",
-                  "tuiOnClick": "{{ () => pressPercent() }}"
+              },
+              "rowSeven": {
+                "type": "void", "x-component": "Row", "x-component-props": { "gutter": 0, "wrap": false },
+                "properties": {
+                  "sevenCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn7": { "type": "void", "x-component": "Button", "x-content": "7", "x-component-props": { "tuiHotkey": "7", "tuiOnClick": "{{ () => pressDigit('7') }}" } } } },
+                  "eightCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn8": { "type": "void", "x-component": "Button", "x-content": "8", "x-component-props": { "tuiHotkey": "8", "tuiOnClick": "{{ () => pressDigit('8') }}" } } } },
+                  "nineCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn9": { "type": "void", "x-component": "Button", "x-content": "9", "x-component-props": { "tuiHotkey": "9", "tuiOnClick": "{{ () => pressDigit('9') }}" } } } },
+                  "multiplyCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnMultiply": { "type": "void", "x-component": "Button", "x-content": "×", "x-component-props": { "type": "primary", "tuiHotkey": "*", "tuiOnClick": "{{ () => pressOp('×') }}" } } } }
                 }
-              }
-            }
-          },
-          "colDivide": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnDivide": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "÷",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "type": "primary",
-                  "tuiHotkey": "/",
-                  "tuiOnClick": "{{ () => pressOp('÷') }}"
+              },
+              "rowFour": {
+                "type": "void", "x-component": "Row", "x-component-props": { "gutter": 0, "wrap": false },
+                "properties": {
+                  "fourCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn4": { "type": "void", "x-component": "Button", "x-content": "4", "x-component-props": { "tuiHotkey": "4", "tuiOnClick": "{{ () => pressDigit('4') }}" } } } },
+                  "fiveCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn5": { "type": "void", "x-component": "Button", "x-content": "5", "x-component-props": { "tuiHotkey": "5", "tuiOnClick": "{{ () => pressDigit('5') }}" } } } },
+                  "sixCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn6": { "type": "void", "x-component": "Button", "x-content": "6", "x-component-props": { "tuiHotkey": "6", "tuiOnClick": "{{ () => pressDigit('6') }}" } } } },
+                  "subtractCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnSubtract": { "type": "void", "x-component": "Button", "x-content": "-", "x-component-props": { "type": "primary", "tuiHotkey": "-", "tuiOnClick": "{{ () => pressOp('-') }}" } } } }
                 }
-              }
-            }
-          }
-        }
-      },
-      "rowSeven": {
-        "type": "void",
-        "x-component": "Row",
-        "x-component-props": {
-          "gutter": 1,
-          "style": { "flex": 1 }
-        },
-        "properties": {
-          "col7": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn7": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "7",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "7",
-                  "tuiOnClick": "{{ () => pressDigit('7') }}"
+              },
+              "rowOne": {
+                "type": "void", "x-component": "Row", "x-component-props": { "gutter": 0, "wrap": false },
+                "properties": {
+                  "oneCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn1": { "type": "void", "x-component": "Button", "x-content": "1", "x-component-props": { "tuiHotkey": "1", "tuiOnClick": "{{ () => pressDigit('1') }}" } } } },
+                  "twoCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn2": { "type": "void", "x-component": "Button", "x-content": "2", "x-component-props": { "tuiHotkey": "2", "tuiOnClick": "{{ () => pressDigit('2') }}" } } } },
+                  "threeCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btn3": { "type": "void", "x-component": "Button", "x-content": "3", "x-component-props": { "tuiHotkey": "3", "tuiOnClick": "{{ () => pressDigit('3') }}" } } } },
+                  "addCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnAdd": { "type": "void", "x-component": "Button", "x-content": "+", "x-component-props": { "type": "primary", "tuiHotkey": "+", "tuiOnClick": "{{ () => pressOp('+') }}" } } } }
                 }
-              }
-            }
-          },
-          "col8": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn8": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "8",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "8",
-                  "tuiOnClick": "{{ () => pressDigit('8') }}"
-                }
-              }
-            }
-          },
-          "col9": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn9": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "9",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "9",
-                  "tuiOnClick": "{{ () => pressDigit('9') }}"
-                }
-              }
-            }
-          },
-          "colMultiply": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnMultiply": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "×",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "type": "primary",
-                  "tuiHotkey": "*",
-                  "tuiOnClick": "{{ () => pressOp('×') }}"
-                }
-              }
-            }
-          }
-        }
-      },
-      "rowFour": {
-        "type": "void",
-        "x-component": "Row",
-        "x-component-props": {
-          "gutter": 1,
-          "style": { "flex": 1 }
-        },
-        "properties": {
-          "col4": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn4": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "4",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "4",
-                  "tuiOnClick": "{{ () => pressDigit('4') }}"
-                }
-              }
-            }
-          },
-          "col5": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn5": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "5",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "5",
-                  "tuiOnClick": "{{ () => pressDigit('5') }}"
-                }
-              }
-            }
-          },
-          "col6": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn6": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "6",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "6",
-                  "tuiOnClick": "{{ () => pressDigit('6') }}"
-                }
-              }
-            }
-          },
-          "colSubtract": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnSubtract": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "-",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "type": "primary",
-                  "tuiHotkey": "-",
-                  "tuiOnClick": "{{ () => pressOp('-') }}"
-                }
-              }
-            }
-          }
-        }
-      },
-      "rowOne": {
-        "type": "void",
-        "x-component": "Row",
-        "x-component-props": {
-          "gutter": 1,
-          "style": { "flex": 1 }
-        },
-        "properties": {
-          "col1": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn1": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "1",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "1",
-                  "tuiOnClick": "{{ () => pressDigit('1') }}"
-                }
-              }
-            }
-          },
-          "col2": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn2": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "2",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "2",
-                  "tuiOnClick": "{{ () => pressDigit('2') }}"
-                }
-              }
-            }
-          },
-          "col3": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btn3": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "3",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "3",
-                  "tuiOnClick": "{{ () => pressDigit('3') }}"
-                }
-              }
-            }
-          },
-          "colAdd": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnAdd": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "+",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "type": "primary",
-                  "tuiHotkey": "+",
-                  "tuiOnClick": "{{ () => pressOp('+') }}"
-                }
-              }
-            }
-          }
-        }
-      },
-      "rowZero": {
-        "type": "void",
-        "x-component": "Row",
-        "x-component-props": {
-          "gutter": 1,
-          "style": { "flex": 1 }
-        },
-        "properties": {
-          "col0": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 2 },
-            "properties": {
-              "btn0": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "0",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": "0",
-                  "tuiOnClick": "{{ () => pressDigit('0') }}"
-                }
-              }
-            }
-          },
-          "colDot": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnDot": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": ".",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "tuiHotkey": ".",
-                  "tuiOnClick": "{{ () => pressDot() }}"
-                }
-              }
-            }
-          },
-          "colEquals": {
-            "type": "void",
-            "x-component": "Col",
-            "x-component-props": { "flex": 1 },
-            "properties": {
-              "btnEquals": {
-                "type": "void",
-                "x-component": "Button",
-                "x-content": "=",
-                "x-component-props": {
-                  "tuiSize": "small",
-                  "block": true,
-                  "style": { "height": "100%" },
-                  "type": "primary",
-                  "tuiHotkey": "=",
-                  "tuiOnClick": "{{ () => evaluate() }}"
+              },
+              "rowZero": {
+                "type": "void", "x-component": "Row", "x-component-props": { "gutter": 0, "wrap": false },
+                "properties": {
+                  "zeroCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 2 }, "properties": { "btn0": { "type": "void", "x-component": "Button", "x-content": "0", "x-component-props": { "tuiHotkey": "0", "tuiOnClick": "{{ () => pressDigit('0') }}" } } } },
+                  "dotCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnDot": { "type": "void", "x-component": "Button", "x-content": ".", "x-component-props": { "tuiHotkey": ".", "tuiOnClick": "{{ () => pressDot() }}" } } } },
+                  "equalsCol": { "type": "void", "x-component": "Col", "x-component-props": { "flex": 1 }, "properties": { "btnEquals": { "type": "void", "x-component": "Button", "x-content": "=", "x-component-props": { "type": "primary", "tuiHotkey": "=", "tuiOnClick": "{{ () => evaluate() }}" } } } }
                 }
               }
             }

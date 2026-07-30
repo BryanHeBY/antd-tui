@@ -10,6 +10,7 @@ import { Flex } from "../src/components/Flex"
 import { Space } from "../src/components/layout"
 import { List } from "../src/components/List"
 import { Typography } from "../src/components/Typography"
+import { Col, Row } from "../src/components/grid"
 
 function wrap(children: React.ReactNode) {
   return (
@@ -59,6 +60,70 @@ describe("Button", () => {
 
     await t.enter()
     expect(pressed).toBe(0)
+    t.destroy()
+  })
+
+  test("Group 用单一外框和分隔线组织相邻操作", async () => {
+    const t = await renderTui(
+      wrap(
+        <Button.Group block>
+          <Button tuiOnClick={() => {}}>左</Button>
+          <Button type="primary" tuiOnClick={() => {}}>
+            右
+          </Button>
+        </Button.Group>,
+      ),
+      { width: 30, height: 5 },
+    )
+
+    const line = t.frame().split("\n").find((item) => item.includes("左"))!
+    expect(line).toContain("左")
+    expect(line).toContain("右")
+    // 左右外框与中间分隔线共三个 │，切分后得到四段。
+    expect(line.split("│").length).toBe(4)
+    t.destroy()
+  })
+
+  test("tuiBordered 按真实 Row/Col 布局合并共享边框", async () => {
+    const t = await renderTui(
+      wrap(
+        <Button.Group block tuiBordered>
+          <Row gutter={0} wrap={false}>
+            <Col flex={1}>
+              <Button tuiOnClick={() => {}}>7</Button>
+            </Col>
+            <Col flex={1}>
+              <Button tuiOnClick={() => {}}>8</Button>
+            </Col>
+          </Row>
+          <Row gutter={0} wrap={false}>
+            <Col flex={1}>
+              <Button tuiOnClick={() => {}}>4</Button>
+            </Col>
+            <Col flex={1}>
+              <Button tuiOnClick={() => {}}>5</Button>
+            </Col>
+          </Row>
+          <Row gutter={0} wrap={false}>
+            <Col flex={2}>
+              <Button tuiOnClick={() => {}}>0</Button>
+            </Col>
+            <Col flex={1}>
+              <Button tuiOnClick={() => {}}>=</Button>
+            </Col>
+          </Row>
+        </Button.Group>,
+      ),
+      { width: 30, height: 8 },
+    )
+
+    await t.waitUntil(() => t.frame().includes("┼"))
+    const frame = t.frame()
+    expect(frame).toContain("╭")
+    expect(frame).toContain("┬")
+    expect(frame).toContain("┼")
+    expect(frame).toContain("┴")
+    expect(frame).toContain("╯")
     t.destroy()
   })
 })

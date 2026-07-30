@@ -11,7 +11,7 @@ export {
 export { Typography, type TextProps, type TitleProps } from "./components/Typography"
 export { Link, type LinkProps } from "./components/Link"
 export { List, type ListProps, type ListItemProps, type ListLocale } from "./components/List"
-export { Button, type ButtonProps } from "./components/Button"
+export { Button, type ButtonProps, type ButtonGroupProps } from "./components/Button"
 export { Input, type InputProps, type TextAreaProps } from "./components/Input"
 export { InputNumber, type InputNumberProps } from "./components/InputNumber"
 export { Slider, type SliderProps } from "./components/Slider"

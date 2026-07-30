@@ -46,6 +46,7 @@ export const liveComponents = {
   Space,
   Flex,
   Button,
+  "Button.Group": Button.Group,
   Alert,
   Tag,
   Divider,

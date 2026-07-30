@@ -1,4 +1,9 @@
-import { createSchemaField, connect, mapProps, FormProvider as FormilyFormProvider } from "@formily/react"
+import {
+  createSchemaField,
+  connect,
+  mapProps,
+  FormProvider as FormilyFormProvider,
+} from "@formily/react"
 import { Schema } from "@formily/json-schema"
 import type { Field as FieldType, Form } from "@formily/core"
 import type { ReactNode } from "react"
@@ -10,6 +15,7 @@ import {
   Col,
   Descriptions,
   Divider,
+  Flex,
   FormItem as TuiFormItem,
   Input as TuiInput,
   InputNumber as TuiInputNumber,
@@ -186,7 +192,6 @@ const TypographyText = connect(TypographyTextBinding)
 const CheckboxComponent = Object.assign(Checkbox, { Group: CheckboxGroup })
 const RadioComponent = { Group: RadioGroup } as unknown as typeof TuiRadio
 const TypographyComponent = { Text: TypographyText } as unknown as typeof Typography.Text
-
 // 展示组件挂 void 节点时，ReactiveField 会把 value 覆盖为 undefined
 // （{...componentProps, value} 的展开顺序所致），这里从 componentProps 找回
 const StatisticBinding = connect(
@@ -212,6 +217,7 @@ export const schemaComponents = {
   Switch,
   Typography: TypographyComponent,
   Card,
+  Flex,
   Space,
   Button,
   Alert,
