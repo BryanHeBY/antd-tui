@@ -12,7 +12,9 @@
   "page": {
     "title": "页面标题",            // 可选
     "description": "副标题说明",    // 可选
-    "mode": "form"                  // 可选："form"（默认）| "interactive"
+    "mode": "form",                 // 可选："form"（默认）| "interactive"
+    "padding": 1,                    // 可选：页面四周留白（终端格）
+    "gap": 1                         // 可选：根级纵向间距（终端格）
   },
   "scope": {                        // 可选：具名表达式函数表
     "fnName": "{{ (arg) => ... }}"
@@ -35,6 +37,10 @@
 
 - `form`(默认):底部渲染操作栏(`actions`),Esc 取消。适合"填完提交"的表单页。
 - `interactive`:不渲染操作栏,Esc 完成并回传当前 `form.values`。适合计算器这类自包含交互页面。
+
+### page.padding / page.gap
+
+二者默认均为 `1`，单位是终端格。普通表单保持默认；需要满幅 App Shell（通栏顶栏、满高侧栏）时同时设为 `0`，并将品牌和提示放进自绘布局。
 
 ### tuiTheme：终端主题覆盖
 
@@ -174,8 +180,7 @@ bun packages/engine/src/cli.ts --schema your.schema.json --check
 
 | 示例 | 范式 | 覆盖的知识点 |
 |---|---|---|
-| `examples/schema/deploy-config.json` | 填表回传 | form 模式、`x-decorator: FormItem`、全部录入组件(Input/InputNumber/TextArea/Slider/Select/Checkbox/Checkbox.Group/Radio.Group/Switch)、`title`/`required`/`default`/`enum`、`x-validator` pattern 校验、`x-reactions` 联动显隐、自定义 `actions` 文案 |
-| `examples/schema/service-dashboard.json` | 信息展示 + 轻交互 | interactive 模式、全部展示组件(Alert/Tag/Statistic/Progress/Descriptions/Spin/Table/Divider)、Card/Space/Row/Col 布局、`state` 段 + `$state` 驱动交互、`x-component-props` 动态表达式 |
+| `examples/schema/dashboard.json` | 登录 + App Shell + 填表回传 | 合并原部署配置与服务面板：`page.padding/gap: 0` 的满幅布局、登录换页、interactive 模式、全部展示与录入组件、`state` 段 + `$state` 驱动交互、`x-validator` 与 `x-reactions` 联动显隐 |
 | `examples/schema/calculator.json` | 自包含交互应用 | interactive 模式、逻辑全收进 scope 函数、`$memo` 隐藏状态、单字符热键矩阵、`x-content` 文案、Grid 自适应布局 |
 
 Formily 习惯写法提示(与 @formily/antd 一致):
