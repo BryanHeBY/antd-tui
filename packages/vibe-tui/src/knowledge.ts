@@ -85,7 +85,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
    row.add("Col", { props: { flex: 1 } }).add("Input", { name: "query", props: { placeholder: "搜索" } });
    row.add("Col").add("Button", { content: "搜索", props: { tuiOnClick: () => $agent.send("search", $ui.data.query) } })\`
 - 文案用 content（Button 文案、Typography.Text 文本）；容器（Card/Space/Flex 等）的 content
-  会自动包成文本行，需要更多控制时改为子节点 add Typography.Text
+  渲染为首行文本，与子节点共存（先 content 后子节点）。
+  Card 的标题请用 props.title（与 antd 一致，显示在边框上）；content 只是内容区首行。
 - props 值可以是真函数：{ tuiOnClick: () => $agent.send('run') }；禁止 "{{ }}" 字符串
 - Input 的 \`tuiOnPressEnter\` 是“输入框内按 Enter”事件（终端没有 DOM event 参数，故用 tui 前缀）；
   它与 Button 的 \`tuiHotkey: "enter"\` 无关，输入框聚焦时按钮热键不会触发。
