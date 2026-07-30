@@ -4,6 +4,7 @@ import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -22,6 +23,8 @@ export interface SwitchProps {
   unCheckedChildren?: ReactNode
   /** 类似 antd onChange，但终端无 DOM 事件参数 */
   tuiOnChange?: (checked: boolean) => void
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 export function Switch({
@@ -31,6 +34,7 @@ export function Switch({
   checkedChildren,
   unCheckedChildren,
   tuiOnChange,
+  style,
 }: SwitchProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
@@ -74,6 +78,7 @@ export function Switch({
         paddingRight: 1,
         flexDirection: "row",
         alignSelf: "flex-start",
+        ...toBoxStyle(style),
       }}
       onMouseDown={() => {
         // 浏览器直觉：点击控件同时把焦点转移过去

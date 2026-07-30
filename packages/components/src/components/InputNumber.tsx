@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -14,6 +15,8 @@ export interface InputNumberProps {
   placeholder?: string
   /** 同 antd：禁用 */
   disabled?: boolean
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 const NUMERIC_RE = /^-?\d*\.?\d*$/
@@ -25,7 +28,7 @@ const NUMERIC_RE = /^-?\d*\.?\d*$/
  * 连续快速按键之间 React 可能尚未重渲染，事件闭包里的 state 是旧值，
  * 拒绝非法输入时必须依据 ref 里的最新草稿回写 native 缓冲区。
  */
-export function InputNumber({ value, onChange, placeholder, disabled = false }: InputNumberProps) {
+export function InputNumber({ value, onChange, placeholder, disabled = false, style }: InputNumberProps) {
   const token = useToken()
   const { focused, focusNext, requestFocus } = useFocusable({ kind: "input", disabled })
   const initial = value != null ? String(value) : ""
@@ -74,6 +77,7 @@ export function InputNumber({ value, onChange, placeholder, disabled = false }: 
         height: 3,
         paddingLeft: 1,
         paddingRight: 1,
+        ...toBoxStyle(style),
       }}
       onMouseDown={() => {
         if (!disabled) requestFocus()

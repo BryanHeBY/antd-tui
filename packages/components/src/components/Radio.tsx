@@ -4,6 +4,7 @@ import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -148,6 +149,8 @@ export interface RadioGroupProps {
    * 默认按 optionType 推断：button 横排、default 纵排。
    */
   tuiDirection?: "horizontal" | "vertical"
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 function normalize(options: Array<RadioOption | string> = []): RadioOption[] {
@@ -164,6 +167,7 @@ function RadioGroup({
   block = false,
   orientation,
   tuiDirection,
+  style,
 }: RadioGroupProps) {
   const token = useToken()
   const list = normalize(options)
@@ -215,6 +219,7 @@ function RadioGroup({
           borderStyle: token.borderStyle,
           borderColor: token.colorBorder,
           ...(block ? { width: "100%" as const } : {}),
+          ...toBoxStyle(style),
         }}
       >
         {radios}
@@ -223,7 +228,7 @@ function RadioGroup({
   }
 
   return (
-    <box style={{ flexDirection: direction === "horizontal" ? "row" : "column", gap: direction === "horizontal" ? 2 : 0 }}>
+    <box style={{ flexDirection: direction === "horizontal" ? "row" : "column", gap: direction === "horizontal" ? 2 : 0, ...toBoxStyle(style) }}>
       {radios}
     </box>
   )

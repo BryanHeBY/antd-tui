@@ -53,6 +53,8 @@ export interface ButtonGroupProps {
    * 不要求调用方声明行、列或单元格跨度。
    */
   tuiBordered?: boolean
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -356,7 +358,7 @@ function CollapsedBorderLayer({
   )
 }
 
-function ButtonGroup({ block = false, tuiBordered = false, children }: ButtonGroupProps) {
+function ButtonGroup({ block = false, tuiBordered = false, style, children }: ButtonGroupProps) {
   const token = useToken()
   const cellsRef = useRef(new Map<string, BoxRenderable>())
   const rootRef = useRef<BoxRenderable | null>(null)
@@ -385,6 +387,7 @@ function ButtonGroup({ block = false, tuiBordered = false, children }: ButtonGro
             // 共享的最右/最下边框没有对应按钮单元格，预留一个终端格防止绘制越界。
             paddingRight: 1,
             paddingBottom: 1,
+            ...toBoxStyle(style),
           }}
         >
           <CollapsedBorderLayer rootRef={rootRef} cellsRef={cellsRef} revision={revision} />
@@ -416,6 +419,7 @@ function ButtonGroup({ block = false, tuiBordered = false, children }: ButtonGro
           ...(block ? { width: "100%" as const } : {}),
           borderStyle: token.borderStyle,
           borderColor: token.colorBorder,
+          ...toBoxStyle(style),
         }}
       >
         {contents}

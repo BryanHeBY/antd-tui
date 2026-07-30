@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import { useMemo, type ReactNode } from "react"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 import { displayWidth, truncateToWidth } from "../width"
 
 /**
@@ -36,6 +37,8 @@ export interface TableProps<T = Record<string, unknown>> {
   bordered?: boolean
   /** 类似 antd locale.emptyText：无数据时的占位文案 */
   tuiEmptyText?: string
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 /** 终端等宽单元格：按显示宽度（CJK 占 2 列）截断或补空格 */
@@ -56,6 +59,7 @@ export function Table<T extends Record<string, unknown>>({
   dataSource = [],
   rowKey,
   bordered = false,
+  style,
   tuiEmptyText = "暂无数据",
 }: TableProps<T>) {
   const token = useToken()
@@ -90,7 +94,7 @@ export function Table<T extends Record<string, unknown>>({
   const rule = widths.map((w) => "─".repeat(w)).join(bordered ? "─┼─" : "  ")
 
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
       <text attributes={TextAttributes.BOLD} fg={token.colorText}>
         <b>{header}</b>
       </text>

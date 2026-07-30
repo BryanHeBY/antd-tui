@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -15,6 +16,8 @@ export interface FormItemProps {
   help?: string
   /** 同 antd（子集）：校验状态 */
   validateStatus?: "error"
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -23,12 +26,13 @@ export function FormItem({
   required = false,
   help,
   validateStatus,
+  style,
   children,
 }: FormItemProps) {
   const token = useToken()
 
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
       {label ? (
         <text attributes={TextAttributes.BOLD} fg={token.colorText}>
           {required ? <span fg={token.colorError}>* </span> : null}

@@ -2,6 +2,7 @@ import { Children, type ReactNode } from "react"
 import { Divider } from "./Divider"
 import { Spin } from "./Spin"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * antd List 的终端实现。
@@ -30,6 +31,8 @@ export interface ListProps<T = unknown> {
   split?: boolean
   /** 同 antd：空状态文本 */
   locale?: ListLocale
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -38,6 +41,8 @@ export interface ListItemProps {
   extra?: ReactNode
   /** 同 antd：条目动作区 */
   actions?: ReactNode[]
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -50,9 +55,9 @@ function TerminalContent({ children }: { children?: ReactNode }) {
   return <>{children}</>
 }
 
-function ListItem({ extra, actions, children }: ListItemProps) {
+function ListItem({ extra, actions, style, children }: ListItemProps) {
   return (
-    <box style={{ flexDirection: "row", width: "100%", alignItems: "center" }}>
+    <box style={{ flexDirection: "row", width: "100%", alignItems: "center", ...toBoxStyle(style) }}>
       <box style={{ flexGrow: 1, flexShrink: 1, flexDirection: "column" }}>
         <TerminalContent>{children}</TerminalContent>
       </box>
@@ -86,6 +91,7 @@ function ListBase<T>({
   bordered = false,
   split = true,
   locale,
+  style,
   children,
 }: ListProps<T>) {
   const token = useToken()
@@ -119,6 +125,7 @@ function ListBase<T>({
         ...(bordered
           ? { borderStyle: token.borderStyle, borderColor: token.colorBorder, paddingLeft: 1, paddingRight: 1 }
           : {}),
+        ...toBoxStyle(style),
       }}
     >
       {header ? (

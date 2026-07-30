@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import { useEffect, useState, type ReactNode } from "react"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -13,12 +14,14 @@ export interface SpinProps {
   tip?: ReactNode
   /** TUI 扩展：帧间隔毫秒（antd 无此字段，终端动画节流用） */
   tuiIntervalMs?: number
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-export function Spin({ spinning = true, tip, tuiIntervalMs = 80, children }: SpinProps) {
+export function Spin({ spinning = true, tip, tuiIntervalMs = 80, style, children }: SpinProps) {
   const token = useToken()
   const [frame, setFrame] = useState(0)
 
@@ -31,7 +34,7 @@ export function Spin({ spinning = true, tip, tuiIntervalMs = 80, children }: Spi
   if (!spinning) return <>{children}</>
 
   return (
-    <box style={{ flexDirection: "row", minHeight: 1 }}>
+    <box style={{ flexDirection: "row", minHeight: 1, ...toBoxStyle(style) }}>
       <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
       {tip ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}> {tip}</text> : null}
     </box>

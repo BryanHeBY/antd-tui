@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react"
 import type { BoxRenderable, MouseEvent } from "@opentui/core"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 export interface SelectOption {
   label: string
@@ -14,13 +15,15 @@ export interface SelectProps {
   tuiOnChange?: (value: SelectOption["value"]) => void
   options?: SelectOption[]
   disabled?: boolean
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 /**
  * 选择器。终端形态为内联列表（而非浮层下拉），聚焦后用 ↑/↓ 选择，
  * 鼠标点击选项行直接选中（并把焦点转移过来）。
  */
-export function Select({ value, tuiOnChange, options = [], disabled = false }: SelectProps) {
+export function Select({ value, tuiOnChange, options = [], disabled = false, style }: SelectProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const { focused, requestFocus } = useFocusable({
@@ -94,6 +97,7 @@ export function Select({ value, tuiOnChange, options = [], disabled = false }: S
       style={{
         borderStyle: token.borderStyle,
         borderColor: focused ? token.colorPrimaryHover : token.colorBorder,
+        ...toBoxStyle(style),
       }}
       onMouseDown={handleMouseDown}
     >

@@ -56,14 +56,24 @@ function Text({ type, strong, style, children }: TextProps) {
 }
 
 export interface TitleProps {
+  /** 同 antd（子集）：CSS 风格样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
-function Title({ children }: TitleProps) {
+function Title({ style, children }: TitleProps) {
   const token = useToken()
+  const { fg, bg, alignSelf } = toTextStyle(style)
+  const layout = toBoxStyle(style)
+  delete layout.backgroundColor
   // 对齐 antd：标题是白色粗体（colorTextHeading），不是主色
   return (
-    <text attributes={TextAttributes.BOLD} fg={token.colorText}>
+    <text
+      attributes={TextAttributes.BOLD}
+      fg={fg ?? token.colorText}
+      bg={bg}
+      style={{ ...layout, ...(alignSelf ? { alignSelf } : {}) }}
+    >
       <b>{children}</b>
     </text>
   )

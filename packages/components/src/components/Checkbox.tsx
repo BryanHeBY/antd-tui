@@ -4,6 +4,7 @@ import type { BoxRenderable } from "@opentui/core"
 import { useKeyboard } from "@opentui/react"
 import { useToken } from "../theme"
 import { useFocusable } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -17,10 +18,12 @@ export interface CheckboxProps {
   disabled?: boolean
   /** 类似 antd onChange 但参数不同：直接回传 checked（终端无 DOM 事件对象） */
   tuiOnChange?: (checked: boolean) => void
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
-function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children }: CheckboxProps) {
+function CheckboxBase({ checked = false, disabled = false, tuiOnChange, style, children }: CheckboxProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const toggle = () => {
@@ -51,7 +54,7 @@ function CheckboxBase({ checked = false, disabled = false, tuiOnChange, children
   return (
     <box
       ref={boxRef}
-      style={{ flexDirection: "row", minHeight: 1 }}
+      style={{ flexDirection: "row", minHeight: 1, ...toBoxStyle(style) }}
       onMouseDown={() => {
         // 浏览器直觉：点击控件同时把焦点转移过去
         requestFocus()
@@ -83,6 +86,8 @@ export interface CheckboxGroupProps {
   disabled?: boolean
   /** TUI 扩展：排列方向（终端宽度有限，默认纵向；antd 无此字段） */
   tuiDirection?: "horizontal" | "vertical"
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 function normalize(options: Array<CheckboxOption | string> = []): CheckboxOption[] {
@@ -95,6 +100,7 @@ function CheckboxGroup({
   onChange,
   disabled = false,
   tuiDirection = "vertical",
+  style,
 }: CheckboxGroupProps) {
   const list = normalize(options)
   return (
@@ -102,6 +108,7 @@ function CheckboxGroup({
       style={{
         flexDirection: tuiDirection === "horizontal" ? "row" : "column",
         gap: tuiDirection === "horizontal" ? 2 : 0,
+        ...toBoxStyle(style),
       }}
     >
       {list.map((option) => (

@@ -3,6 +3,7 @@ import type { BoxRenderable } from "@opentui/core"
 import { useRef, type ReactNode } from "react"
 import { useFocusable } from "../focus"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 type LinkType = "secondary" | "success" | "warning" | "danger"
 
@@ -23,6 +24,8 @@ export interface LinkProps {
   underline?: boolean
   /** TUI 扩展：点击或 Enter 时执行；终端没有 DOM MouseEvent 参数 */
   tuiOnClick?: () => void
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -35,7 +38,7 @@ function colorForType(type: LinkType | undefined, disabled: boolean, token: Retu
   return token.colorPrimaryHover
 }
 
-export function Link({ href, disabled = false, type, underline = true, tuiOnClick, children }: LinkProps) {
+export function Link({ href, disabled = false, type, underline = true, tuiOnClick, style, children }: LinkProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const interactive = !disabled && tuiOnClick !== undefined
@@ -53,7 +56,7 @@ export function Link({ href, disabled = false, type, underline = true, tuiOnClic
   return (
     <box
       ref={boxRef}
-      style={{ minHeight: 1 }}
+      style={{ minHeight: 1, ...toBoxStyle(style) }}
       onMouseDown={() => {
         if (!interactive) return
         requestFocus()

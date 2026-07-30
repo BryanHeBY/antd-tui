@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
@@ -19,6 +20,8 @@ export interface StatisticProps {
   suffix?: ReactNode
   /** 类似 antd valueStyle 但仅支持语义色（终端无 CSS） */
   tuiValueType?: "default" | "success" | "warning" | "danger"
+  /** 同 antd（子集）：CSS 风格布局样式 */
+  style?: CssLikeStyle
 }
 
 export function Statistic({
@@ -28,6 +31,7 @@ export function Statistic({
   prefix,
   suffix,
   tuiValueType = "default",
+  style,
 }: StatisticProps) {
   const token = useToken()
   const valueColor =
@@ -47,7 +51,7 @@ export function Statistic({
         : String(value)
 
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
       {title ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{title}</text> : null}
       <text attributes={TextAttributes.BOLD} fg={valueColor}>
         {prefix ? <span>{String(prefix)}</span> : null}
