@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
+import { LiveTree } from "@antd-tui/live"
+import { createEvalRepl } from "../src/eval"
 import { BOOT_PROMPT, EXAMPLE_REFERENCE, LIVE_GUIDE } from "../src/knowledge"
 
 /**
@@ -22,31 +24,30 @@ describe("知识注入", () => {
     }
   })
 
-  test("引导骨架优先的增量搭建,并在复杂页面前取参考实现", () => {
-    // 首个 eval 必须小:人类的等待时长 = 首个 eval 的生成时长
-    expect(BOOT_PROMPT).toContain("骨架优先")
-    expect(BOOT_PROMPT).toContain("10 行以内")
-    expect(LIVE_GUIDE).toContain("骨架优先")
-    // example 是硬性前置(同 skill 语义),不是"按需"
+  test("引导允许完整 JS,复杂页面按需取参考实现", () => {
     expect(BOOT_PROMPT).toContain("vibetui_example")
-    expect(BOOT_PROMPT).toContain("必经步骤")
-    expect(LIVE_GUIDE.slice(0, 700)).toContain("vibetui_example()")
-    expect(LIVE_GUIDE).toContain("硬性前置要求")
-    // 会话恢复:引导会重复注入,已读过就别重复取、也别重建画布
-    expect(BOOT_PROMPT).toContain("会话恢复")
-    expect(LIVE_GUIDE).toContain("session 恢复")
+    expect(BOOT_PROMPT).toContain("一次写完整 JS")
+    expect(LIVE_GUIDE).toContain("完整 JS 优先")
+    expect(LIVE_GUIDE).toContain("复杂布局可调用")
+    expect(BOOT_PROMPT).not.toContain("必经步骤")
+    expect(LIVE_GUIDE).not.toContain("硬性前置要求")
     // 反向约束:别中途频繁截帧
     expect(LIVE_GUIDE).toContain("搭完整页后验收一次")
   })
 
-  test("EXAMPLE_REFERENCE 内联 dashboard 源码与适配说明", () => {
-    // 源码全文经 Bun 文本导入内联:关键片段必在
-    expect(EXAMPLE_REFERENCE).toContain("buildDashboard")
+  test("EXAMPLE_REFERENCE 是可直接执行的原生 REPL JavaScript", () => {
     expect(EXAMPLE_REFERENCE).toContain("$ui.clear()")
-    expect(EXAMPLE_REFERENCE).toContain("tuiOnPressEnter")
-    // 适配说明:actions → $agent.send
     expect(EXAMPLE_REFERENCE).toContain("$agent.send")
-    // guide 与 BOOT_PROMPT 指路
+    expect(EXAMPLE_REFERENCE).not.toContain("import type")
+    expect(EXAMPLE_REFERENCE).not.toContain("buildDashboard")
+
+    const source = EXAMPLE_REFERENCE.match(/```js\n([\s\S]*?)\n```/)?.[1]
+    expect(source).toBeDefined()
+    const tree = new LiveTree()
+    createEvalRepl({ $ui: tree.ui, $agent: { send: () => {} } }).evaluate(source!)
+    expect(tree.ui.has("app")).toBe(true)
+    expect(tree.ui.has("main")).toBe(true)
+
     expect(LIVE_GUIDE).toContain("vibetui_example")
     expect(BOOT_PROMPT).toContain("vibetui_example")
   })

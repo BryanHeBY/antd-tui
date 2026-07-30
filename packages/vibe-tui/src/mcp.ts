@@ -101,7 +101,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
     "vibetui_example",
     {
       description:
-        "获取 dashboard 参考实现源码全文(登录页 → App Shell,覆盖全部组件与常用 props)及 vibe 环境适配说明。新建页面前的必读前置:除非上下文里已有本工具的返回内容,否则在写第一行 $ui 代码之前必须先调用它——本组件库是 antd 的终端子集,凭记忆猜 props 与布局必然返工。仅当只是往已有页面加一两个组件时可跳过。",
+        "获取可直接交给 vibetui_eval 执行的 JavaScript App Shell 参考（满幅顶栏、侧栏导航、可滚动动态主区）。搭导航壳、多区域页面、表单或列表时按需调用；简单页面可直接写 JS。",
       inputSchema: {},
     },
     () => textResult(bridge.example()),

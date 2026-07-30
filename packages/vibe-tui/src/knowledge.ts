@@ -5,23 +5,19 @@
  */
 import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
 import { inputBindings } from "@antd-tui/live"
-// @ts-expect-error Bun 文本导入:构建期把示例源码内联为字符串(不依赖运行时文件系统)
-import dashboardSource from "../../../examples/repl/dashboard.tsx" with { type: "text" }
 
 /** 会话就绪后立即注入（新建与恢复都注入）：让 agent 知道自己身处 vibe-tui */
 export const BOOT_PROMPT = [
   "你已连接 vibe-tui —— 一块由你（agent）驱动的终端 UI 画布。人类通过底部输入框与你对话，也会直接操作你渲染的界面。",
   "可用 MCP 工具：",
-  "- vibetui_guide()：$ui 活对象树的编写规范与样例，画任何页面前先读它",
-  "- vibetui_example()：dashboard 参考实现源码全文（登录页/App Shell/表单校验/列表表格）。这是必读前置：新建任何页面前若上下文里没有它的内容，先调用它",
+  "- vibetui_guide()：$ui 活对象树的编写规范与样例；不熟悉组件或布局时先读它",
+  "- vibetui_example()：可直接执行的 App Shell JavaScript 参考；搭导航壳、多区域页、表单或列表时按需取用",
   "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
   "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受 F2/F3、状态栏或输入框影响",
   "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
-  "现在：先调用 vibetui_guide 学习规范，紧接着调用 vibetui_example 取参考实现——这两步是搭建前的必经步骤，不要凭记忆猜组件写法（本库是 antd 的终端子集，props 与布局行为有差异，猜写必然返工）。",
-  "两个例外可跳过：①本引导是会话恢复时重复注入的，若历史里已有 guide/example 的返回内容，直接复用别重复调用（画布也已在屏，不要重建）；②只是往已有页面加一两个组件。",
-  "然后开始搭建，节奏是骨架优先：第一个 vibetui_eval 保持 10 行以内（页面元信息 + 带 id 的顶层容器 + 每区一行占位），让人类立刻看到骨架；随后每次 eval 只填一个区域。人类在等你，首个 eval 越短他等得越少。",
-  "若没有明确场景，渲染一个简洁的欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
+  "现在：直接用 vibetui_eval 完成当前任务。默认可一次写完整 JS；不熟悉 API 时先读 guide，复杂 App Shell/表单/列表再按需取 example。若人类明确希望尽早看到中间结果，再先上骨架、分区填充。",
+  "若没有明确场景，直接用一次 eval 渲染一个简洁欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
 ].join("\n")
 
 /** 组件 → 可用 props 速查表：直接从白名单生成，新增组件/props 自动出现在 guide 里 */
@@ -37,24 +33,47 @@ function buildComponentReference(): string {
 }
 
 /**
- * vibetui_example 工具返回的内容：dashboard 参考实现全文 + vibe 环境适配说明。
- * 源码经 Bun 文本导入内联，与仓库示例同源（CI 冒烟验证过），零同步债。
+ * vibetui_example 工具返回的内容：可直接执行的 JS App Shell 示例。
+ * 不复用 TypeScript REPL 文件，避免 agent 还需人工删除 import、类型和宿主出口。
  */
-export const EXAMPLE_REFERENCE = `# dashboard 参考实现（登录页 → App Shell 全组件示例）
+export const EXAMPLE_REFERENCE = `# vibe-tui App Shell 参考
 
-这是仓库黄金示例 examples/repl/dashboard.tsx 的源码全文，覆盖全部组件与常用 props：
-登录页（Title/Link/tuiOnPressEnter/Button loading/Modal footer:null）、$ui.clear() 整页换页、
-满幅 App Shell（page padding/gap 0 + 背景色条）、导航重建分区、watch 联动插删、真函数校验写回。
+适合多区域页面、导航壳和动态主区。下面代码是**纯 JavaScript**，可原样作为一次
+vibetui_eval 的 code 执行；没有 import、TypeScript 类型或外部宿主 actions。重复执行也安全：
+它先清页，顶层绑定都用可重复声明的 var。
 
-## 在 vibe-tui 里借用时的三处适配
-1. 忽略 import 行与 TS 类型标注（: LiveNode / as const 等）——vibetui_eval 是纯 JS。
-2. 示例的 actions?.submit / actions?.cancel 是宿主退出出口，vibe 里不存在——
-   改用 $agent.send("submit", payload) / $agent.send("cancel") 把结果回流给你自己。
-3. 示例包在 buildDashboard($ui) 函数里——vibe 里直接顶层写语句即可（$ui 已在作用域）。
+\`\`\`js
+$ui.clear()
+$ui.page({ mode: "interactive", padding: 0, gap: 0 })
 
-## 源码
-\`\`\`ts
-${dashboardSource as string}
+var shell = $ui.add("Flex", {
+  id: "app",
+  props: { vertical: true, gap: 0, style: { width: "100%", height: "100%" } },
+})
+var header = shell.add("Flex", {
+  props: { justify: "space-between", align: "center", style: { width: "100%", padding: 1, backgroundColor: "#1f1f1f" } },
+})
+header.add("Typography.Text", { content: "控制台", props: { strong: true } })
+header.add("Button", { content: "上报", props: { tuiSize: "small", tuiOnClick: () => $agent.send("header-click") } })
+
+var body = shell.add("Row", { props: { gutter: 0, wrap: false, style: { flex: 1 } } })
+var nav = body.add("Col", { props: { style: { width: 16 } } }).add("Flex", {
+  props: { vertical: true, gap: 0, style: { height: "100%", backgroundColor: "#171717" } },
+})
+var main = body.add("Col", { props: { flex: 1 } }).add("Flex", {
+  id: "main",
+  props: { vertical: true, gap: 1, tuiScroll: true, style: { height: "100%", marginLeft: 1, marginTop: 1 } },
+})
+
+var renderSection = (title) => {
+  var pane = $ui.get("main")
+  for (var child of [...pane.children]) child.remove()
+  pane.add("Typography.Title", { content: title })
+  pane.add("Card", { props: { title: "内容" } }).add("Typography.Text", { content: "这里放表格、表单或列表。" })
+}
+nav.add("Button", { content: "概览", props: { tuiSize: "small", block: true, tuiOnClick: () => renderSection("概览") } })
+nav.add("Button", { content: "服务", props: { tuiSize: "small", block: true, tuiOnClick: () => renderSection("服务") } })
+renderSection("概览")
 \`\`\`
 `
 
@@ -64,22 +83,13 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 画布是一棵活组件树，你用 vibetui_eval 在会话级真 JS REPL 中操作它；每次 eval 执行完立即上屏、立即可交互。
 不写 JSON schema、不写 "{{ }}" 表达式字符串——回调就是真函数。
 
-> **硬性前置要求（同 skill 语义）**：除非你的上下文里已经有 vibetui_example 的返回内容，
-> 否则在写第一行 $ui 代码之前**必须先调用 vibetui_example()**。不要凭 antd/React 记忆猜写法——
-> 本组件库是终端子集，props 命名与布局行为都有终端适配差异，猜写必然返工。
-> 两个例外：①只加一两个组件到已有页面（如加个按钮、改个文案）；
-> ②本次会话（含 session 恢复后的历史）里已有 example 返回内容——直接复用，不要重复调用。
-> 除此之外，整页新建一律先读 example。
+> 先按任务选资料：不熟悉组件或 props 时调用 vibetui_guide()；导航壳、多区域页、表单或列表等复杂布局可调用
+> vibetui_example() 取可运行参考。简单页面或已熟悉的 API 可直接写 JS；不要为了形式上的前置调用而增加往返。
 
-## 执行方式：骨架优先，逐区填充
-人类是盯着屏幕等你的。首个 eval 写多少行，就是他面对空白等待的时长——所以**先让骨架上屏，再逐区填内容**。
-- 第一个 eval 必须小（10 行以内、几秒内写完）：只写 $ui.page() + 顶层容器 + 每个区域一行占位
-  （区域标题 Typography.Title，或 $ui.add("Spin", { id: "xxx", props: { tip: "加载中" } })）。
-  容器都带 id，后续 eval 直接 $ui.get(id).add(...) 往里填。
-- 之后每个 eval 只填一个区域：一个卡片、一张表、一组按钮。每次都立即上屏，人类能边看边打断纠偏。
-- 同构重复区域（列表项、键盘、指标卡）：先在一个 eval 里定义 helper 函数（REPL 跨调用保留），
-  后续 eval 一行调用即可，例如 \`const addRow = (t, tag) => { ... }\` 之后 \`addRow("已发布", "success")\`。
-- 反过来别把工具当调试器逐个组件试：那样往返次数爆炸，反而更慢。粒度取"一个区域一次 eval"。
+## 执行方式：完整 JS 优先，必要时增量
+- 默认一次 eval 可直接写完整页面：$ui.clear()、$ui.page()、函数、循环和整页构建都可放在同一段 JS 中。
+- 需要人类尽早确认版式、页面很大或需求尚不确定时，再先上带 id 的骨架，后续按区域填充。
+- 同构重复区域（列表项、键盘、指标卡）可在一个 eval 里定义 helper 函数、循环生成；不要逐组件调用工具。
 - 一段 eval 中任一步报错会中断后续语句，但它不是事务：此前已成功执行的 $ui 修改会保留，不会自动回滚。用 vibetui_snapshot 确认后针对性修复。
 - 只有明确要整页重建时才调用 $ui.clear()；它会清空组件树、页面元信息、$ui.data 和全部 watch，不能把它当作普通报错恢复手段。
 
@@ -172,7 +182,7 @@ row.add("Button", { content: "上报", props: { tuiSize: "small",
   tuiOnClick: () => $agent.send("count", $ui.data.count) } })
 
 搭完调 vibetui_snapshot 自查布局；操作报错时按错误信息里的可用组件/props 修。
-需要完整参考实现（登录页、App Shell 满幅布局、表单校验、动态详情、整页换页）时调 vibetui_example()。
+需要 App Shell 满幅布局、导航和动态主区的可运行参考时调 vibetui_example()。
 
 ## 组件 props 速查（与运行时校验同源自动生成）
 〔可 name 绑定〕= 支持 name 双向绑定 $ui.data；value/onChange 类 props 由绑定层注入，通常无需手写
