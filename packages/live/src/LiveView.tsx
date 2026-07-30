@@ -9,7 +9,7 @@ import { observer } from "@formily/reactive-react"
 import { useKeyboard } from "@opentui/react"
 import { Flex, Typography, useFocusScopeState } from "@antd-tui/components"
 import { DISPLAY_BINDING_COMPONENT, inputBindings, liveComponents, rawTextContentComponents } from "./registry"
-import type { LiveTree } from "./tree"
+import { isCallbackProp, type LiveTree } from "./tree"
 
 export interface LiveViewProps {
   tree: LiveTree
@@ -37,6 +37,12 @@ const NodeView = observer(({ tree, id }: { tree: LiveTree; id: string }) => {
   // toJS 双重作用：深读建立深依赖（嵌套 style/options 变更也触发本节点重渲染），
   // 同时传给组件的是普通对象而非代理（组件不是 observer，读代理不会追踪）；函数原样穿透
   const props: Record<string, unknown> = toJS(record.state.props)
+  // agent 回调守卫：异常不得穿透进渲染器的鼠标/键盘派发链（会刷屏并打挂 stdin 解析）
+  for (const [key, value] of Object.entries(props)) {
+    if (typeof value === "function" && isCallbackProp(key)) {
+      props[key] = tree.guard(value as (...args: unknown[]) => unknown, `${id}.${key}`)
+    }
+  }
   const name = record.state.name
 
   if (name !== undefined) {
@@ -44,10 +50,10 @@ const NodeView = observer(({ tree, id }: { tree: LiveTree; id: string }) => {
     if (binding) {
       const userHandler = props[binding.changeProp] as ((value: unknown) => void) | undefined
       props[binding.valueProp] = tree.data[name] ?? binding.emptyValue
-      props[binding.changeProp] = (value: unknown) => {
+      props[binding.changeProp] = tree.guard((value: unknown) => {
         tree.data[name] = value
         userHandler?.(value)
-      }
+      }, `${id}.${binding.changeProp}`)
     }
   }
 

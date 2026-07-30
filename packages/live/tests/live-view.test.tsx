@@ -269,4 +269,47 @@ describe("LiveView × $ui", () => {
     expect(frame).toContain("按钮文案")
     t.destroy()
   }, 20000)
+
+  test("回调抛错走 onCallbackError 兜底，不穿透事件派发链", async () => {
+    const errors: Array<{ context: string; message: string }> = []
+    const tree = new LiveTree({
+      onCallbackError: (error, context) =>
+        errors.push({ context, message: (error as Error).message }),
+    })
+    const ui = tree.ui
+    ui.page({ title: "守卫", mode: "interactive" })
+    ui.add("Button", {
+      id: "boom",
+      content: "  炸  ",
+      props: {
+        tuiOnClick: () => {
+          ui.get("不存在的节点")
+        },
+      },
+    })
+
+    const t = await mount(tree)
+    const pos = locate(t.frame(), "  炸  ")
+    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.settle()
+
+    expect(errors.length).toBe(1)
+    expect(errors[0]!.context).toBe("boom.tuiOnClick")
+    expect(errors[0]!.message).toContain("节点不存在")
+    // 宿主仍存活可渲染
+    expect(t.frame()).toContain("炸")
+
+    // watch 回调抛错同样兜底
+    ui.add("Input", { name: "n" })
+    ui.watch(
+      () => tree.data.n,
+      () => {
+        throw new Error("watch 崩了")
+      },
+    )
+    tree.data.n = "x"
+    expect(errors.length).toBe(2)
+    expect(errors[1]!.context).toBe("$ui.watch 回调")
+    t.destroy()
+  }, 20000)
 })

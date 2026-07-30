@@ -71,6 +71,12 @@ export interface LiveUi {
 export interface LiveTreeOptions {
   /** 结构/props 合法变更后回调（宿主据此切画布模式）；渲染由 observable 自驱不依赖它 */
   onMutate?: () => void
+  /**
+   * agent 回调（事件 props / escape / watch）抛错时的兜底。这些函数由 UI 输入事件
+   * 触发，异常若穿透进渲染器事件派发链会刷屏并打挂 stdin 解析。
+   * 缺省不兜底（异常照常抛出，适合测试/示例宿主）。
+   */
+  onCallbackError?: (error: unknown, context: string) => void
 }
 
 interface NodeState {
@@ -88,6 +94,11 @@ export interface LiveNodeRecord {
 }
 
 const CALLBACK_KEY = /^(tuiOn|on)[A-Z]/
+
+/** LiveView 识别回调 props（与 LiveTree 的函数值校验同一约定） */
+export function isCallbackProp(key: string): boolean {
+  return CALLBACK_KEY.test(key)
+}
 
 function clampIndex(index: number, length: number): number {
   if (!Number.isFinite(index)) return length
@@ -137,7 +148,7 @@ export class LiveTree {
       },
       data: tree.data,
       watch(getter, callback) {
-        const dispose = reaction(getter, (value, oldValue) => callback(value, oldValue))
+        const dispose = reaction(getter, tree.guard(callback, "$ui.watch 回调"))
         const wrapped = () => {
           dispose()
           tree.watchers.delete(wrapped)
@@ -178,10 +189,26 @@ export class LiveTree {
   runEscape(defaultAction: () => void): void {
     if (this.rootState.escape === "none") return
     if (this.rootState.escape === "custom" && this.escapeHandler) {
-      this.escapeHandler()
+      this.guard(this.escapeHandler, "$ui.escape 处理器")()
       return
     }
     defaultAction()
+  }
+
+  /**
+   * agent 回调守卫：配置了 onCallbackError 则拦截异常交宿主处理，
+   * 否则原样抛出（测试/示例宿主保持既有语义）
+   */
+  guard<A extends unknown[]>(fn: (...args: A) => unknown, context: string): (...args: A) => void {
+    return (...args: A) => {
+      try {
+        fn(...args)
+      } catch (err) {
+        const handler = this.options.onCallbackError
+        if (!handler) throw err
+        handler(err, context)
+      }
+    }
   }
 
   /** clear 不触发 onMutate：宿主切 schema 前清场时不应又把画布切回 live */
