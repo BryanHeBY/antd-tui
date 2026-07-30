@@ -19,12 +19,22 @@ export function buildCalculator($ui: LiveUi): void {
     id: "calculator",
     props: { vertical: true, gap: 0, style: { width: "100%" } },
   })
-  // 显示区保持一行，给连体按键组留出完整五行；右对齐本身就是终端里的有效边界。
-  calculator.add("Flex", { id: "screen", props: { vertical: true, style: { width: "100%" } } }).add("Typography.Text", {
-    name: "display",
-    default: "0",
-    props: { style: { textAlign: "right" }, type: "warning", strong: true },
-  })
+  // 显示区做成"计算器屏幕"：深色底条与连体键盘同宽（键盘右侧预留 1 列画共享边框，
+  // 故底条 marginRight: 2 对齐键盘右边框），数字右对齐贴右缘——屏与键盘成为有机整体。
+  calculator
+    .add("Flex", {
+      id: "screen",
+      props: {
+        vertical: true,
+        align: "flex-end",
+        style: { marginRight: 2, backgroundColor: "#1f1f1f", padding: 1 },
+      },
+    })
+    .add("Typography.Text", {
+      name: "display",
+      default: "0",
+      props: { type: "warning", strong: true },
+    })
 
   // —— 计算逻辑：真函数；justEvaluated 直接活在闭包里，不需要 $memo 通道 ——
   let justEvaluated = false

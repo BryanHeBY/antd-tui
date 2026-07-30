@@ -25,13 +25,17 @@
           "screen": {
             "type": "void",
             "x-component": "Flex",
-            "x-component-props": { "vertical": true, "style": { "width": "100%" } },
+            "x-component-props": {
+              "vertical": true,
+              "align": "flex-end",
+              "style": { "marginRight": 2, "backgroundColor": "#1f1f1f", "padding": 1 }
+            },
             "properties": {
               "display": {
                 "type": "string",
                 "default": "0",
                 "x-component": "Typography.Text",
-                "x-component-props": { "style": { "textAlign": "right" }, "type": "warning", "strong": true }
+                "x-component-props": { "type": "warning", "strong": true }
               }
             }
           },
