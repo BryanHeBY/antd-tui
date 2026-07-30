@@ -31,12 +31,15 @@ export function Spin({ spinning = true, tip, tuiIntervalMs = 80, style, children
     return () => clearInterval(timer)
   }, [spinning, tuiIntervalMs])
 
-  if (!spinning) return <>{children}</>
-
   return (
-    <box style={{ flexDirection: "row", minHeight: 1, ...toBoxStyle(style) }}>
-      <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
-      {tip ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}> {tip}</text> : null}
+    <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
+      {spinning ? (
+        <box style={{ flexDirection: "row", minHeight: 1 }}>
+          <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
+          {tip ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}> {tip}</text> : null}
+        </box>
+      ) : null}
+      {children}
     </box>
   )
 }

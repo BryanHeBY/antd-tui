@@ -155,4 +155,18 @@ describe("Spin", () => {
     expect(t.frame()).toContain("内容已就绪")
     t.destroy()
   })
+
+  test("spinning 时保留子节点并显示加载提示", async () => {
+    const t = await renderTui(
+      wrap(
+        <Spin tip="正在加载">
+          <text>后台内容</text>
+        </Spin>,
+      ),
+      { width: 30, height: 4 },
+    )
+    expect(t.frame()).toContain("正在加载")
+    expect(t.frame()).toContain("后台内容")
+    t.destroy()
+  })
 })
