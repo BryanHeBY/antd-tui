@@ -27,9 +27,14 @@ describe("知识注入", () => {
     expect(BOOT_PROMPT).toContain("骨架优先")
     expect(BOOT_PROMPT).toContain("10 行以内")
     expect(LIVE_GUIDE).toContain("骨架优先")
-    // 复杂页面主动取 example
+    // example 是硬性前置(同 skill 语义),不是"按需"
     expect(BOOT_PROMPT).toContain("vibetui_example")
-    expect(LIVE_GUIDE.slice(0, 600)).toContain("vibetui_example()")
+    expect(BOOT_PROMPT).toContain("必经步骤")
+    expect(LIVE_GUIDE.slice(0, 700)).toContain("vibetui_example()")
+    expect(LIVE_GUIDE).toContain("硬性前置要求")
+    // 会话恢复:引导会重复注入,已读过就别重复取、也别重建画布
+    expect(BOOT_PROMPT).toContain("会话恢复")
+    expect(LIVE_GUIDE).toContain("session 恢复")
     // 反向约束:别中途频繁截帧
     expect(LIVE_GUIDE).toContain("搭完整页后验收一次")
   })
