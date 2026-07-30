@@ -26,6 +26,10 @@ export interface ButtonProps {
   type?: "primary" | "default"
   /** 同 antd：禁用 */
   disabled?: boolean
+  /** 同 antd：加载中（显示旋转帧并阻止点击，视觉不置灰） */
+  loading?: boolean
+  /** 同 antd：危险语义（错误色边框/文字） */
+  danger?: boolean
   /** 同 antd：宽度撑满父容器 */
   block?: boolean
   /** 类似 antd size 但形态不同：small 为无边框填充色块（终端里紧凑形态无法保留边框） */
@@ -66,9 +70,13 @@ interface ButtonGroupContextValue {
 
 const ButtonGroupContext = createContext<ButtonGroupContextValue | null>(null)
 
+const SPIN_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
 function ButtonBase({
   type = "default",
   disabled = false,
+  loading = false,
+  danger = false,
   block = false,
   tuiSize = "middle",
   style,
@@ -80,9 +88,17 @@ function ButtonBase({
   const group = useContext(ButtonGroupContext)
   const boxRef = useRef<BoxRenderable | null>(null)
   const cellId = useId()
+  // loading 与 antd 一致：阻止交互但不置灰
+  const locked = disabled || loading
+  const [spinFrame, setSpinFrame] = useState(0)
+  useEffect(() => {
+    if (!loading) return
+    const timer = setInterval(() => setSpinFrame((f) => (f + 1) % SPIN_FRAMES.length), 100)
+    return () => clearInterval(timer)
+  }, [loading])
   const { focused, getFocusedKind, isActiveScope, requestFocus } = useFocusable({
     kind: "action",
-    disabled,
+    disabled: locked,
     onActivate: tuiOnClick,
     getRect: () => {
       const el = boxRef.current
@@ -97,13 +113,13 @@ function ButtonBase({
 
   // 浏览器直觉：点击按钮同时把焦点转移过去
   const handleMouseDown = () => {
-    if (disabled) return
+    if (locked) return
     requestFocus()
     tuiOnClick?.()
   }
 
   useKeyboard((key) => {
-    if (!tuiHotkey || disabled || !isActiveScope()) return
+    if (!tuiHotkey || locked || !isActiveScope()) return
     // 输入框/选择器聚焦时按键归它们，热键静默
     if (getFocusedKind() === "input") return
     // 单字符走可见字符（sequence），多字符走命名键（name），两套命名空间不混用
@@ -112,6 +128,12 @@ function ButtonBase({
   })
 
   const isPrimary = type === "primary"
+  const label = (
+    <>
+      {loading ? `${SPIN_FRAMES[spinFrame]} ` : ""}
+      {children}
+    </>
+  )
 
   if (group) {
     // 普通 Group 保持 antd 一维按钮组的紧凑形态。连续面板则由父级统一绘制边框，
@@ -120,9 +142,11 @@ function ButtonBase({
     const backgroundColor = disabled || group.collapsed ? "transparent" : focused ? "#202020" : "transparent"
     const textColor = disabled
       ? token.colorTextDisabled
-      : isPrimary || focused
-        ? token.colorPrimaryHover
-        : token.colorText
+      : danger
+        ? token.colorError
+        : isPrimary || focused
+          ? token.colorPrimaryHover
+          : token.colorText
     return (
       <box
         ref={boxRef}
@@ -147,7 +171,7 @@ function ButtonBase({
         onMouseDown={handleMouseDown}
       >
         <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
-          {children}
+          {label}
         </text>
       </box>
     )
@@ -160,9 +184,11 @@ function ButtonBase({
       ? "#262626"
       : focused
         ? "#e6e6e6"
-        : isPrimary
-          ? token.colorPrimary
-          : "#373737"
+        : danger
+          ? token.colorError
+          : isPrimary
+            ? token.colorPrimary
+            : "#373737"
     const textColor = disabled ? token.colorTextDisabled : focused ? "#141414" : "#ffffff"
     return (
       <box
@@ -178,7 +204,7 @@ function ButtonBase({
         onMouseDown={handleMouseDown}
       >
         <text attributes={TextAttributes.BOLD} fg={textColor} bg={backgroundColor}>
-          {children}
+          {label}
         </text>
       </box>
     )
@@ -188,16 +214,20 @@ function ButtonBase({
   // （primary = 主色边框 + 亮端主色文字；纯色块形态用 tuiSize: "small"）
   const borderColor = disabled
     ? token.colorTextDisabled
-    : focused
-      ? token.colorPrimaryHover
-      : isPrimary
-        ? token.colorPrimary
-        : token.colorBorder
+    : danger
+      ? token.colorError
+      : focused
+        ? token.colorPrimaryHover
+        : isPrimary
+          ? token.colorPrimary
+          : token.colorBorder
   const textColor = disabled
     ? token.colorTextDisabled
-    : isPrimary || focused
-      ? token.colorPrimaryHover
-      : token.colorText
+    : danger
+      ? token.colorError
+      : isPrimary || focused
+        ? token.colorPrimaryHover
+        : token.colorText
 
   return (
     <box
@@ -217,7 +247,7 @@ function ButtonBase({
       onMouseDown={handleMouseDown}
     >
       <text attributes={TextAttributes.BOLD} fg={textColor}>
-        {children}
+        {label}
       </text>
     </box>
   )

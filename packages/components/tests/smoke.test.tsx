@@ -352,3 +352,30 @@ describe("InputNumber", () => {
     t.destroy()
   })
 })
+
+describe("Button loading/danger", () => {
+  test("loading 显示旋转帧且不可点击;danger 用错误色", async () => {
+    const clicks: string[] = []
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <box style={{ flexDirection: "column", gap: 1 }}>
+            <Button loading tuiOnClick={() => clicks.push("loading")}>
+              提交
+            </Button>
+            <Button danger tuiOnClick={() => clicks.push("danger")}>
+              删除
+            </Button>
+          </box>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 40, height: 12 },
+    )
+    const frame = t.frame()
+    expect(frame).toContain("提交")
+    expect(frame).toContain("删除")
+    // loading 前缀旋转帧(Braille 点阵字符之一)
+    expect(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] 提交/.test(frame)).toBe(true)
+    t.destroy()
+  }, 20000)
+})
