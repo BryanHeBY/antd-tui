@@ -85,3 +85,20 @@ export const inputBindings: Record<string, InputBinding> = {
 
 /** Typography.Text 的 name 绑定是单向显示（String(data[name])），无 change 回调 */
 export const DISPLAY_BINDING_COMPONENT = "Typography.Text"
+
+/**
+ * 能直接接收裸字符串 children 的组件（内部自己包 <text>）。
+ * 其余组件（Card/Space/Flex/Row/Col 等 box 容器）收到裸字符串会触发
+ * OpenTUI "Text must be created inside of a text node" 崩溃，
+ * content 需由渲染器包一层文本组件。
+ */
+export const rawTextContentComponents: ReadonlySet<string> = new Set([
+  "Button",
+  "Typography.Text",
+  "Typography.Link",
+  "Tag",
+  "Divider",
+  "Checkbox",
+  "List",
+  "List.Item",
+])

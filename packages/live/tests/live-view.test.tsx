@@ -250,4 +250,23 @@ describe("LiveView × $ui", () => {
 
     t.destroy()
   }, 20000)
+
+  test("box 容器上的 content 自动包成文本，不崩溃", async () => {
+    const tree = new LiveTree()
+    const ui = tree.ui
+    ui.page({ title: "容器文本", mode: "interactive" })
+    ui.add("Card", { content: "卡片说明文字" })
+    ui.add("Space", { content: "间距容器文字" })
+    ui.add("Flex", { content: "弹性容器文字" })
+    // 文本安全组件保持原样直传（Button 自己渲染文案）
+    ui.add("Button", { content: "按钮文案" })
+
+    const t = await mount(tree)
+    const frame = t.frame()
+    expect(frame).toContain("卡片说明文字")
+    expect(frame).toContain("间距容器文字")
+    expect(frame).toContain("弹性容器文字")
+    expect(frame).toContain("按钮文案")
+    t.destroy()
+  }, 20000)
 })

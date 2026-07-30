@@ -8,7 +8,7 @@ import { toJS } from "@formily/reactive"
 import { observer } from "@formily/reactive-react"
 import { useKeyboard } from "@opentui/react"
 import { Flex, Typography, useFocusScopeState } from "@antd-tui/components"
-import { DISPLAY_BINDING_COMPONENT, inputBindings, liveComponents } from "./registry"
+import { DISPLAY_BINDING_COMPONENT, inputBindings, liveComponents, rawTextContentComponents } from "./registry"
 import type { LiveTree } from "./tree"
 
 export interface LiveViewProps {
@@ -56,7 +56,12 @@ const NodeView = observer(({ tree, id }: { tree: LiveTree; id: string }) => {
     const value = tree.data[name]
     children = value === undefined || value === null ? "—" : String(value)
   } else if (record.state.content !== undefined) {
-    children = record.state.content
+    // box 类容器不能直接放裸字符串（OpenTUI 崩溃），非文本安全组件的 content 包一层
+    children = rawTextContentComponents.has(record.component) ? (
+      record.state.content
+    ) : (
+      <Typography.Text>{record.state.content}</Typography.Text>
+    )
   } else if (record.state.childIds.length > 0) {
     children = record.state.childIds.map((cid) => (
       <NodeView key={cid} tree={tree} id={cid} />
