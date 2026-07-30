@@ -198,7 +198,8 @@ function ButtonBase({
           minHeight: 1,
           alignItems: "center",
           justifyContent: "center",
-          ...(block ? { width: "100%" } : { paddingLeft: 1, paddingRight: 1 }),
+          // 与 antd 一致：非 block 按钮贴合内容宽度，不被列向容器拉满
+          ...(block ? { width: "100%" } : { paddingLeft: 1, paddingRight: 1, alignSelf: "flex-start" }),
           ...toBoxStyle(style),
         }}
         onMouseDown={handleMouseDown}
@@ -241,7 +242,8 @@ function ButtonBase({
         paddingRight: block ? 0 : 2,
         alignItems: "center",
         justifyContent: "center",
-        ...(block ? { width: "100%" } : null),
+        // 与 antd 一致：非 block 按钮贴合内容宽度，不被列向容器拉满
+        ...(block ? { width: "100%" } : { alignSelf: "flex-start" }),
         ...toBoxStyle(style),
       }}
       onMouseDown={handleMouseDown}

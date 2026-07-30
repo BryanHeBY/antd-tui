@@ -379,3 +379,22 @@ describe("Button loading/danger", () => {
     t.destroy()
   }, 20000)
 })
+
+describe("布局与空值直觉", () => {
+  test("非 block 按钮贴合内容宽度,不被列容器拉满", async () => {
+    const t = await renderTui(
+      wrap(
+        <box style={{ flexDirection: "column", width: "100%" }}>
+          <Button>确定</Button>
+        </box>,
+      ),
+      { width: 60, height: 8 },
+    )
+    const frame = t.frame()
+    const borderLine = frame.split("\n").find((l) => l.includes("╭") || l.includes("╔"))!
+    // 边框宽度 ≈ 文案 + padding,远小于 60 列
+    expect(borderLine.trim().length).toBeLessThan(20)
+    t.destroy()
+  }, 20000)
+
+})
