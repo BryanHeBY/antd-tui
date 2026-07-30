@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
-import { BOOT_PROMPT, LIVE_GUIDE } from "../src/knowledge"
+import { BOOT_PROMPT, EXAMPLE_REFERENCE, LIVE_GUIDE } from "../src/knowledge"
 
 /**
  * guide 内容守卫:速查表与白名单同源生成,任何白名单组件及其 props
@@ -20,6 +20,18 @@ describe("知识注入", () => {
         expect(LIVE_GUIDE.includes(prop), `guide 缺 ${name}.${prop}`).toBe(true)
       }
     }
+  })
+
+  test("EXAMPLE_REFERENCE 内联 dashboard 源码与适配说明", () => {
+    // 源码全文经 Bun 文本导入内联:关键片段必在
+    expect(EXAMPLE_REFERENCE).toContain("buildDashboard")
+    expect(EXAMPLE_REFERENCE).toContain("$ui.clear()")
+    expect(EXAMPLE_REFERENCE).toContain("tuiOnPressEnter")
+    // 适配说明:actions → $agent.send
+    expect(EXAMPLE_REFERENCE).toContain("$agent.send")
+    // guide 与 BOOT_PROMPT 指路
+    expect(LIVE_GUIDE).toContain("vibetui_example")
+    expect(BOOT_PROMPT).toContain("vibetui_example")
   })
 
   test("LIVE_GUIDE 覆盖节点 API 与复杂 props 形状", () => {

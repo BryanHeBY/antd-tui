@@ -5,12 +5,15 @@
  */
 import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
 import { inputBindings } from "@antd-tui/live"
+// @ts-expect-error Bun 文本导入:构建期把示例源码内联为字符串(不依赖运行时文件系统)
+import dashboardSource from "../../../examples/repl/dashboard.tsx" with { type: "text" }
 
 /** 会话就绪后立即注入（新建与恢复都注入）：让 agent 知道自己身处 vibe-tui */
 export const BOOT_PROMPT = [
   "你已连接 vibe-tui —— 一块由你（agent）驱动的终端 UI 画布。人类通过底部输入框与你对话，也会直接操作你渲染的界面。",
   "可用 MCP 工具：",
   "- vibetui_guide()：$ui 活对象树的编写规范与样例，画任何页面前先读它",
+  "- vibetui_example()：dashboard 参考实现源码全文（登录页/App Shell/表单校验），搭复杂页面时按需取",
   "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
   "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受 F2/F3、状态栏或输入框影响",
   "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
@@ -29,6 +32,28 @@ function buildComponentReference(): string {
     })
     .join("\n")
 }
+
+/**
+ * vibetui_example 工具返回的内容：dashboard 参考实现全文 + vibe 环境适配说明。
+ * 源码经 Bun 文本导入内联，与仓库示例同源（CI 冒烟验证过），零同步债。
+ */
+export const EXAMPLE_REFERENCE = `# dashboard 参考实现（登录页 → App Shell 全组件示例）
+
+这是仓库黄金示例 examples/repl/dashboard.tsx 的源码全文，覆盖全部组件与常用 props：
+登录页（Title/Link/tuiOnPressEnter/Button loading/Modal footer:null）、$ui.clear() 整页换页、
+满幅 App Shell（page padding/gap 0 + 背景色条）、导航重建分区、watch 联动插删、真函数校验写回。
+
+## 在 vibe-tui 里借用时的三处适配
+1. 忽略 import 行与 TS 类型标注（: LiveNode / as const 等）——vibetui_eval 是纯 JS。
+2. 示例的 actions?.submit / actions?.cancel 是宿主退出出口，vibe 里不存在——
+   改用 $agent.send("submit", payload) / $agent.send("cancel") 把结果回流给你自己。
+3. 示例包在 buildDashboard($ui) 函数里——vibe 里直接顶层写语句即可（$ui 已在作用域）。
+
+## 源码
+\`\`\`ts
+${dashboardSource as string}
+\`\`\`
+`
 
 /** vibetui_guide 工具返回的内容：$ui 精简规范 + 可直接照抄的黄金样例 */
 export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
@@ -58,7 +83,9 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - UI 的响应式用户状态仍应放 \`$ui.data\`；REPL 变量适合 actions、格式化函数和临时节点引用。
 
 ## 基本操作
-- 设页面：$ui.page({ title: "标题", description: "副标题", mode: "interactive" | "form" })
+- 设页面：$ui.page({ title: "标题", description: "副标题", mode: "interactive" | "form",
+  padding?, gap? })——padding/gap 缺省 1;做满幅 App Shell(通栏菜单条/满高侧栏)时设 0,
+  此时省略 title/description,品牌与提示放进自绘的顶栏
 - 加组件：$ui.add("组件名", { id?, content?, name?, default?, props? }) → 返回节点，可继续 .add 嵌套
   节点.add(...) 加子节点；$ui.insert(index, "组件名", {...}) 定位插入
   无 content、name、props 等配置时可直接写 $ui.add("Space") 或 node.add("Row")，无需传 {}。
@@ -128,6 +155,7 @@ row.add("Button", { content: "上报", props: { tuiSize: "small",
   tuiOnClick: () => $agent.send("count", $ui.data.count) } })
 
 搭完调 vibetui_snapshot 自查布局；操作报错时按错误信息里的可用组件/props 修。
+需要完整参考实现（登录页、App Shell 满幅布局、表单校验、动态详情、整页换页）时调 vibetui_example()。
 
 ## 组件 props 速查（与运行时校验同源自动生成）
 〔可 name 绑定〕= 支持 name 双向绑定 $ui.data；value/onChange 类 props 由绑定层注入，通常无需手写

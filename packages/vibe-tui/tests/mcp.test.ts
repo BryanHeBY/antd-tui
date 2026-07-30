@@ -16,6 +16,7 @@ function fakeBridge(): CanvasBridge {
     snapshot: async () => "PAGE_FRAME",
     hostSnapshot: () => "HOST_FRAME",
     guide: () => "GUIDE",
+    example: () => "EXAMPLE",
   }
 }
 
@@ -64,6 +65,7 @@ describe("MCP 画布服务", () => {
     )
     expect(names.sort()).toEqual([
       "vibetui_eval",
+      "vibetui_example",
       "vibetui_guide",
       "vibetui_host_snapshot",
       "vibetui_snapshot",
@@ -108,6 +110,13 @@ describe("MCP 画布服务", () => {
       params: { name: "vibetui_guide", arguments: {} },
     })
     expect(toolText(guide)).toBe("GUIDE")
+
+    const example = await rpc(server.url, {
+      id: 8,
+      method: "tools/call",
+      params: { name: "vibetui_example", arguments: {} },
+    })
+    expect(toolText(example)).toBe("EXAMPLE")
     server.close()
   })
 })

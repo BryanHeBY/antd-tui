@@ -5,7 +5,7 @@ import { ConfigProvider, FocusScope, Input, truncateToWidth, useToken } from "@a
 import { LiveTree, LiveView } from "@antd-tui/live"
 import { AcpClient } from "./acp"
 import { createEvalRepl } from "./eval"
-import { BOOT_PROMPT, LIVE_GUIDE } from "./knowledge"
+import { BOOT_PROMPT, EXAMPLE_REFERENCE, LIVE_GUIDE } from "./knowledge"
 import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
 import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-snapshot"
 
@@ -140,6 +140,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
         snapshot: capturePageFrame,
         hostSnapshot: captureHostFrame,
         guide: () => LIVE_GUIDE,
+        example: () => EXAMPLE_REFERENCE,
       })
       const client = new AcpClient(
         agentCmd,

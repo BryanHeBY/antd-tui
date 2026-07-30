@@ -23,6 +23,8 @@ export interface CanvasBridge {
   /** 当前宿主画面，用于诊断 F3 日志层等宿主状态。 */
   hostSnapshot: () => string | Promise<string>
   guide: () => string
+  /** dashboard 参考实现全文(含 vibe 适配说明) */
+  example: () => string
 }
 
 function textResult(text: string, isError = false) {
@@ -93,6 +95,16 @@ function buildServer(bridge: CanvasBridge): McpServer {
       inputSchema: {},
     },
     () => textResult(bridge.guide()),
+  )
+
+  server.registerTool(
+    "vibetui_example",
+    {
+      description:
+        "获取 dashboard 参考实现源码全文(登录页 → App Shell,覆盖全部组件与常用 props)及 vibe 环境适配说明。要搭登录/导航壳/表单校验/动态详情类页面时按需调用,平时不必读。",
+      inputSchema: {},
+    },
+    () => textResult(bridge.example()),
   )
 
   return server
