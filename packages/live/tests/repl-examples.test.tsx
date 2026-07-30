@@ -2,14 +2,13 @@ import { describe, expect, test } from "bun:test"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
 import { ConfigProvider, FocusScope, displayWidth } from "@antd-tui/components"
 import { buildCalculator } from "../../../examples/repl/calculator"
-import { buildDeployConfig } from "../../../examples/repl/deploy-config"
-import { buildServiceDashboard } from "../../../examples/repl/service-dashboard"
+import { buildDashboard } from "../../../examples/repl/dashboard"
 import type { ExampleActions } from "../../../examples/repl/host"
 import { LiveTree } from "../src/tree"
 import { LiveView } from "../src/LiveView"
 
 /**
- * 三个 REPL 示例的冒烟验收（真函数闭包逻辑闭环），
+ * REPL 示例的冒烟验收（真函数闭包逻辑闭环），
  * 顺带把 examples/repl/*.tsx 纳入 typecheck 与 CI。
  */
 
@@ -59,56 +58,68 @@ describe("examples/repl", () => {
     t.destroy()
   }, 20000)
 
-  test("deploy-config：校验错误上屏，开关联动插删高级卡片，提交回传", async () => {
+  test("dashboard：登录 → App Shell 导航 + 动态详情 + 校验表单", async () => {
     const tree = new LiveTree()
     const t = await mount(tree, 40)
-    const submits: unknown[] = []
-    const actions: ExampleActions = {
-      submit: (values) => submits.push(values),
-      cancel: () => {},
+
+    buildDashboard(tree.ui)
+    // 登录页:空提交被拦,补全后进 shell($ui.clear() 整页重建)
+    await t.waitUntil(() => t.frame().includes("登录"), 8000)
+    await click(t, "登 录")
+    await t.waitUntil(() => t.frame().includes("用户名与密码不能为空"), 4000)
+    tree.data.user = "admin"
+    tree.data.pass = "secret"
+    await click(t, "登 录")
+    await t.waitUntil(() => t.frame().includes("节点负载"), 8000)
+    expect(t.frame()).toContain("集群信息")
+
+    // 服务页:切换按钮驱动 Descriptions 重算(源自 service-dashboard)
+    await click(t, "2  服务")
+    expect(t.frame()).toContain("gateway 详情")
+    expect(t.frame()).toContain("v2.4.1")
+    // "user-api" 也出现在上方表格行里,按钮在页面下方——取最后一次出现的位置点击
+    {
+      const lines = t.frame().split("\n")
+      let pos: { x: number; y: number } | null = null
+      for (let y = 0; y < lines.length; y++) {
+        const idx = lines[y]!.indexOf("user-api")
+        if (idx >= 0) {
+          const x = displayWidth(lines[y]!.slice(0, idx))
+          pos = { x: x + Math.floor(displayWidth("user-api") / 2), y }
+        }
+      }
+      await t.raw.mockMouse.click(pos!.x, pos!.y)
+      await t.settle()
     }
+    await t.waitUntil(() => t.frame().includes("user-api 详情"), 4000)
+    expect(t.frame()).toContain("v1.9.0")
 
-    buildDeployConfig(tree.ui, actions)
-    await t.waitUntil(() => t.frame().includes("基础信息"), 8000)
+    await click(t, "3  告警")
+    expect(t.frame()).toContain("全部确认")
+    await click(t, "全部确认")
+    expect(t.frame()).toContain("暂无未确认告警")
 
-    // 空名称提交：校验失败写回 FormItem，不回传
-    await click(t, "  部署  ")
-    expect(t.frame()).toContain("服务名称必填")
-    expect(submits.length).toBe(0)
-
-    // 开关联动：advanced 打开插入高级卡片，关闭删除
-    tree.ui.data.advanced = true
+    // 设置页:watch 联动插删高级卡 + 校验写回(源自 deploy-config)
+    await click(t, "4  设置")
+    expect(t.frame()).toContain("部署配置")
+    expect(t.frame()).not.toContain("CPU 上限")
+    tree.data.advanced = true
     await t.settle()
-    expect(t.frame()).toContain("高级配置")
-    tree.ui.data.advanced = false
+    expect(t.frame()).toContain("CPU 上限")
+    tree.data.advanced = false
     await t.settle()
     expect(t.frame()).not.toContain("CPU 上限")
 
-    // 合法提交
-    tree.ui.data.name = "user-api"
+    // 空名称点部署:校验拦截,错误写回 FormItem
     await click(t, "  部署  ")
-    expect(submits.length).toBe(1)
-    expect(submits[0]).toMatchObject({ name: "user-api", env: "dev", port: 8080 })
+    await t.waitUntil(() => t.frame().includes("服务名称必填"), 4000)
+
+    // 切走再切回:watch 经分区清理不重复注册,表单值保留
+    await click(t, "1  概览")
+    await click(t, "4  设置")
+    expect(tree.data.port).toBe(8080)
 
     t.destroy()
   }, 20000)
 
-  test("service-dashboard：负载联动 Progress，切换服务联动详情", async () => {
-    const tree = new LiveTree()
-    const t = await mount(tree, 40)
-
-    buildServiceDashboard(tree.ui)
-    await t.waitUntil(() => t.frame().includes("服务监控面板（REPL 版）"), 8000)
-    expect(t.frame()).toContain("42%")
-    expect(t.frame()).toContain("gateway 详情")
-
-    await click(t, "负载 +10")
-    expect(t.frame()).toContain("52%")
-
-    await click(t, "2 user-api")
-    expect(t.frame()).toContain("user-api 详情")
-    expect(t.frame()).toContain("node-02")
-
-    t.destroy()
-  }, 20000)
 })

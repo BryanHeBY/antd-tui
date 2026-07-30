@@ -1,0 +1,1148 @@
+{
+  "version": "0.1",
+  "page": {
+    "mode": "interactive",
+    "padding": 0,
+    "gap": 0
+  },
+  "state": {
+    "section": "overview",
+    "cpu": 42,
+    "loading": false,
+    "helpOpen": false,
+    "alertsCleared": false,
+    "current": 0,
+    "loggedIn": false,
+    "loggingIn": false,
+    "resetOpen": false
+  },
+  "scope": {
+    "gotoSection": "{{ (key) => { $state.section = key } }}",
+    "navType": "{{ (key) => ($state.section === key ? 'primary' : 'default') }}",
+    "addLoad": "{{ (d) => { $state.cpu = Math.min(100, Math.max(0, $state.cpu + d)) } }}",
+    "refresh": "{{ () => { if ($memo.timer) clearTimeout($memo.timer); $state.loading = true; $memo.timer = setTimeout(() => { $state.loading = false; $memo.timer = null }, 600) } }}",
+    "openHelp": "{{ () => { $state.helpOpen = true } }}",
+    "closeHelp": "{{ () => { $state.helpOpen = false } }}",
+    "ackAll": "{{ () => { $state.alertsCleared = true } }}",
+    "selectService": "{{ (i) => { $state.current = i } }}",
+    "serviceName": "{{ () => ['gateway', 'user-api', 'billing'][$state.current] }}",
+    "serviceItems": "{{ () => { const d = [{ ver: 'v2.4.1', node: 'node-01', owner: '平台组', qps: '3.2k' }, { ver: 'v1.9.0', node: 'node-02', owner: '账号组', qps: '1.1k' }, { ver: 'v3.1.7', node: 'node-03', owner: '交易组', qps: '640' }][$state.current]; return [{ label: '服务名', children: serviceName() }, { label: '版本', children: d.ver }, { label: '所在节点', children: d.node }, { label: '负责团队', children: d.owner }, { label: 'QPS', children: d.qps }, { label: '健康检查', children: '通过' }] } }}",
+    "login": "{{ () => { if ($memo.loginTimer) clearTimeout($memo.loginTimer); $state.loggingIn = true; $memo.loginTimer = setTimeout(() => { $state.loggingIn = false; $state.loggedIn = true; $memo.loginTimer = null }, 500) } }}",
+    "openReset": "{{ () => { $state.resetOpen = true } }}",
+    "closeReset": "{{ () => { $state.resetOpen = false } }}"
+  },
+  "form": {
+    "type": "object",
+    "properties": {
+      "login": {
+        "type": "void",
+        "x-visible": "{{ !$state.loggedIn }}",
+        "x-component": "Flex",
+        "x-component-props": {
+          "vertical": true,
+          "justify": "center",
+          "align": "center",
+          "style": {
+            "width": "100%",
+            "height": "100%"
+          }
+        },
+        "properties": {
+          "loginCard": {
+            "type": "void",
+            "x-component": "Card",
+            "x-component-props": {
+              "title": "运维控制台",
+              "style": {
+                "width": 46
+              }
+            },
+            "properties": {
+              "loginTitle": {
+                "type": "void",
+                "x-component": "Typography.Title",
+                "x-content": "登录"
+              },
+              "user": {
+                "type": "string",
+                "title": "用户名",
+                "x-decorator": "FormItem",
+                "x-component": "Input",
+                "x-component-props": {
+                  "placeholder": "ops-admin",
+                  "maxLength": 24
+                }
+              },
+              "pass": {
+                "type": "string",
+                "title": "密码",
+                "x-decorator": "FormItem",
+                "x-component": "Input",
+                "x-component-props": {
+                  "placeholder": "任意非空"
+                }
+              },
+              "loginExtra": {
+                "type": "void",
+                "x-component": "Flex",
+                "x-component-props": {
+                  "justify": "space-between",
+                  "align": "center"
+                },
+                "properties": {
+                  "remember": {
+                    "type": "boolean",
+                    "default": true,
+                    "x-component": "Checkbox",
+                    "x-content": "记住我"
+                  },
+                  "forgot": {
+                    "type": "void",
+                    "x-component": "Typography.Link",
+                    "x-content": "忘记密码",
+                    "x-component-props": {
+                      "type": "secondary",
+                      "tuiOnClick": "{{ () => openReset() }}"
+                    }
+                  }
+                }
+              },
+              "loginBtn": {
+                "type": "void",
+                "x-component": "Button",
+                "x-content": "登 录",
+                "x-component-props": {
+                  "type": "primary",
+                  "block": true,
+                  "loading": "{{ $state.loggingIn }}",
+                  "tuiOnClick": "{{ () => login() }}"
+                }
+              }
+            }
+          },
+          "resetModal": {
+            "type": "void",
+            "x-component": "Modal",
+            "x-component-props": {
+              "open": "{{ $state.resetOpen }}",
+              "title": "重置密码",
+              "footer": null,
+              "tuiWidth": 40,
+              "tuiOnCancel": "{{ () => closeReset() }}"
+            },
+            "properties": {
+              "resetText": {
+                "type": "void",
+                "x-component": "Typography.Text",
+                "x-content": "请联系平台组 @ops 重置密码（Esc 关闭）"
+              }
+            }
+          }
+        }
+      },
+      "shell": {
+        "type": "void",
+        "x-component": "Flex",
+        "x-component-props": {
+          "vertical": true,
+          "gap": 0,
+          "style": {
+            "width": "100%",
+            "height": "100%"
+          }
+        },
+        "properties": {
+          "menubar": {
+            "type": "void",
+            "x-component": "Flex",
+            "x-component-props": {
+              "justify": "space-between",
+              "align": "center",
+              "style": {
+                "width": "100%",
+                "backgroundColor": "#1f1f1f",
+                "padding": 1
+              }
+            },
+            "properties": {
+              "brand": {
+                "type": "void",
+                "x-component": "Typography.Text",
+                "x-content": " ☰ 运维控制台 ",
+                "x-component-props": {
+                  "strong": true,
+                  "style": {
+                    "color": "#e6e6e6"
+                  }
+                }
+              },
+              "menuOps": {
+                "type": "void",
+                "x-component": "Space",
+                "x-component-props": {
+                  "size": 1
+                },
+                "properties": {
+                  "btnRefresh": {
+                    "type": "void",
+                    "x-component": "Button",
+                    "x-content": " 刷新 r ",
+                    "x-component-props": {
+                      "tuiSize": "small",
+                      "tuiHotkey": "r",
+                      "tuiOnClick": "{{ () => refresh() }}"
+                    }
+                  },
+                  "btnHelp": {
+                    "type": "void",
+                    "x-component": "Button",
+                    "x-content": " 帮助 h ",
+                    "x-component-props": {
+                      "tuiSize": "small",
+                      "tuiHotkey": "h",
+                      "tuiOnClick": "{{ () => openHelp() }}"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "body": {
+            "type": "void",
+            "x-component": "Row",
+            "x-component-props": {
+              "gutter": 0,
+              "wrap": false,
+              "style": {
+                "flex": 1
+              }
+            },
+            "properties": {
+              "navCol": {
+                "type": "void",
+                "x-component": "Col",
+                "x-component-props": {
+                  "style": {
+                    "width": 16
+                  }
+                },
+                "properties": {
+                  "nav": {
+                    "type": "void",
+                    "x-component": "Flex",
+                    "x-component-props": {
+                      "vertical": true,
+                      "gap": 0,
+                      "style": {
+                        "height": "100%",
+                        "backgroundColor": "#171717"
+                      }
+                    },
+                    "properties": {
+                      "navOverview": {
+                        "type": "void",
+                        "x-component": "Button",
+                        "x-content": "1  概览",
+                        "x-component-props": {
+                          "tuiSize": "small",
+                          "block": true,
+                          "type": "{{ navType('overview') }}",
+                          "tuiHotkey": "1",
+                          "tuiOnClick": "{{ () => gotoSection('overview') }}",
+                          "style": {
+                            "padding": 1
+                          }
+                        }
+                      },
+                      "navServices": {
+                        "type": "void",
+                        "x-component": "Button",
+                        "x-content": "2  服务",
+                        "x-component-props": {
+                          "tuiSize": "small",
+                          "block": true,
+                          "type": "{{ navType('services') }}",
+                          "tuiHotkey": "2",
+                          "tuiOnClick": "{{ () => gotoSection('services') }}",
+                          "style": {
+                            "padding": 1
+                          }
+                        }
+                      },
+                      "navAlerts": {
+                        "type": "void",
+                        "x-component": "Button",
+                        "x-content": "3  告警",
+                        "x-component-props": {
+                          "tuiSize": "small",
+                          "block": true,
+                          "type": "{{ navType('alerts') }}",
+                          "tuiHotkey": "3",
+                          "tuiOnClick": "{{ () => gotoSection('alerts') }}",
+                          "style": {
+                            "padding": 1
+                          }
+                        }
+                      },
+                      "navSettings": {
+                        "type": "void",
+                        "x-component": "Button",
+                        "x-content": "4  设置",
+                        "x-component-props": {
+                          "tuiSize": "small",
+                          "block": true,
+                          "type": "{{ navType('settings') }}",
+                          "tuiHotkey": "4",
+                          "tuiOnClick": "{{ () => gotoSection('settings') }}",
+                          "style": {
+                            "padding": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "mainCol": {
+                "type": "void",
+                "x-component": "Col",
+                "x-component-props": {
+                  "flex": 1
+                },
+                "properties": {
+                  "main": {
+                    "type": "void",
+                    "x-component": "Flex",
+                    "x-component-props": {
+                      "vertical": true,
+                      "gap": 1,
+                      "tuiScroll": true,
+                      "style": {
+                        "height": "100%",
+                        "marginLeft": 1,
+                        "marginTop": 1
+                      }
+                    },
+                    "properties": {
+                      "secOverview": {
+                        "type": "void",
+                        "x-visible": "{{ $state.section === 'overview' }}",
+                        "x-component": "Spin",
+                        "x-component-props": {
+                          "spinning": "{{ $state.loading }}",
+                          "tip": "刷新中..."
+                        },
+                        "properties": {
+                          "ovAlert": {
+                            "type": "void",
+                            "x-component": "Alert",
+                            "x-component-props": {
+                              "type": "warning",
+                              "showIcon": true,
+                              "message": "cn-north 集群今晚 23:00 例行维护，新实例调度可能延迟"
+                            }
+                          },
+                          "ovStats": {
+                            "type": "void",
+                            "x-component": "Row",
+                            "x-component-props": {
+                              "gutter": 2
+                            },
+                            "properties": {
+                              "ovColReq": {
+                                "type": "void",
+                                "x-component": "Col",
+                                "x-component-props": {
+                                  "flex": 1
+                                },
+                                "properties": {
+                                  "ovReq": {
+                                    "type": "void",
+                                    "x-component": "Statistic",
+                                    "x-component-props": {
+                                      "title": "请求量",
+                                      "value": 12483,
+                                      "suffix": "次/分"
+                                    }
+                                  }
+                                }
+                              },
+                              "ovColErr": {
+                                "type": "void",
+                                "x-component": "Col",
+                                "x-component-props": {
+                                  "flex": 1
+                                },
+                                "properties": {
+                                  "ovErr": {
+                                    "type": "void",
+                                    "x-component": "Statistic",
+                                    "x-component-props": {
+                                      "title": "错误率",
+                                      "value": 0.42,
+                                      "precision": 2,
+                                      "suffix": "%",
+                                      "tuiValueType": "danger"
+                                    }
+                                  }
+                                }
+                              },
+                              "ovColUp": {
+                                "type": "void",
+                                "x-component": "Col",
+                                "x-component-props": {
+                                  "flex": 1
+                                },
+                                "properties": {
+                                  "ovUp": {
+                                    "type": "void",
+                                    "x-component": "Statistic",
+                                    "x-component-props": {
+                                      "title": "持续运行",
+                                      "value": 36,
+                                      "suffix": "天",
+                                      "tuiValueType": "success"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "ovLoad": {
+                            "type": "void",
+                            "x-component": "Card",
+                            "x-component-props": {
+                              "title": "节点负载"
+                            },
+                            "properties": {
+                              "ovCpu": {
+                                "type": "void",
+                                "x-component": "Progress",
+                                "x-component-props": {
+                                  "percent": "{{ $state.cpu }}",
+                                  "status": "{{ $state.cpu >= 90 ? 'exception' : 'active' }}"
+                                }
+                              },
+                              "ovLoadBtns": {
+                                "type": "void",
+                                "x-component": "Space",
+                                "x-component-props": {
+                                  "size": 2
+                                },
+                                "properties": {
+                                  "ovLoadUp": {
+                                    "type": "void",
+                                    "x-component": "Button",
+                                    "x-content": "负载 +10",
+                                    "x-component-props": {
+                                      "tuiSize": "small",
+                                      "tuiHotkey": "+",
+                                      "tuiOnClick": "{{ () => addLoad(10) }}"
+                                    }
+                                  },
+                                  "ovLoadDown": {
+                                    "type": "void",
+                                    "x-component": "Button",
+                                    "x-content": "负载 -10",
+                                    "x-component-props": {
+                                      "tuiSize": "small",
+                                      "tuiHotkey": "-",
+                                      "tuiOnClick": "{{ () => addLoad(-10) }}"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "ovTags": {
+                            "type": "void",
+                            "x-component": "Space",
+                            "x-component-props": {
+                              "size": 2
+                            },
+                            "properties": {
+                              "ovTagSla": {
+                                "type": "void",
+                                "x-component": "Tag",
+                                "x-content": "SLA 达标",
+                                "x-component-props": {
+                                  "color": "success"
+                                }
+                              },
+                              "ovTagCanary": {
+                                "type": "void",
+                                "x-component": "Tag",
+                                "x-content": "灰度中",
+                                "x-component-props": {
+                                  "color": "processing"
+                                }
+                              },
+                              "ovTagRegion": {
+                                "type": "void",
+                                "x-component": "Tag",
+                                "x-content": "cn-north",
+                                "x-component-props": {
+                                  "bordered": false
+                                }
+                              }
+                            }
+                          },
+                          "ovDivider": {
+                            "type": "void",
+                            "x-component": "Divider",
+                            "x-content": "最近事件",
+                            "x-component-props": {
+                              "orientation": "left",
+                              "dashed": true
+                            }
+                          },
+                          "ovEvents": {
+                            "type": "void",
+                            "x-component": "List",
+                            "x-component-props": {
+                              "bordered": true
+                            },
+                            "properties": {
+                              "ovEv1": {
+                                "type": "void",
+                                "x-component": "List.Item",
+                                "properties": {
+                                  "ovEv1Row": {
+                                    "type": "void",
+                                    "x-component": "Space",
+                                    "x-component-props": {
+                                      "size": 2
+                                    },
+                                    "properties": {
+                                      "ovEv1Text": {
+                                        "type": "void",
+                                        "x-component": "Typography.Text",
+                                        "x-content": "10:24 gateway 滚动发布完成"
+                                      },
+                                      "ovEv1Tag": {
+                                        "type": "void",
+                                        "x-component": "Tag",
+                                        "x-content": "发布",
+                                        "x-component-props": {
+                                          "color": "success"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "ovEv2": {
+                                "type": "void",
+                                "x-component": "List.Item",
+                                "properties": {
+                                  "ovEv2Row": {
+                                    "type": "void",
+                                    "x-component": "Space",
+                                    "x-component-props": {
+                                      "size": 2
+                                    },
+                                    "properties": {
+                                      "ovEv2Text": {
+                                        "type": "void",
+                                        "x-component": "Typography.Text",
+                                        "x-content": "09:58 billing 实例 i-03 重启"
+                                      },
+                                      "ovEv2Tag": {
+                                        "type": "void",
+                                        "x-component": "Tag",
+                                        "x-content": "自愈",
+                                        "x-component-props": {
+                                          "color": "warning"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "ovEv3": {
+                                "type": "void",
+                                "x-component": "List.Item",
+                                "properties": {
+                                  "ovEv3Row": {
+                                    "type": "void",
+                                    "x-component": "Space",
+                                    "x-component-props": {
+                                      "size": 2
+                                    },
+                                    "properties": {
+                                      "ovEv3Text": {
+                                        "type": "void",
+                                        "x-component": "Typography.Text",
+                                        "x-content": "09:12 user-api 扩容 2 副本"
+                                      },
+                                      "ovEv3Tag": {
+                                        "type": "void",
+                                        "x-component": "Tag",
+                                        "x-content": "扩容",
+                                        "x-component-props": {
+                                          "color": "processing"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "ovCluster": {
+                            "type": "void",
+                            "x-component": "Card",
+                            "x-component-props": {
+                              "title": "集群信息",
+                              "extra": "更新于 10:24"
+                            },
+                            "properties": {
+                              "ovClusterDesc": {
+                                "type": "void",
+                                "x-component": "Descriptions",
+                                "x-component-props": {
+                                  "column": 2,
+                                  "items": [
+                                    {
+                                      "label": "区域",
+                                      "children": "cn-north"
+                                    },
+                                    {
+                                      "label": "节点数",
+                                      "children": "12"
+                                    },
+                                    {
+                                      "label": "K8s 版本",
+                                      "children": "v1.32.1"
+                                    },
+                                    {
+                                      "label": "网络插件",
+                                      "children": "cilium"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "secServices": {
+                        "type": "void",
+                        "x-visible": "{{ $state.section === 'services' }}",
+                        "x-component": "Spin",
+                        "x-component-props": {
+                          "spinning": "{{ $state.loading }}",
+                          "tip": "刷新中..."
+                        },
+                        "properties": {
+                          "svcTable": {
+                            "type": "void",
+                            "x-component": "Table",
+                            "x-component-props": {
+                              "rowKey": "id",
+                              "columns": [
+                                {
+                                  "title": "实例",
+                                  "dataIndex": "id",
+                                  "width": 8
+                                },
+                                {
+                                  "title": "服务",
+                                  "dataIndex": "service",
+                                  "width": 10
+                                },
+                                {
+                                  "title": "状态",
+                                  "dataIndex": "status",
+                                  "width": 8,
+                                  "align": "center"
+                                },
+                                {
+                                  "title": "CPU",
+                                  "dataIndex": "cpu",
+                                  "width": 6,
+                                  "align": "right"
+                                },
+                                {
+                                  "title": "内存",
+                                  "dataIndex": "mem",
+                                  "width": 8,
+                                  "align": "right"
+                                }
+                              ],
+                              "dataSource": [
+                                {
+                                  "id": "i-01",
+                                  "service": "gateway",
+                                  "status": "运行中",
+                                  "cpu": "41%",
+                                  "mem": "512Mi"
+                                },
+                                {
+                                  "id": "i-02",
+                                  "service": "user-api",
+                                  "status": "运行中",
+                                  "cpu": "23%",
+                                  "mem": "384Mi"
+                                },
+                                {
+                                  "id": "i-03",
+                                  "service": "billing",
+                                  "status": "重启中",
+                                  "cpu": "87%",
+                                  "mem": "896Mi"
+                                }
+                              ]
+                            }
+                          },
+                          "svcDetail": {
+                            "type": "void",
+                            "x-component": "Card",
+                            "x-component-props": {
+                              "title": "服务详情"
+                            },
+                            "properties": {
+                              "svcBtns": {
+                                "type": "void",
+                                "x-component": "Button.Group",
+                                "properties": {
+                                  "btnGateway": {
+                                    "type": "void",
+                                    "x-component": "Button",
+                                    "x-content": " gateway ",
+                                    "x-component-props": {
+                                      "tuiOnClick": "{{ () => selectService(0) }}"
+                                    }
+                                  },
+                                  "btnUserApi": {
+                                    "type": "void",
+                                    "x-component": "Button",
+                                    "x-content": " user-api ",
+                                    "x-component-props": {
+                                      "tuiOnClick": "{{ () => selectService(1) }}"
+                                    }
+                                  },
+                                  "btnBilling": {
+                                    "type": "void",
+                                    "x-component": "Button",
+                                    "x-content": " billing ",
+                                    "x-component-props": {
+                                      "tuiOnClick": "{{ () => selectService(2) }}"
+                                    }
+                                  }
+                                }
+                              },
+                              "svcDesc": {
+                                "type": "void",
+                                "x-component": "Descriptions",
+                                "x-component-props": {
+                                  "title": "{{ serviceName() + ' 详情' }}",
+                                  "column": 3,
+                                  "items": "{{ serviceItems() }}"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "secAlerts": {
+                        "type": "void",
+                        "x-visible": "{{ $state.section === 'alerts' }}",
+                        "x-component": "Spin",
+                        "x-component-props": {
+                          "spinning": "{{ $state.loading }}",
+                          "tip": "刷新中..."
+                        },
+                        "properties": {
+                          "alAlert": {
+                            "type": "void",
+                            "x-component": "Alert",
+                            "x-component-props": {
+                              "type": "error",
+                              "showIcon": true,
+                              "message": "billing 实例 i-03 连续 3 次健康检查失败",
+                              "description": "已触发自动重启；若 10 分钟内未恢复将升级为 P1"
+                            }
+                          },
+                          "alRules": {
+                            "type": "void",
+                            "x-component": "Card",
+                            "x-component-props": {
+                              "title": "告警规则",
+                              "bordered": false
+                            },
+                            "properties": {
+                              "alList": {
+                                "type": "void",
+                                "x-visible": "{{ !$state.alertsCleared }}",
+                                "x-component": "List",
+                                "x-component-props": {
+                                  "bordered": true
+                                },
+                                "properties": {
+                                  "al1": {
+                                    "type": "void",
+                                    "x-component": "List.Item",
+                                    "properties": {
+                                      "al1Row": {
+                                        "type": "void",
+                                        "x-component": "Space",
+                                        "x-component-props": {
+                                          "size": 2
+                                        },
+                                        "properties": {
+                                          "al1Text": {
+                                            "type": "void",
+                                            "x-component": "Typography.Text",
+                                            "x-content": "节点 node-07 磁盘使用率 > 85%"
+                                          },
+                                          "al1Tag": {
+                                            "type": "void",
+                                            "x-component": "Tag",
+                                            "x-content": "P2",
+                                            "x-component-props": {
+                                              "color": "warning"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "al2": {
+                                    "type": "void",
+                                    "x-component": "List.Item",
+                                    "properties": {
+                                      "al2Row": {
+                                        "type": "void",
+                                        "x-component": "Space",
+                                        "x-component-props": {
+                                          "size": 2
+                                        },
+                                        "properties": {
+                                          "al2Text": {
+                                            "type": "void",
+                                            "x-component": "Typography.Text",
+                                            "x-content": "gateway P99 延迟 > 800ms 持续 5 分钟"
+                                          },
+                                          "al2Tag": {
+                                            "type": "void",
+                                            "x-component": "Tag",
+                                            "x-content": "P2",
+                                            "x-component-props": {
+                                              "color": "warning"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "al3": {
+                                    "type": "void",
+                                    "x-component": "List.Item",
+                                    "properties": {
+                                      "al3Row": {
+                                        "type": "void",
+                                        "x-component": "Space",
+                                        "x-component-props": {
+                                          "size": 2
+                                        },
+                                        "properties": {
+                                          "al3Text": {
+                                            "type": "void",
+                                            "x-component": "Typography.Text",
+                                            "x-content": "cn-east 对象存储访问抖动"
+                                          },
+                                          "al3Tag": {
+                                            "type": "void",
+                                            "x-component": "Tag",
+                                            "x-content": "P3",
+                                            "x-component-props": {
+                                              "color": "processing"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "alEmpty": {
+                                "type": "void",
+                                "x-visible": "{{ $state.alertsCleared }}",
+                                "x-component": "Typography.Text",
+                                "x-content": "暂无未确认告警",
+                                "x-component-props": {
+                                  "type": "secondary"
+                                }
+                              }
+                            }
+                          },
+                          "alAck": {
+                            "type": "void",
+                            "x-component": "Button",
+                            "x-content": "全部确认",
+                            "x-component-props": {
+                              "tuiSize": "small",
+                              "tuiOnClick": "{{ () => ackAll() }}",
+                              "danger": true
+                            }
+                          }
+                        }
+                      },
+                      "secSettings": {
+                        "type": "void",
+                        "x-visible": "{{ $state.section === 'settings' }}",
+                        "x-component": "Spin",
+                        "x-component-props": {
+                          "spinning": "{{ $state.loading }}",
+                          "tip": "刷新中..."
+                        },
+                        "properties": {
+                          "setCard": {
+                            "type": "void",
+                            "x-component": "Card",
+                            "x-component-props": {
+                              "title": "部署配置"
+                            },
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "title": "服务名称",
+                                "required": true,
+                                "x-validator": {
+                                  "pattern": "^[a-z][a-z0-9-]*$",
+                                  "message": "仅允许小写字母、数字与中划线，且以字母开头"
+                                },
+                                "x-decorator": "FormItem",
+                                "x-component": "Input",
+                                "x-component-props": {
+                                  "placeholder": "如 user-api",
+                                  "maxLength": 24
+                                }
+                              },
+                              "rowEnvPort": {
+                                "type": "void",
+                                "x-component": "Row",
+                                "x-component-props": {
+                                  "gutter": 2
+                                },
+                                "properties": {
+                                  "colEnv": {
+                                    "type": "void",
+                                    "x-component": "Col",
+                                    "x-component-props": {
+                                      "flex": 1
+                                    },
+                                    "properties": {
+                                      "env": {
+                                        "type": "string",
+                                        "title": "部署环境",
+                                        "default": "dev",
+                                        "x-decorator": "FormItem",
+                                        "x-component": "Select",
+                                        "x-component-props": {
+                                          "options": [
+                                            {
+                                              "label": "开发",
+                                              "value": "dev"
+                                            },
+                                            {
+                                              "label": "测试",
+                                              "value": "test"
+                                            },
+                                            {
+                                              "label": "生产",
+                                              "value": "prod"
+                                            }
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "colPort": {
+                                    "type": "void",
+                                    "x-component": "Col",
+                                    "x-component-props": {
+                                      "flex": 1
+                                    },
+                                    "properties": {
+                                      "port": {
+                                        "type": "number",
+                                        "title": "服务端口",
+                                        "default": 8080,
+                                        "x-validator": {
+                                          "minimum": 1,
+                                          "maximum": 65535,
+                                          "message": "端口范围 1-65535"
+                                        },
+                                        "x-decorator": "FormItem",
+                                        "x-component": "InputNumber",
+                                        "x-component-props": {
+                                          "placeholder": "1-65535"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "region": {
+                                "type": "string",
+                                "title": "部署地域",
+                                "default": "cn-north",
+                                "x-decorator": "FormItem",
+                                "x-component": "Radio.Group",
+                                "x-component-props": {
+                                  "optionType": "button",
+                                  "options": [
+                                    {
+                                      "label": "华北",
+                                      "value": "cn-north"
+                                    },
+                                    {
+                                      "label": "华东",
+                                      "value": "cn-east"
+                                    },
+                                    {
+                                      "label": "华南",
+                                      "value": "cn-south"
+                                    }
+                                  ]
+                                }
+                              },
+                              "features": {
+                                "type": "array",
+                                "title": "附加能力",
+                                "default": [
+                                  "log"
+                                ],
+                                "x-decorator": "FormItem",
+                                "x-component": "Checkbox.Group",
+                                "x-component-props": {
+                                  "tuiDirection": "horizontal",
+                                  "options": [
+                                    {
+                                      "label": "日志采集",
+                                      "value": "log"
+                                    },
+                                    {
+                                      "label": "链路追踪",
+                                      "value": "trace"
+                                    },
+                                    {
+                                      "label": "自动扩缩容",
+                                      "value": "autoscale"
+                                    }
+                                  ]
+                                }
+                              },
+                              "advanced": {
+                                "type": "boolean",
+                                "title": "启用高级配置",
+                                "default": false,
+                                "x-decorator": "FormItem",
+                                "x-component": "Switch",
+                                "x-component-props": {
+                                  "checkedChildren": "开",
+                                  "unCheckedChildren": "关"
+                                }
+                              },
+                              "advancedCard": {
+                                "type": "void",
+                                "x-component": "Card",
+                                "x-component-props": {
+                                  "title": "高级配置"
+                                },
+                                "x-reactions": {
+                                  "dependencies": [
+                                    "advanced"
+                                  ],
+                                  "fulfill": {
+                                    "state": {
+                                      "visible": "{{ $deps[0] === true }}"
+                                    }
+                                  }
+                                },
+                                "properties": {
+                                  "cpuLimit": {
+                                    "type": "number",
+                                    "title": "CPU 上限 (%)",
+                                    "default": 50,
+                                    "x-decorator": "FormItem",
+                                    "x-component": "Slider",
+                                    "x-component-props": {
+                                      "min": 10,
+                                      "max": 100,
+                                      "step": 5
+                                    }
+                                  },
+                                  "startupScript": {
+                                    "type": "string",
+                                    "title": "启动脚本",
+                                    "x-decorator": "FormItem",
+                                    "x-component": "TextArea",
+                                    "x-component-props": {
+                                      "rows": 3,
+                                      "placeholder": "#!/bin/sh\n每行一条命令"
+                                    }
+                                  },
+                                  "autoRestart": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "x-component": "Checkbox",
+                                    "x-content": "崩溃后自动重启"
+                                  }
+                                }
+                              },
+                              "setHint": {
+                                "type": "void",
+                                "x-component": "Typography.Text",
+                                "x-content": "校验实时反馈；Esc 完成并回传全部表单值",
+                                "x-component-props": {
+                                  "type": "secondary"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "helpModal": {
+            "type": "void",
+            "x-component": "Modal",
+            "x-component-props": {
+              "open": "{{ $state.helpOpen }}",
+              "title": "帮助",
+              "okText": "知道了",
+              "tuiOnOk": "{{ () => closeHelp() }}",
+              "tuiOnCancel": "{{ () => closeHelp() }}",
+              "tuiWidth": 46
+            },
+            "properties": {
+              "helpLine1": {
+                "type": "void",
+                "x-component": "Typography.Text",
+                "x-content": "数字键 1-4 切换左侧导航；r 刷新当前页。"
+              },
+              "helpLine2": {
+                "type": "void",
+                "x-component": "Typography.Text",
+                "x-content": "主区内容超高时用鼠标滚轮上下翻页。"
+              },
+              "helpLine3": {
+                "type": "void",
+                "x-component": "Typography.Text",
+                "x-content": "设置页表单值实时进表单域，Esc 完成回传。"
+              }
+            }
+          }
+        },
+        "x-visible": "{{ $state.loggedIn }}"
+      }
+    }
+  }
+}

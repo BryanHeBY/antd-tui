@@ -4,7 +4,7 @@ import { join } from "node:path"
 /**
  * 示例 × driver 的 E2E：以子进程跑 `--drive`，像真实用户/agent 一样
  * 通过 NDJSON 协议看帧、点击、输入，断言帧反馈与最终回传。
- * 这同时是三份黄金样例的行为回归与 driver 协议的集成验收。
+ * 这同时是黄金样例的行为回归与 driver 协议的集成验收。
  */
 
 const CLI = join(import.meta.dir, "../src/cli.ts")
@@ -46,88 +46,65 @@ async function drive(
   }
 }
 
-describe("deploy-config × drive：填表提交全流程", () => {
-  test("空表单点部署被拦（帧含校验反馈）→ 补名称改环境后提交成功", async () => {
-    const r = await drive("deploy-config.json", [
-      // 空表单直接点部署：required 拦截；校验反馈是异步渲染，用 wait 同步。
-      // 页面描述里也含「部署」二字，用按钮内的带边距文本消歧
-      { id: 1, op: "click", text: "  部署  ", return: "none" },
-      { id: 2, op: "wait", text: "校验未通过" },
-      // 点击部署已把焦点转移到按钮（点击聚焦），先点回名称输入框（按占位文本定位）再输入
-      { id: 3, op: "click", text: "如 user-api", return: "none" },
-      { id: 4, op: "type", text: "user-api", return: "none" },
-      // 点击 Select 的「测试」选项行切环境
-      { id: 5, op: "click", text: "测试" },
-      { id: 6, op: "values" },
-      { id: 7, op: "click", text: "  部署  ", return: "none" },
-    ])
-
-    const blocked = r.byId(2)!
-    expect(blocked.ok).toBe(true)
-    expect(String(blocked.frame)).toContain("校验未通过")
-
-    const picked = r.byId(5)!
-    expect(picked.ok).toBe(true)
-
-    expect(r.byId(6)).toMatchObject({ ok: true, values: { name: "user-api", env: "test" } })
-
-    // 提交成功：submit 事件穿透，进程退出码 0，回传含全部用户输入
-    expect(r.exitCode).toBe(0)
-    expect(r.last()).toMatchObject({
-      event: "submit",
-      values: { name: "user-api", env: "test", port: 8080, region: "cn-north" },
-    })
-  })
-
-  test("点击开关展开高级配置：帧里出现联动区域", async () => {
+describe("dashboard × drive：登录 → shell 交互全流程", () => {
+  test("登录进 shell，加负载联动，Esc 回传表单默认值", async () => {
     const r = await drive(
-      "deploy-config.json",
-      [
-        { id: 1, op: "locate", text: "CPU 上限" },
-        { id: 2, op: "click", text: "关" },
-        { id: 3, op: "quit" },
-      ],
-      "80x52",
-    )
-    // 展开前定位不到高级区，展开后出现
-    expect(r.byId(1)).toMatchObject({ ok: false })
-    const toggled = r.byId(2)!
-    expect(toggled.ok).toBe(true)
-    expect(String(toggled.frame)).toContain("CPU 上限")
-    expect(String(toggled.frame)).toContain("崩溃后自动重启")
-    expect(r.exitCode).toBe(1)
-    expect(r.last()).toMatchObject({ event: "cancel" })
-  })
-})
-
-describe("service-dashboard × drive：展示页交互", () => {
-  test("加负载/切服务的帧联动，Esc 回传空对象", async () => {
-    const r = await drive(
-      "service-dashboard.json",
+      "dashboard.json",
       [
         { id: 1, op: "snapshot" },
-        { id: 2, op: "click", text: "负载 +10" },
-        { id: 3, op: "click", text: "2 user-api" },
-        { id: 4, op: "press", key: "escape" },
+        { id: 2, op: "click", text: "登 录" },
+        { id: 3, op: "wait", text: "节点负载" },
+        { id: 4, op: "click", text: "负载 +10" },
+        // x-visible 隐藏的字段值会被 formily 摘除:切到设置页让表单字段可见再 Esc
+        { id: 5, op: "press", key: "4" },
+        { id: 6, op: "wait", text: "部署配置" },
+        { id: 7, op: "press", key: "escape" },
       ],
-      "80x50",
+      "90x50",
     )
 
     const first = String(r.byId(1)!.frame)
-    expect(first).toContain("服务监控面板")
-    expect(first).toContain("请求量")
-    expect(first).toContain("42%")
+    expect(first).toContain("登录")
+    expect(first).toContain("记住我")
+    expect(first).not.toContain("节点负载")
 
+    expect(r.byId(3)).toMatchObject({ ok: true })
     // $state 联动：负载 +10 后帧变 52%
-    expect(String(r.byId(2)!.frame)).toContain("52%")
-    // 切服务：Descriptions 标题与内容联动
-    const detail = String(r.byId(3)!.frame)
-    expect(detail).toContain("user-api 详情")
-    expect(detail).toContain("v1.9.0")
+    expect(String(r.byId(4)!.frame)).toContain("52%")
 
-    // interactive 模式 Esc 完成：$state 与展示数据不回传
+    // interactive Esc 完成：回传当前可见分区的表单默认值；
+    // 登录页与其他 x-visible 隐藏分区的字段值被 formily 摘除，$state 不混入
     expect(r.exitCode).toBe(0)
-    expect(r.last()).toMatchObject({ event: "submit", values: {} })
+    expect(r.last()).toMatchObject({
+      event: "submit",
+      values: { env: "dev", port: 8080, region: "cn-north", advanced: false },
+    })
+  })
+
+  test("设置页：x-validator 实时校验 + x-reactions 展开高级卡", async () => {
+    const r = await drive(
+      "dashboard.json",
+      [
+        { id: 1, op: "click", text: "登 录" },
+        { id: 2, op: "wait", text: "节点负载" },
+        { id: 3, op: "press", key: "4" },
+        { id: 4, op: "wait", text: "部署配置" },
+        { id: 5, op: "locate", text: "CPU 上限" },
+        { id: 6, op: "click", text: "如 user-api" },
+        { id: 7, op: "type", text: "User_API" },
+        { id: 8, op: "wait", text: "仅允许小写字母" },
+        { id: 9, op: "quit" },
+      ],
+      "90x52",
+    )
+
+    expect(r.byId(4)).toMatchObject({ ok: true })
+    // 展开前定位不到高级卡
+    expect(r.byId(5)).toMatchObject({ ok: false })
+    // x-validator pattern 实时反馈
+    expect(r.byId(8)).toMatchObject({ ok: true })
+    expect(r.exitCode).toBe(1)
+    expect(r.last()).toMatchObject({ event: "cancel" })
   })
 })
 
