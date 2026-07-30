@@ -14,8 +14,14 @@ export interface ExampleActions {
   cancel: () => void
 }
 
+export interface RunLiveExampleOptions {
+  /** 隐藏框架底部提示行(App Shell 类示例的提示放在自绘顶栏/侧栏里) */
+  hideHint?: boolean
+}
+
 export async function runLiveExample(
   build: ($ui: LiveUi, actions: ExampleActions) => void | Promise<void>,
+  options: RunLiveExampleOptions = {},
 ): Promise<void> {
   if (!process.stdout.isTTY || !process.stdin.isTTY) {
     process.stderr.write("repl 示例需要在真实终端（TTY）中运行\n")
@@ -50,7 +56,12 @@ export async function runLiveExample(
   createRoot(renderer).render(
     <ConfigProvider>
       <FocusScope>
-        <LiveView tree={tree} onFinish={actions.submit} onCancel={actions.cancel} />
+        <LiveView
+          tree={tree}
+          hideHint={options.hideHint}
+          onFinish={actions.submit}
+          onCancel={actions.cancel}
+        />
       </FocusScope>
     </ConfigProvider>,
   )
