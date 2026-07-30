@@ -45,10 +45,19 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 加组件：$ui.add("组件名", { id?, content?, name?, default?, props? }) → 返回节点，可继续 .add 嵌套
   节点.add(...) 加子节点；$ui.insert(index, "组件名", {...}) 定位插入
   无 content、name、props 等配置时可直接写 $ui.add("Space") 或 node.add("Row")，无需传 {}。
-- 组件名：Button / Card / Flex / Row / Col / Space / Input / TextArea / InputNumber / Select /
-  Checkbox / Checkbox.Group / Radio.Group / Switch / Slider / Typography.Text / Typography.Link /
-  FormItem / Alert / Tag / Divider / Progress / Statistic / Descriptions / Spin / Table / List / List.Item
+- 组件名：Button / Button.Group / Card / Flex / Row / Col / Space / Input / TextArea / InputNumber /
+  Select / Checkbox / Checkbox.Group / Radio.Group / Switch / Slider / Typography.Text /
+  Typography.Title / Typography.Link / FormItem / Alert / Tag / Divider / Progress / Statistic /
+  Descriptions / Spin / Table / List / List.Item / Modal
   未知组件名与未知 props 键会立即抛错，按错误信息里的可用列表修
+- style：所有组件都支持 style（CSS 子集）：width / height / flex / padding / margin* /
+  color / backgroundColor / textAlign。语义与 CSS 一致，如
+  { style: { textAlign: "right", color: "#faad14" } }；无 fontWeight（终端文本恒为粗体基线）。
+- Modal：$ui.add("Modal", { content: "内容", props: { open: true, title: "确认",
+  tuiOnOk: () => ..., tuiOnCancel: () => ... } })；热换 props.open = false 关闭。
+  Esc 关闭浮层（keyboard: false 可禁用）；footer: null 隐藏底部按钮。
+- Typography.Title 用于页内小节标题（页面主标题仍用 $ui.page 的 title）。
+- Button 支持 loading（旋转帧且不可点击）与 danger（错误色），与 antd 同名同义。
 - Flex：antd Flex 语义，props 可用 vertical / gap / justify / align / wrap / flex / style；
   终端滚动内容区用 tuiScroll: true（TUI 扩展）。
 - Space：props 可用 direction / size / wrap；wrap 与 antd 同名，设为 true 时空间不足的子项换行。
@@ -58,7 +67,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   \`var row = $ui.add("Row", { props: { gutter: 1, align: "middle" } });
    row.add("Col", { props: { flex: 1 } }).add("Input", { name: "query", props: { placeholder: "搜索" } });
    row.add("Col").add("Button", { content: "搜索", props: { tuiOnClick: () => $agent.send("search", $ui.data.query) } })\`
-- 文案用 content（Button 文案、Typography.Text 文本）
+- 文案用 content（Button 文案、Typography.Text 文本）；容器（Card/Space/Flex 等）的 content
+  会自动包成文本行，需要更多控制时改为子节点 add Typography.Text
 - props 值可以是真函数：{ tuiOnClick: () => $agent.send('run') }；禁止 "{{ }}" 字符串
 - Input 的 \`tuiOnPressEnter\` 是“输入框内按 Enter”事件（终端没有 DOM event 参数，故用 tui 前缀）；
   它与 Button 的 \`tuiHotkey: "enter"\` 无关，输入框聚焦时按钮热键不会触发。
