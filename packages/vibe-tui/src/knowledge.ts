@@ -1,8 +1,10 @@
 /**
  * agent 冷启动知识：硬编码的引导 prompt 与 $ui 精简指南。
  * vibe-tui 可能运行在任意 cwd（乃至编译产物中），不能依赖仓库文档文件，
- * 因此关键规范内嵌于此。
+ * 因此关键规范内嵌于此；组件 props 速查表从白名单生成——与运行时校验同源，零漂移。
  */
+import { componentPropsWhitelist, componentWhitelist } from "@antd-tui/components"
+import { inputBindings } from "@antd-tui/live"
 
 /** 会话就绪后立即注入（新建与恢复都注入）：让 agent 知道自己身处 vibe-tui */
 export const BOOT_PROMPT = [
@@ -15,6 +17,18 @@ export const BOOT_PROMPT = [
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
   "现在：先调用 vibetui_guide 学习规范，然后为当前对话场景搭建初始界面。优先在一次 vibetui_eval 中直接写完整 JS（可声明 helpers、循环生成组件）；仅在排错或需要人类观察中间状态时再分次执行。若没有明确场景，渲染一个简洁的欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
 ].join("\n")
+
+/** 组件 → 可用 props 速查表：直接从白名单生成，新增组件/props 自动出现在 guide 里 */
+function buildComponentReference(): string {
+  const bindable = new Set([...Object.keys(inputBindings), "Typography.Text"])
+  return componentWhitelist
+    .map((name) => {
+      const props = componentPropsWhitelist[name] ?? []
+      const mark = bindable.has(name) ? "〔可 name 绑定〕" : ""
+      return `- ${name}${mark}：${props.length > 0 ? props.join(" / ") : "（无 props）"}`
+    })
+    .join("\n")
+}
 
 /** vibetui_guide 工具返回的内容：$ui 精简规范 + 可直接照抄的黄金样例 */
 export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
@@ -45,11 +59,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 加组件：$ui.add("组件名", { id?, content?, name?, default?, props? }) → 返回节点，可继续 .add 嵌套
   节点.add(...) 加子节点；$ui.insert(index, "组件名", {...}) 定位插入
   无 content、name、props 等配置时可直接写 $ui.add("Space") 或 node.add("Row")，无需传 {}。
-- 组件名：Button / Button.Group / Card / Flex / Row / Col / Space / Input / TextArea / InputNumber /
-  Select / Checkbox / Checkbox.Group / Radio.Group / Switch / Slider / Typography.Text /
-  Typography.Title / Typography.Link / FormItem / Alert / Tag / Divider / Progress / Statistic /
-  Descriptions / Spin / Table / List / List.Item / Modal
-  未知组件名与未知 props 键会立即抛错，按错误信息里的可用列表修
+- 组件名与各组件可用 props 见文末「组件 props 速查」——它与运行时校验同源，照抄即对；
+  未知组件名与未知 props 键会立即抛错，错误信息里带可用列表
 - style：所有组件都支持 style（CSS 子集）：width / height / flex / padding / margin* /
   color / backgroundColor / textAlign。语义与 CSS 一致，如
   { style: { textAlign: "right", color: "#faad14" } }；无 fontWeight（终端文本恒为粗体基线）。
@@ -78,6 +89,9 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   需要把点击回流给 agent 时用 \`tuiOnClick\`（无 DOM MouseEvent，故不用 onClick）。
 - 修改即刻生效：$ui.get(id).props.percent = 60、$ui.get(id).content = "新文案"、
   $ui.get(id).remove()、节点.moveTo(target, index?)
+- 节点 API 全集：$ui.get(id) / $ui.has(id) / $ui.children（根级列表）；
+  节点上可读写 props（delete node.props.x 删除）、content、name，
+  可读 id / component / children / parent / index；node.toJSON() 查看当前配置（函数显示为 "[function]"）
 
 ## 数据与联动
 - $ui.data：响应式数据域。输入组件用 name 双向绑定（Input/Select/Checkbox/Slider...）；
@@ -103,4 +117,17 @@ row.add("Button", { content: "+1", props: { tuiSize: "small", tuiHotkey: "+",
 row.add("Button", { content: "上报", props: { tuiSize: "small",
   tuiOnClick: () => $agent.send("count", $ui.data.count) } })
 
-搭完调 vibetui_snapshot 自查布局；操作报错时按错误信息里的可用组件/props 修。`
+搭完调 vibetui_snapshot 自查布局；操作报错时按错误信息里的可用组件/props 修。
+
+## 组件 props 速查（与运行时校验同源自动生成）
+〔可 name 绑定〕= 支持 name 双向绑定 $ui.data；value/onChange 类 props 由绑定层注入，通常无需手写
+${buildComponentReference()}
+
+## 复杂 props 形状
+- options（Select / Checkbox.Group / Radio.Group）：[{ label: "文本", value: "值", disabled? }]；
+  Checkbox.Group / Radio.Group 也接受纯字符串数组（label 与 value 相同）
+- Table：columns = [{ title, dataIndex, key?, width?, align?, tuiRender?: (value, record, index) => string }]；
+  dataSource = 行对象数组；rowKey 指定行键字段名
+- Descriptions：items = [{ key?, label, children }]
+- List：优先用 List.Item 子节点逐项增删；dataSource / renderItem 仅适合 React 侧
+- checkedChildren / unCheckedChildren（Switch）、prefix / suffix（Statistic）等展示 props 传字符串`
