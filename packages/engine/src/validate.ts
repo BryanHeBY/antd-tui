@@ -25,6 +25,10 @@ export interface PageSchema {
      * interactive：无操作栏的自包含交互页面，Esc 完成并回传当前值。
      */
     mode?: "form" | "interactive"
+    /** 页面四周留白（终端格），缺省 1；App Shell 满幅布局设 0 */
+    padding?: number
+    /** 根级纵向间距，缺省 1；满幅布局设 0 */
+    gap?: number
   }
   /** 具名表达式函数表：{ 函数名: "{{ 箭头函数 }}" }，编译后注入 form 表达式作用域（含 $form/$state/$memo） */
   scope?: Record<string, string>
@@ -47,7 +51,7 @@ export interface ValidationResult {
 }
 
 const ENVELOPE_KEYS = new Set(["version", "page", "scope", "state", "tuiTheme", "form", "actions"])
-const PAGE_KEYS = new Set(["title", "description", "mode"])
+const PAGE_KEYS = new Set(["title", "description", "mode", "padding", "gap"])
 const ACTION_KEYS = new Set(["type", "label"])
 const THEME_KEYS = new Set(["token"])
 const ACTION_TYPES = new Set(["submit", "cancel"])
@@ -267,6 +271,12 @@ export function validatePageSchema(
       const mode = (root.page as Record<string, unknown>).mode
       if (mode !== undefined && mode !== "form" && mode !== "interactive") {
         errors.push('/page/mode 必须是 "form" 或 "interactive"')
+      }
+      for (const key of ["padding", "gap"] as const) {
+        const value = (root.page as Record<string, unknown>)[key]
+        if (value !== undefined && (typeof value !== "number" || value < 0)) {
+          errors.push(`/page/${key} 必须是非负数字`)
+        }
       }
     }
   }

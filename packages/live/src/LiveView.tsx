@@ -108,14 +108,16 @@ export const LiveView = observer(
     const hint = interactive
       ? `方向键 移动 · Enter 确认${escapeOn ? " · Esc 退出" : ""}`
       : `Tab 切换焦点 · Enter 确认${escapeOn ? " · Esc 取消" : ""}`
+    const padding = page.padding ?? 1
+    const gap = page.gap ?? 1
     return (
-      <Flex vertical gap={1} style={{ padding: 1, width: "100%", height: "100%" }}>
+      <Flex vertical gap={gap} style={{ padding, width: "100%", height: "100%" }}>
         {escapeOn ? <EscapeHandler onEscape={onEscape} /> : null}
         {page.title ? <Typography.Title>{page.title}</Typography.Title> : null}
         {page.description ? (
           <Typography.Text type="secondary">{page.description}</Typography.Text>
         ) : null}
-        <Flex vertical gap={1} flex={1} tuiScroll>
+        <Flex vertical gap={gap} flex={1} tuiScroll>
           {tree.rootChildIds.map((id) => (
             <NodeView key={tree.record(id)?.seq ?? id} tree={tree} id={id} />
           ))}

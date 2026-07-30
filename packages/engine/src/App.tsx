@@ -142,7 +142,15 @@ export function PageView({
     <>
       {handleEscape ? <EscapeHandler onEscape={onEscape} /> : null}
       {messageHolder}
-      <box style={{ flexDirection: "column", padding: 1, gap: 1, width: "100%", height: "100%" }}>
+      <box
+        style={{
+          flexDirection: "column",
+          padding: schema.page?.padding ?? 1,
+          gap: schema.page?.gap ?? 1,
+          width: "100%",
+          height: "100%",
+        }}
+      >
         {schema.page?.title ? <Typography.Title>{schema.page.title}</Typography.Title> : null}
         {schema.page?.description ? (
           <Typography.Text type="secondary">{schema.page.description}</Typography.Text>
@@ -154,7 +162,7 @@ export function PageView({
           style={{ flexGrow: 1, flexShrink: 1 }}
           scrollY
           scrollX={false}
-          contentOptions={{ flexDirection: "column", gap: 1, minHeight: "100%" }}
+          contentOptions={{ flexDirection: "column", gap: schema.page?.gap ?? 1, minHeight: "100%" }}
         >
           <FormProvider form={form}>
             <SchemaField schema={schema.form as ISchema} scope={scope} />

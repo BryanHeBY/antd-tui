@@ -16,6 +16,10 @@ export interface LivePageMeta {
   title?: string
   description?: string
   mode?: "interactive" | "form"
+  /** 页面四周留白（终端格），缺省 1；App Shell 满幅布局设 0 */
+  padding?: number
+  /** 根级纵向间距（标题/内容等块之间），缺省 1；满幅布局设 0 */
+  gap?: number
 }
 
 export interface LiveNodeInit {
@@ -137,6 +141,12 @@ export class LiveTree {
       page(meta: LivePageMeta) {
         if (meta.mode !== undefined && meta.mode !== "interactive" && meta.mode !== "form") {
           throw new Error(`$ui.page：mode 只能是 interactive / form，收到 "${String(meta.mode)}"`)
+        }
+        for (const key of ["padding", "gap"] as const) {
+          const value = meta[key]
+          if (value !== undefined && (typeof value !== "number" || value < 0)) {
+            throw new Error(`$ui.page：${key} 必须是非负数字`)
+          }
         }
         tree.rootState.page = { ...meta }
         tree.mutated()
