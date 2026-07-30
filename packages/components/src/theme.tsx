@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react"
+import { useRenderer } from "@opentui/react"
 import { darkPalette } from "./color"
 
 /**
@@ -97,6 +98,13 @@ export interface ConfigProviderProps {
 export function ConfigProvider({ tuiTheme, children }: ConfigProviderProps) {
   const token = tuiTheme?.token
   const merged = useMemo(() => deriveTokens(token), [token])
+  const renderer = useRenderer()
+  useEffect(() => {
+    // 每个 focusable 控件都经 useKeyboard 订阅 keypress；控件多的页面会越过
+    // EventEmitter 默认上限 10 并刷 "Possible EventEmitter memory leak" 警告。
+    // 订阅随组件卸载即清理，不是真泄漏，放开上限。
+    renderer?.keyInput?.setMaxListeners?.(0)
+  }, [renderer])
   return <ThemeContext.Provider value={merged}>{children}</ThemeContext.Provider>
 }
 
