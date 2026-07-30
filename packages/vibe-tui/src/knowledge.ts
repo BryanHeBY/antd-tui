@@ -44,6 +44,9 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 
 ## 视觉校验
 - \`vibetui_snapshot()\` 会等待本次页面绘制完成，只返回 $ui 页面区域；F2/F3、状态栏和输入框不会混入结果。搭完或热换复杂页面后用它做视觉验收。
+- snapshot 是无色字符画：type: "primary" / danger / Tag 色等颜色语义在真终端可见，
+  但在 snapshot 里不可辨——不要因 snapshot 看不出颜色差异而反复改颜色 props。
+- 布局直觉：非 block 的 Button 贴合内容宽度（与 antd 一致）；要撑满用 block: true 或 style.width。
 - \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括 F3 对话记录），仅用于诊断宿主层问题。
 
 ## REPL 语义
