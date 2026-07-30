@@ -31,7 +31,7 @@
                 "type": "string",
                 "default": "0",
                 "x-component": "Typography.Text",
-                "x-component-props": { "tuiAlign": "right", "type": "warning", "strong": true }
+                "x-component-props": { "style": { "textAlign": "right" }, "type": "warning", "strong": true }
               }
             }
           },

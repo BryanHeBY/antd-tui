@@ -71,7 +71,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
     "value",
     "tuiOnChange",
   ],
-  "Typography.Text": ["type", "strong", "tuiAlign"],
+  "Typography.Text": ["type", "strong", "style"],
   "Typography.Link": ["href", "disabled", "type", "underline", "tuiOnClick"],
   List: ["dataSource", "renderItem", "loading", "header", "footer", "bordered", "split", "locale"],
   "List.Item": ["extra", "actions"],

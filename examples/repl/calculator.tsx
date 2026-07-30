@@ -23,7 +23,7 @@ export function buildCalculator($ui: LiveUi): void {
   calculator.add("Flex", { id: "screen", props: { vertical: true, style: { width: "100%" } } }).add("Typography.Text", {
     name: "display",
     default: "0",
-    props: { tuiAlign: "right", type: "warning", strong: true },
+    props: { style: { textAlign: "right" }, type: "warning", strong: true },
   })
 
   // —— 计算逻辑：真函数；justEvaluated 直接活在闭包里，不需要 $memo 通道 ——

@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
+import { toBoxStyle, toTextStyle, type CssLikeStyle } from "../style"
 import { Link, type LinkProps } from "./Link"
 
 export type { LinkProps }
@@ -16,8 +17,8 @@ export interface TextProps {
   type?: TextType
   /** 同 antd：加粗 */
   strong?: boolean
-  /** TUI 扩展：在父容器交叉轴上的对齐（antd Typography 无此能力） */
-  tuiAlign?: "left" | "center" | "right"
+  /** 同 antd（子集）：CSS 风格样式；color 覆盖语义色，textAlign 控制水平对齐 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -37,16 +38,18 @@ function useTypeColor(type?: TextType): string {
   }
 }
 
-function Text({ type, strong, tuiAlign, children }: TextProps) {
+function Text({ type, strong, style, children }: TextProps) {
   const color = useTypeColor(type)
-  const alignSelf =
-    tuiAlign === "right"
-      ? ("flex-end" as const)
-      : tuiAlign === "center"
-        ? ("center" as const)
-        : undefined
+  const { fg, bg, alignSelf } = toTextStyle(style)
+  const layout = toBoxStyle(style)
+  delete layout.backgroundColor
   return (
-    <text attributes={TextAttributes.BOLD} fg={color} style={alignSelf ? { alignSelf } : undefined}>
+    <text
+      attributes={TextAttributes.BOLD}
+      fg={fg ?? color}
+      bg={bg}
+      style={{ ...layout, ...(alignSelf ? { alignSelf } : {}) }}
+    >
       {strong ? <b>{children}</b> : children}
     </text>
   )

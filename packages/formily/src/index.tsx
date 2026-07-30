@@ -31,6 +31,7 @@ import {
   Table,
   Tag,
   Typography,
+  type CssLikeStyle,
   type SelectOption,
 } from "@antd-tui/components"
 
@@ -174,7 +175,7 @@ interface TypographyTextBindingProps {
   value?: unknown
   type?: "secondary" | "success" | "warning" | "danger"
   strong?: boolean
-  tuiAlign?: "left" | "center" | "right"
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
