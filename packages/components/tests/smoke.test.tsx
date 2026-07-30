@@ -397,4 +397,22 @@ describe("布局与空值直觉", () => {
     t.destroy()
   }, 20000)
 
+  test("空字符串 Typography.Text 不占行", async () => {
+    const t = await renderTui(
+      wrap(
+        <box style={{ flexDirection: "column" }}>
+          <Typography.Text>上一行</Typography.Text>
+          <Typography.Text>{""}</Typography.Text>
+          <Typography.Text>下一行</Typography.Text>
+        </box>,
+      ),
+      { width: 30, height: 8 },
+    )
+    const lines = t.frame().split("\n")
+    const a = lines.findIndex((l) => l.includes("上一行"))
+    const b = lines.findIndex((l) => l.includes("下一行"))
+    expect(b - a).toBe(1)
+    t.destroy()
+  }, 20000)
+
 })

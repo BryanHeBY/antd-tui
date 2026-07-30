@@ -41,6 +41,8 @@ function useTypeColor(type?: TextType): string {
 function Text({ type, strong, style, children }: TextProps) {
   const color = useTypeColor(type)
   const { fg, bg, alignSelf } = toTextStyle(style)
+  // 与 Web 一致：空文本不可见，不占据一行（内容热换为非空时再出现）
+  if (children === undefined || children === null || children === "") return null
   const layout = toBoxStyle(style)
   delete layout.backgroundColor
   return (
@@ -64,6 +66,7 @@ export interface TitleProps {
 function Title({ style, children }: TitleProps) {
   const token = useToken()
   const { fg, bg, alignSelf } = toTextStyle(style)
+  if (children === undefined || children === null || children === "") return null
   const layout = toBoxStyle(style)
   delete layout.backgroundColor
   // 对齐 antd：标题是白色粗体（colorTextHeading），不是主色
