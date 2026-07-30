@@ -336,4 +336,29 @@ describe("LiveView × $ui", () => {
     expect(frame).not.toContain("旧按钮B")
     t.destroy()
   }, 20000)
+
+  test("Modal 与 Typography.Title 可经 $ui 使用", async () => {
+    const cancels: string[] = []
+    const tree = new LiveTree()
+    const ui = tree.ui
+    ui.page({ title: "浮层页", mode: "interactive" })
+    ui.add("Typography.Title", { content: "小节标题" })
+    ui.add("Modal", {
+      id: "dlg",
+      content: "确认要继续吗",
+      props: { open: true, title: "确认", tuiOnCancel: () => cancels.push("hit") },
+    })
+
+    const t = await mount(tree)
+    const frame = t.frame()
+    expect(frame).toContain("小节标题")
+    expect(frame).toContain("确认要继续吗")
+    expect(frame).toContain("确定")
+
+    // 热换 open 关闭浮层
+    ui.get("dlg").props.open = false
+    await t.settle()
+    expect(t.frame()).not.toContain("确认要继续吗")
+    t.destroy()
+  }, 20000)
 })

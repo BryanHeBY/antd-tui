@@ -12,6 +12,7 @@ import {
   Input,
   InputNumber,
   List,
+  Modal,
   Progress,
   Radio,
   Row,
@@ -39,6 +40,7 @@ export const liveComponents = {
   "Radio.Group": Radio.Group,
   Switch,
   "Typography.Text": Typography.Text,
+  "Typography.Title": Typography.Title,
   "Typography.Link": Typography.Link,
   List,
   "List.Item": List.Item,
@@ -57,6 +59,7 @@ export const liveComponents = {
   Table,
   Row,
   Col,
+  Modal,
 } as unknown as Record<string, ComponentType<Record<string, unknown>>>
 
 /**
@@ -95,6 +98,7 @@ export const DISPLAY_BINDING_COMPONENT = "Typography.Text"
 export const rawTextContentComponents: ReadonlySet<string> = new Set([
   "Button",
   "Typography.Text",
+  "Typography.Title",
   "Typography.Link",
   "Tag",
   "Divider",

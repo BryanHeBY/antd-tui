@@ -17,6 +17,7 @@ export const componentWhitelist: string[] = [
   "Button.Group",
   "Switch",
   "Typography.Text",
+  "Typography.Title",
   "Typography.Link",
   "List",
   "List.Item",
@@ -34,6 +35,7 @@ export const componentWhitelist: string[] = [
   "Table",
   "Row",
   "Col",
+  "Modal",
 ]
 
 /**
@@ -74,6 +76,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
     "style",
   ],
   "Typography.Text": ["type", "strong", "style"],
+  "Typography.Title": ["style"],
   "Typography.Link": ["href", "disabled", "type", "underline", "tuiOnClick", "style"],
   List: ["dataSource", "renderItem", "loading", "header", "footer", "bordered", "split", "locale", "style"],
   "List.Item": ["extra", "actions", "style"],
@@ -91,5 +94,16 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   Spin: ["spinning", "tip", "tuiIntervalMs", "style"],
   Table: ["columns", "dataSource", "rowKey", "bordered", "tuiEmptyText", "style"],
   Row: ["gutter", "align", "justify", "wrap", "style"],
+  Modal: [
+    "open",
+    "title",
+    "tuiOnOk",
+    "tuiOnCancel",
+    "okText",
+    "cancelText",
+    "footer",
+    "tuiWidth",
+    "keyboard",
+  ],
   Col: ["span", "offset", "flex", "style"],
 }
