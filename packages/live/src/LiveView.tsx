@@ -61,19 +61,33 @@ const NodeView = observer(({ tree, id }: { tree: LiveTree; id: string }) => {
   if (name !== undefined && record.component === DISPLAY_BINDING_COMPONENT) {
     const value = tree.data[name]
     children = value === undefined || value === null ? "—" : String(value)
-  } else if (record.state.content !== undefined) {
-    // box 类容器不能直接放裸字符串（OpenTUI 崩溃），非文本安全组件的 content 包一层
-    children = rawTextContentComponents.has(record.component) ? (
-      record.state.content
-    ) : (
-      <Typography.Text>{record.state.content}</Typography.Text>
-    )
-  } else if (record.state.childIds.length > 0) {
+  } else {
+    // content 与子节点共存：content 渲染为首行文本，子节点跟在后面
+    // （旧行为是 content 静默吞掉子节点——agent 会以为整个容器坏了）
+    // box 类容器不能直接放裸字符串（OpenTUI 崩溃），非文本安全组件的 content 包一层；
+    // 与子节点组合时（Fragment 会绕过 List 等组件的字符串适配）一律包
+    const rawContent = record.state.content
+    const wrappedContent =
+      rawContent === undefined ? undefined : <Typography.Text>{rawContent}</Typography.Text>
+    const soloContent = rawTextContentComponents.has(record.component)
+      ? rawContent
+      : wrappedContent
     // key 用记录代际号而非 id：clear/删除后重建可能撞相同 id，
     // 复用旧实例会让 observer 滞留在孤儿记录上，旧内容永不消失
-    children = record.state.childIds.map((cid) => (
+    const nodeChildren = record.state.childIds.map((cid) => (
       <NodeView key={tree.record(cid)?.seq ?? cid} tree={tree} id={cid} />
     ))
+    children =
+      rawContent !== undefined && nodeChildren.length > 0 ? (
+        <>
+          {wrappedContent}
+          {nodeChildren}
+        </>
+      ) : rawContent !== undefined ? (
+        soloContent
+      ) : nodeChildren.length > 0 ? (
+        nodeChildren
+      ) : undefined
   }
 
   return createElement(liveComponents[record.component], props, children)

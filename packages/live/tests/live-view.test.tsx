@@ -361,4 +361,22 @@ describe("LiveView × $ui", () => {
     expect(t.frame()).not.toContain("确认要继续吗")
     t.destroy()
   }, 20000)
+
+  test("容器 content 与子节点共存：content 为首行，子节点不被吞", async () => {
+    const tree = new LiveTree()
+    const ui = tree.ui
+    ui.page({ title: "共存", mode: "interactive" })
+    const card = ui.add("Card", { content: "内容区说明", props: { title: "卡片标题" } })
+    card.add("Descriptions", {
+      props: { items: [{ label: "状态", children: "运行中" }] },
+    })
+
+    const t = await mount(tree)
+    const frame = t.frame()
+    expect(frame).toContain("卡片标题")
+    expect(frame).toContain("内容区说明")
+    expect(frame).toContain("状态")
+    expect(frame).toContain("运行中")
+    t.destroy()
+  }, 20000)
 })

@@ -23,7 +23,7 @@ export interface LiveNodeInit {
   id?: string
   /** 数据绑定键：输入组件双向绑定 $ui.data[name]；Typography.Text 单向显示 */
   name?: string
-  /** 文本内容（Button 文案 / Typography 文本）；设置后忽略子节点 */
+  /** 文本内容（Button 文案 / Typography 文本）；容器上渲染为首行文本，与子节点共存 */
   content?: string
   /** name 绑定初值，写入 $ui.data[name]（键已存在则不覆盖） */
   default?: unknown
