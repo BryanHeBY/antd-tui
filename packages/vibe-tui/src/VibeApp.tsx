@@ -74,9 +74,19 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   }
 
   // $ui 活对象树：唯一的画布真相源。合法变更即把画板标记为有内容（渲染由 observable 自驱）
+  // agent 回调抛错（如 tuiOnClick 里 get 了不存在的节点）由框架兜住：
+  // 记入对话、提示状态行，并以 [page] error 回流给 agent 让它自行修正
   const liveRef = useRef<LiveTree | null>(null)
   if (liveRef.current === null) {
-    liveRef.current = new LiveTree({ onMutate: () => setHasCanvas(true) })
+    liveRef.current = new LiveTree({
+      onMutate: () => setHasCanvas(true),
+      onCallbackError: (error, context) => {
+        const message = `页面回调出错（${context}）：${(error as Error).message ?? String(error)}`
+        pushLines([message])
+        setStatus(message)
+        clientRef.current?.prompt(`[page] error ${context}: ${(error as Error).message ?? String(error)}`)
+      },
+    })
   }
 
   const clientRef = useRef<AcpClient | null>(null)
