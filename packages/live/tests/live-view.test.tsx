@@ -312,4 +312,28 @@ describe("LiveView × $ui", () => {
     expect(errors[1]!.context).toBe("$ui.watch 回调")
     t.destroy()
   }, 20000)
+
+  test("clear 后同 tick 重建：撞 id 也不残留旧内容", async () => {
+    const tree = new LiveTree()
+    const ui = tree.ui
+    ui.page({ title: "旧页", mode: "interactive" })
+    ui.add("Typography.Text", { content: "旧内容A" })
+    ui.add("Button", { content: "旧按钮B" })
+
+    const t = await mount(tree)
+    expect(t.frame()).toContain("旧内容A")
+
+    // agent 一次 eval 里换页：clear + 重建同步完成；
+    // 自动 id 计数重置后新节点与旧节点同 id（typographytext0）
+    ui.clear()
+    ui.page({ title: "新页", mode: "interactive" })
+    ui.add("Typography.Text", { content: "新内容C" })
+
+    await t.settle()
+    const frame = t.frame()
+    expect(frame).toContain("新内容C")
+    expect(frame).not.toContain("旧内容A")
+    expect(frame).not.toContain("旧按钮B")
+    t.destroy()
+  }, 20000)
 })

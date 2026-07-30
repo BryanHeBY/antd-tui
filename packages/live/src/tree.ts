@@ -88,6 +88,12 @@ interface NodeState {
 
 export interface LiveNodeRecord {
   readonly id: string
+  /**
+   * 全局递增的记录代际号,专用作 React key。clear/删除后重建的节点可能撞上
+   * 相同 id(自动 id 计数重置、agent 显式复用 id),若用 id 作 key,React 会
+   * 复用仍订阅着旧记录 observable 的组件实例,旧内容永远滞留在屏上。
+   */
+  readonly seq: number
   readonly component: string
   parentId: string | null
   readonly state: NodeState
@@ -111,6 +117,8 @@ export class LiveTree {
   private handles = new Map<string, LiveNode>()
   private propProxies = new Map<string, Record<string, unknown>>()
   private idCounters = new Map<string, number>()
+  // 记录代际号跨 clear 单调递增,确保重建节点的 React key 必然更新
+  private seqCounter = 0
   private watchers = new Set<() => void>()
   private rootState = observable({
     childIds: [] as string[],
@@ -298,6 +306,7 @@ export class LiveTree {
     const siblings = this.childIdsOf(parentId)
     const record: LiveNodeRecord = {
       id,
+      seq: ++this.seqCounter,
       component,
       parentId,
       state: observable({

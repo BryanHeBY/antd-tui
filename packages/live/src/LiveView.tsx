@@ -69,8 +69,10 @@ const NodeView = observer(({ tree, id }: { tree: LiveTree; id: string }) => {
       <Typography.Text>{record.state.content}</Typography.Text>
     )
   } else if (record.state.childIds.length > 0) {
+    // key 用记录代际号而非 id：clear/删除后重建可能撞相同 id，
+    // 复用旧实例会让 observer 滞留在孤儿记录上，旧内容永不消失
     children = record.state.childIds.map((cid) => (
-      <NodeView key={cid} tree={tree} id={cid} />
+      <NodeView key={tree.record(cid)?.seq ?? cid} tree={tree} id={cid} />
     ))
   }
 
@@ -101,7 +103,7 @@ export const LiveView = observer(
         ) : null}
         <Flex vertical gap={1} flex={1} tuiScroll>
           {tree.rootChildIds.map((id) => (
-            <NodeView key={id} tree={tree} id={id} />
+            <NodeView key={tree.record(id)?.seq ?? id} tree={tree} id={id} />
           ))}
         </Flex>
         {hideHint ? null : <Typography.Text type="secondary">{hint}</Typography.Text>}
