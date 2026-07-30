@@ -111,6 +111,24 @@ describe("Modal", () => {
     expect(t.frame()).not.toContain("确定")
     t.destroy()
   })
+
+  test("style.width 覆盖 tuiWidth 并保持居中", async () => {
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope>
+          <Modal open footer={null} tuiWidth={50} style={{ width: 24, padding: 2 }}>
+            <text>自定义宽度</text>
+          </Modal>
+        </FocusScope>
+      </ConfigProvider>,
+      { width: 60, height: 16 },
+    )
+    const borderLine = t.frame().split("\n").find((line) => line.includes("╭") || line.includes("┌"))
+    expect(borderLine).toBeDefined()
+    expect(borderLine!.indexOf("╭")).toBe(18)
+    expect(t.frame()).toContain("自定义宽度")
+    t.destroy()
+  })
 })
 
 describe("Modal 焦点圈闭", () => {

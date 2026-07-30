@@ -123,6 +123,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
     "footer",
     "tuiWidth",
     "keyboard",
+    "style",
   ],
   Col: ["span", "offset", "flex", "style"],
 }

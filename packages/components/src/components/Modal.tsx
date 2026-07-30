@@ -2,6 +2,7 @@ import { type ReactNode } from "react"
 import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import { useToken } from "../theme"
 import { FocusScope, useFocusScopeState } from "../focus"
+import { toBoxStyle, type CssLikeStyle } from "../style"
 import { Button } from "./Button"
 
 /**
@@ -29,6 +30,8 @@ export interface ModalProps {
   tuiWidth?: number
   /** 类似 antd closable/keyboard：Esc 是否关闭 */
   keyboard?: boolean
+  /** 同 antd（子集）：CSS 风格布局与视觉样式 */
+  style?: CssLikeStyle
   children?: ReactNode
 }
 
@@ -42,6 +45,7 @@ export function Modal({
   footer,
   tuiWidth = 50,
   keyboard = true,
+  style,
   children,
 }: ModalProps) {
   const token = useToken()
@@ -59,6 +63,7 @@ export function Modal({
         footer={footer}
         tuiWidth={tuiWidth}
         keyboard={keyboard}
+        style={style}
         borderColor={token.colorBorder}
         backgroundColor="#141414"
         borderStyle={token.borderStyle}
@@ -85,6 +90,7 @@ function ModalBody({
   footer,
   tuiWidth,
   keyboard,
+  style,
   borderColor,
   backgroundColor,
   borderStyle,
@@ -98,7 +104,10 @@ function ModalBody({
 
   // 水平精确居中；内容高度自适应无法预知，垂直取 1/4 处近似视觉重心
   const dims = useTerminalDimensions()
-  const left = Math.max(0, Math.floor((dims.width - (tuiWidth ?? 50)) / 2))
+  const width = resolveModalWidth(style?.width, tuiWidth ?? 50, dims.width)
+  const boxStyle = toBoxStyle(style)
+  delete boxStyle.width
+  const left = Math.max(0, Math.floor((dims.width - width) / 2))
   const top = Math.max(1, Math.floor(dims.height / 4))
 
   return (
@@ -107,7 +116,7 @@ function ModalBody({
         position: "absolute",
         top,
         left,
-        width: tuiWidth,
+        width,
         zIndex: 100,
         backgroundColor,
         borderColor,
@@ -115,6 +124,7 @@ function ModalBody({
         flexDirection: "column",
         padding: 1,
         gap: 1,
+        ...boxStyle,
       }}
       border
       title={typeof title === "string" ? title : undefined}
@@ -133,4 +143,13 @@ function ModalBody({
       )}
     </box>
   )
+}
+
+function resolveModalWidth(styleWidth: CssLikeStyle["width"], fallback: number, terminalWidth: number): number {
+  if (typeof styleWidth === "number") return Math.max(1, Math.floor(styleWidth))
+  if (typeof styleWidth === "string") {
+    const percent = Number.parseFloat(styleWidth)
+    if (Number.isFinite(percent)) return Math.max(1, Math.floor((terminalWidth * percent) / 100))
+  }
+  return fallback
 }
