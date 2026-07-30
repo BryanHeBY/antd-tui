@@ -150,7 +150,7 @@ describe("Radio.Group", () => {
     t.destroy()
   })
 
-  test("optionType=button 渲染为横排按钮组", async () => {
+  test("optionType=button 渲染为共享外框和分隔线的横排按钮组", async () => {
     let latest: string | number | undefined
     function Demo() {
       const [value, setValue] = useState<string | number>()
@@ -171,14 +171,68 @@ describe("Radio.Group", () => {
       .frame()
       .split("\n")
       .find((l) => l.includes("日"))
-    // 横排：三个选项同一行，且无 (o) 标记
+    // 横排：三个选项同一行，由共享竖线而不是留缝隔开，且无 (o) 标记
     expect(line!).toContain("周")
     expect(line!).toContain("月")
+    expect(line!.split("│")).toHaveLength(5)
     expect(t.frame()).not.toContain("( )")
 
     await t.press(KeyCodes.ARROW_RIGHT)
     await t.enter()
     expect(latest).toBe("周")
+    t.destroy()
+  })
+
+  test("buttonStyle=solid + block：选项在连体边框内等分宽度", async () => {
+    const t = await renderTui(
+      wrap(
+        <Radio.Group
+          optionType="button"
+          buttonStyle="solid"
+          block
+          value="a"
+          options={[
+            { label: "Alpha", value: "a" },
+            { label: "Beta", value: "b" },
+            { label: "Gamma", value: "c" },
+          ]}
+        />,
+      ),
+      { width: 36, height: 6 },
+    )
+    const line = t
+      .frame()
+      .split("\n")
+      .find((l) => l.includes("Alpha"))!
+    const alpha = line.indexOf("Alpha")
+    const beta = line.indexOf("Beta")
+    const gamma = line.indexOf("Gamma")
+    expect(beta - alpha).toBeGreaterThan(8)
+    expect(gamma - beta).toBeGreaterThan(8)
+    expect(line.split("│")).toHaveLength(5)
+    t.destroy()
+  })
+
+  test("orientation=vertical 用共享横线分隔按钮项", async () => {
+    const t = await renderTui(
+      wrap(
+        <Radio.Group
+          optionType="button"
+          orientation="vertical"
+          options={["低", "中", "高"]}
+          value="中"
+        />,
+      ),
+      { width: 20, height: 10 },
+    )
+    const separators = t
+      .frame()
+      .split("\n")
+      .filter((line) => /^│─+│/.test(line))
+    expect(separators).toHaveLength(2)
+    expect(t.frame()).toContain("低")
+    expect(t.frame()).toContain("中")
+    expect(t.frame()).toContain("高")
     t.destroy()
   })
 })

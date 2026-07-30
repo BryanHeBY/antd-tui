@@ -7,7 +7,7 @@ import { useFocusable } from "../focus"
 
 /**
  * 字段规范：与 antd 同名的字段行为完全一致；tui 前缀 = TUI 扩展或行为有终端适配差异。
- * 终端形态：(o) / ( )；optionType="button" 时渲染为色块按钮组。
+ * 终端形态：(o) / ( )；optionType="button" 时渲染为连体边框按钮组。
  */
 
 export interface RadioProps {
@@ -17,18 +17,25 @@ export interface RadioProps {
   disabled?: boolean
   /** 类似 antd onChange 但参数不同：直接回传 checked（终端无 DOM 事件对象） */
   tuiOnChange?: (checked: boolean) => void
-  /** TUI 扩展：按钮形态（由 Radio.Group optionType 传入） */
-  tuiButtonStyle?: boolean
   children?: ReactNode
+}
+
+/** Radio.Group 的内部按钮渲染参数，不构成 Radio 组件的公开属性。 */
+interface RadioButtonProps extends RadioProps {
+  buttonStyle?: "outline" | "solid"
+  tuiDivider?: "right" | "bottom"
+  tuiBlock?: boolean
 }
 
 function RadioBase({
   checked = false,
   disabled = false,
   tuiOnChange,
-  tuiButtonStyle = false,
+  buttonStyle,
+  tuiDivider,
+  tuiBlock = false,
   children,
-}: RadioProps) {
+}: RadioButtonProps) {
   const token = useToken()
   const boxRef = useRef<BoxRenderable | null>(null)
   const select = () => {
@@ -54,19 +61,31 @@ function RadioBase({
     select()
   }
 
-  if (tuiButtonStyle) {
-    // 对齐 antd 默认 Radio.Button：选中态是主色文字，不是实心填充
-    const backgroundColor = disabled ? "#262626" : focused ? "#e6e6e6" : "#373737"
+  if (buttonStyle) {
+    // Radio.Button 的终端对应物：整组负责外框，子项只负责相邻分隔线。
+    // 这保留「一组选择器」的整体感，也不会浪费 cell 在每个按钮的重复边框上。
+    const solid = buttonStyle === "solid"
+    const backgroundColor = disabled
+      ? "transparent"
+      : solid && checked
+        ? token.colorPrimary
+        : focused
+          ? "#202020"
+          : "transparent"
     const textColor = disabled
       ? token.colorTextDisabled
-      : focused
-        ? "#141414"
-        : checked
+      : solid && checked
+        ? "#ffffff"
+        : focused || checked
           ? token.colorPrimaryHover
-          : "#ffffff"
+          : token.colorText
+    // 不传 border 属性与传 border={false} 不完全等价：后者在 OpenTUI 的布局路径里
+    // 可能保留之前的边框测量。末项必须省略属性，才能只由整组外框收口。
+    const dividerBorder = tuiDivider ? { border: [tuiDivider] } : {}
     return (
       <box
         ref={boxRef}
+        {...dividerBorder}
         style={{
           backgroundColor,
           minHeight: 1,
@@ -74,6 +93,7 @@ function RadioBase({
           paddingRight: 1,
           alignItems: "center",
           justifyContent: "center",
+          ...(tuiBlock ? { flexGrow: 1, flexShrink: 1, flexBasis: 0 } : {}),
         }}
         onMouseDown={handleMouseDown}
       >
@@ -117,7 +137,16 @@ export interface RadioGroupProps {
   disabled?: boolean
   /** 同 antd：选项形态 */
   optionType?: "default" | "button"
-  /** TUI 扩展：排列方向（默认按 optionType 推断：button 横排、default 纵排） */
+  /** 同 antd Radio.Group：按钮形态下选中项为 outline 或 solid。 */
+  buttonStyle?: "outline" | "solid"
+  /** 同 antd Radio.Group：按钮形态下整组占满父容器，选项等分宽/高。 */
+  block?: boolean
+  /** 同 antd Radio.Group：排列方向。 */
+  orientation?: "horizontal" | "vertical"
+  /**
+   * TUI 兼容别名：早期版本已发布，保留避免打断 schema；新代码请使用 orientation。
+   * 默认按 optionType 推断：button 横排、default 纵排。
+   */
   tuiDirection?: "horizontal" | "vertical"
 }
 
@@ -131,29 +160,71 @@ function RadioGroup({
   tuiOnChange,
   disabled = false,
   optionType = "default",
+  buttonStyle = "outline",
+  block = false,
+  orientation,
   tuiDirection,
 }: RadioGroupProps) {
+  const token = useToken()
   const list = normalize(options)
   const isButton = optionType === "button"
-  const direction = tuiDirection ?? (isButton ? "horizontal" : "vertical")
+  const direction = orientation ?? tuiDirection ?? (isButton ? "horizontal" : "vertical")
+  // 保持为扁平子节点数组。OpenTUI 的原生容器需要直接拥有布局节点；把 Radio
+  // 与分隔线包在 Fragment 中会让纵向模式的后半段脱离外框。
+  const radios: ReactNode[] = []
+  for (const [index, option] of list.entries()) {
+    radios.push(
+      <RadioBase
+        key={String(option.value)}
+        checked={value === option.value}
+        disabled={disabled || option.disabled}
+        buttonStyle={isButton ? buttonStyle : undefined}
+        tuiDivider={
+          isButton && direction === "horizontal" && index < list.length - 1 ? "right" : undefined
+        }
+        // 横向 block 才需要 flex 等分。纵向组本身已撑满横轴，给子项 flexGrow
+        // 会在 auto-height 容器中干扰 Yoga 的内容高度测量。
+        tuiBlock={isButton && block && direction === "horizontal"}
+        tuiOnChange={() => tuiOnChange?.(option.value)}
+      >
+        {option.label}
+      </RadioBase>,
+    )
+    if (isButton && direction === "vertical" && index < list.length - 1) {
+      radios.push(
+        <box
+          key={`${String(option.value)}-divider`}
+          border={["top"]}
+          style={{
+            width: "100%",
+            height: 1,
+            borderStyle: token.borderStyle,
+            borderColor: token.colorBorder,
+          }}
+        />,
+      )
+    }
+  }
+
+  if (isButton) {
+    return (
+      <box
+        border
+        style={{
+          flexDirection: direction === "horizontal" ? "row" : "column",
+          borderStyle: token.borderStyle,
+          borderColor: token.colorBorder,
+          ...(block ? { width: "100%" as const } : {}),
+        }}
+      >
+        {radios}
+      </box>
+    )
+  }
+
   return (
-    <box
-      style={{
-        flexDirection: direction === "horizontal" ? "row" : "column",
-        gap: direction === "horizontal" ? (isButton ? 1 : 2) : 0,
-      }}
-    >
-      {list.map((option) => (
-        <RadioBase
-          key={String(option.value)}
-          checked={value === option.value}
-          disabled={disabled || option.disabled}
-          tuiButtonStyle={isButton}
-          tuiOnChange={() => tuiOnChange?.(option.value)}
-        >
-          {option.label}
-        </RadioBase>
-      ))}
+    <box style={{ flexDirection: direction === "horizontal" ? "row" : "column", gap: direction === "horizontal" ? 2 : 0 }}>
+      {radios}
     </box>
   )
 }

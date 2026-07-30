@@ -50,7 +50,17 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   Select: ["options", "disabled", "value", "tuiOnChange"],
   Checkbox: ["checked", "disabled", "value", "tuiOnChange"],
   "Checkbox.Group": ["options", "disabled", "tuiDirection", "value", "onChange"],
-  "Radio.Group": ["options", "disabled", "optionType", "tuiDirection", "value", "tuiOnChange"],
+  "Radio.Group": [
+    "options",
+    "disabled",
+    "optionType",
+    "buttonStyle",
+    "block",
+    "orientation",
+    "tuiDirection",
+    "value",
+    "tuiOnChange",
+  ],
   Switch: [
     "checked",
     "disabled",
