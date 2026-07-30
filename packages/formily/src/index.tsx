@@ -16,6 +16,8 @@ import {
   Descriptions,
   Divider,
   Flex,
+  List,
+  Modal,
   FormItem as TuiFormItem,
   Input as TuiInput,
   InputNumber as TuiInputNumber,
@@ -192,7 +194,11 @@ const TypographyText = connect(TypographyTextBinding)
 // 严禁 Object.assign 原地改写 components 包的共享组件（live 通路会拿到被污染的版本）
 const CheckboxComponent = Object.assign(Checkbox, { Group: CheckboxGroup })
 const RadioComponent = { Group: RadioGroup } as unknown as typeof TuiRadio
-const TypographyComponent = { Text: TypographyText } as unknown as typeof Typography.Text
+const TypographyComponent = {
+  Text: TypographyText,
+  Title: Typography.Title,
+  Link: Typography.Link,
+} as unknown as typeof Typography.Text
 // 展示组件挂 void 节点时，ReactiveField 会把 value 覆盖为 undefined
 // （{...componentProps, value} 的展开顺序所致），这里从 componentProps 找回
 const StatisticBinding = connect(
@@ -219,6 +225,7 @@ export const schemaComponents = {
   Typography: TypographyComponent,
   Card,
   Flex,
+  List,
   Space,
   Button,
   Alert,
@@ -231,6 +238,7 @@ export const schemaComponents = {
   Table,
   Row,
   Col,
+  Modal,
 } as const
 
 export const SchemaField = createSchemaField({
