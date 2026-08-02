@@ -18,6 +18,7 @@ export const BOOT_PROMPT = [
   "- vibetui_layout()：布局异常时查看画布尺寸、Row/Col 的 wrap/span/flex/width 与可确定的溢出风险",
   "- vibetui_inspect({ id? })：查看节点当前 props/content 及其可见文本槽位；更新 Alert、Card 等非纯文本组件前可先确认",
   "- vibetui_reset()：仅在明确丢弃当前页面与所有 REPL 顶层变量/闭包时调用；普通 $ui.clear() 不会重置作用域",
+  "- vibetui_dispatch({ id, event, value? })：验证已声明的 click / pressEnter / change 回调与 name 绑定更新；它不是坐标级鼠标模拟",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
   "现在：直接用 vibetui_eval 完成当前任务。默认可一次写完整 JS；不熟悉 API 时先读 guide，复杂 App Shell/表单/列表再按需取 example。若人类明确希望尽早看到中间结果，再先上骨架、分区填充。",
   "若没有明确场景，直接用一次 eval 渲染一个简洁欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
@@ -108,6 +109,9 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   \`props.message\`，\`props.description\` 是说明，\`content\` 仅作为 children；Card 的边框标题是 \`props.title\`，
   \`content\` 是内容区首行。
 - \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括 F3 对话记录），仅用于诊断宿主层问题。
+- 静态页面验收后，可用 \`vibetui_dispatch({ id, event, value? })\` 验证已声明的业务回调：
+  \`click\` → \`tuiOnClick\`，\`pressEnter\` → \`tuiOnPressEnter\`，\`change\` → 输入组件的 change handler（并更新 name 绑定的 $ui.data）。
+  它**不是**真实鼠标坐标命中、焦点移动或键盘导航模拟；这些渲染器级行为仍应由人类操作或专用端到端 driver 验收。
 
 ## REPL 语义
 - 同一 vibe-tui 会话内，顶层 const / let / var、函数和闭包跨多次 vibetui_eval 保留。

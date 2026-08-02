@@ -154,6 +154,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
           setHasCanvas(false)
           return { cleared: true, scopeReset: true }
         },
+        dispatch: (id, event, value) => liveRef.current!.dispatch(id, event, value),
       })
       const client = new AcpClient(
         agentCmd,

@@ -26,7 +26,7 @@ describe("LiveTree × $ui", () => {
   })
 
   test("无配置的容器可省略 init 对象并继续嵌套", () => {
-    const { ui } = makeTree()
+    const { tree, ui } = makeTree()
     const space = ui.add("Space", { props: { wrap: true } })
     const row = space.add("Row")
     row.add("Divider")
@@ -210,6 +210,45 @@ describe("LiveTree × $ui", () => {
         text: { content: "children", primaryProp: "message", secondaryProp: "description" },
       }),
     ])
+  })
+
+  test("dispatch：按组件公开语义验证 click、pressEnter 与绑定输入更新", () => {
+    const { tree, ui } = makeTree()
+    let clicks = 0
+    let submits = 0
+    let changes = 0
+    ui.add("Button", { id: "run", props: { tuiOnClick: () => (clicks += 1) } })
+    ui.add("Input", {
+      id: "query",
+      name: "query",
+      props: { tuiOnPressEnter: () => (submits += 1), tuiOnChange: () => (changes += 1) },
+    })
+
+    expect(tree.dispatch("run", "click")).toEqual({
+      id: "run",
+      event: "click",
+      callbackCalled: true,
+    })
+    expect(tree.dispatch("query", "change", "antd")).toEqual({
+      id: "query",
+      event: "change",
+      callbackCalled: true,
+      value: "antd",
+    })
+    expect(tree.dispatch("query", "pressEnter")).toEqual({
+      id: "query",
+      event: "pressEnter",
+      callbackCalled: true,
+    })
+    expect(clicks).toBe(1)
+    expect(submits).toBe(1)
+    expect(changes).toBe(1)
+    expect(ui.data.query).toBe("antd")
+
+    const disabled = ui.add("Button", { id: "locked", props: { disabled: true, tuiOnClick: () => {} } })
+    expect(() => tree.dispatch(disabled.id, "click")).toThrow(
+      "disabled/loading",
+    )
   })
   test("叶子组件拒绝子节点:add 与 moveTo 均抛错并提示容器列表", () => {
     const tree = new LiveTree()

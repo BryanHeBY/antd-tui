@@ -113,6 +113,20 @@ export interface LiveNodeInspection {
   children: string[]
 }
 
+/**
+ * 可由活树确定地调用的组件语义事件。它用于 agent 验证回调和响应式更新，
+ * 不伪装成带焦点/坐标命中测试的真实终端输入。
+ */
+export type LiveDispatchEvent = "click" | "pressEnter" | "change"
+
+export interface LiveDispatchResult {
+  id: string
+  event: LiveDispatchEvent
+  callbackCalled: boolean
+  /** 仅 name 绑定的 change 事件返回更新后的 $ui.data 值。 */
+  value?: unknown
+}
+
 export interface LiveTreeOptions {
   /** 结构/props 合法变更后回调（宿主据此切画布模式）；渲染由 observable 自驱不依赖它 */
   onMutate?: () => void
@@ -349,6 +363,54 @@ export class LiveTree {
     }))
   }
 
+  /**
+   * 主动触发一个已声明的 TUI 语义事件，供 MCP agent 做交互回归验证。
+   * 它严格按组件公开的 tuiOnClick/tuiOnPressEnter/输入 onChange 约定调用，
+   * 不会声称已经执行了真实鼠标坐标命中、焦点变化或键盘导航。
+   */
+  dispatch(id: string, event: LiveDispatchEvent, value?: unknown): LiveDispatchResult {
+    const record = this.requireRecord(id)
+    const props = record.state.props
+    if (props.disabled === true || props.loading === true) {
+      throw new Error(`$ui：${record.component}(${id}) 当前 disabled/loading，不能触发 ${event}`)
+    }
+
+    if (event === "click") {
+      return {
+        id,
+        event,
+        callbackCalled: this.callDeclaredHandler(record, "tuiOnClick", []),
+      }
+    }
+
+    if (event === "pressEnter") {
+      return {
+        id,
+        event,
+        callbackCalled: this.callDeclaredHandler(record, "tuiOnPressEnter", []),
+      }
+    }
+
+    const binding = inputBindings[record.component]
+    if (!binding) {
+      throw new Error(`$ui：${record.component}(${id}) 不支持 change 事件；仅输入组件可用`)
+    }
+    if (value === undefined) {
+      throw new Error(`$ui：${record.component}(${id}) 的 change 事件需要 value`)
+    }
+    if (record.state.name !== undefined) this.data[record.state.name] = value
+    const callbackCalled =
+      typeof record.state.props[binding.changeProp] === "function"
+        ? this.callDeclaredHandler(record, binding.changeProp, [value])
+        : false
+    return {
+      id,
+      event,
+      callbackCalled,
+      ...(record.state.name === undefined ? {} : { value: this.data[record.state.name] }),
+    }
+  }
+
   /** LiveView 提示行联动用（observable 读取） */
   get escapeMode(): "default" | "custom" | "none" {
     return this.rootState.escape
@@ -406,6 +468,20 @@ export class LiveTree {
     const record = this.records.get(id)
     if (!record) throw new Error(`$ui：节点 "${id}" 不存在（可能已被删除）`)
     return record
+  }
+
+  private callDeclaredHandler(record: LiveNodeRecord, prop: string, args: unknown[]): boolean {
+    const handler = record.state.props[prop]
+    if (typeof handler !== "function") {
+      throw new Error(`$ui：${record.component}(${record.id}) 未声明 ${prop}，不能触发该事件`)
+    }
+    try {
+      handler(...args)
+    } catch (error) {
+      this.options.onCallbackError?.(error, `${record.id}.${prop}`)
+      throw error
+    }
+    return true
   }
 
   private childIdsOf(parentId: string | null): string[] {

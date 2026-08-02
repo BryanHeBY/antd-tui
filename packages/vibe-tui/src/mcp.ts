@@ -9,6 +9,7 @@
  *   vibetui_layout()        —— 查看当前 Row / Col 配置、画布尺寸与确定的换行风险
  *   vibetui_inspect({id?})  —— 查看节点 props 与组件可见文本槽位
  *   vibetui_reset()         —— 清空 $ui 页面并重置 JS REPL 顶层作用域
+ *   vibetui_dispatch(...)    —— 调用节点声明的语义事件，验证页面回调与状态更新
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
  * 形态：进程内 HTTP（Streamable HTTP，无状态模式），随机端口。
@@ -34,6 +35,8 @@ export interface CanvasBridge {
   inspect: (id?: string) => unknown
   /** 清活树并丢弃会话级 REPL 的顶层变量、函数与闭包。 */
   reset: () => unknown
+  /** 触发活树声明的语义事件；并非真实鼠标/键盘坐标注入。 */
+  dispatch: (id: string, event: "click" | "pressEnter" | "change", value?: unknown) => unknown
 }
 
 function textResult(text: string, isError = false) {
@@ -62,6 +65,26 @@ function buildServer(bridge: CanvasBridge): McpServer {
         return textResult(serialized)
       } catch (err) {
         return textResult(`执行失败:${(err as Error).message}`, true)
+      }
+    },
+  )
+
+  server.registerTool(
+    "vibetui_dispatch",
+    {
+      description:
+        "验证已构建页面的语义事件：click 调用节点 tuiOnClick，pressEnter 调用 tuiOnPressEnter，change 调用输入组件的 change handler，并同步 name 绑定的 $ui.data。它不会模拟真实鼠标坐标、焦点移动或键盘导航；需要那些渲染器级行为时仍应让人类操作并用 snapshot 验收。disabled/loading 节点不会被调用。",
+      inputSchema: {
+        id: z.string().describe("目标 $ui 节点 id"),
+        event: z.enum(["click", "pressEnter", "change"]).describe("要验证的组件语义事件"),
+        value: z.unknown().optional().describe("change 事件的新值；其他事件不需要"),
+      },
+    },
+    ({ id, event, value }) => {
+      try {
+        return textResult(JSON.stringify(bridge.dispatch(id, event, value), null, 2))
+      } catch (err) {
+        return textResult(`事件验证失败:${(err as Error).message}`, true)
       }
     },
   )
