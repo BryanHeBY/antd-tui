@@ -29,6 +29,18 @@ describe("vibetui_eval 会话级 REPL", () => {
     expect(() => second.evaluate("renders")).toThrow("renders is not defined")
   })
 
+  test("reset 只丢弃 REPL 顶层作用域，保留固定宿主入口", () => {
+    const ui = { data: { count: 1 } }
+    const repl = createEvalRepl({ $ui: ui })
+    repl.evaluate("const stale = 42; $ui.data.count = 7")
+
+    repl.reset()
+
+    expect(() => repl.evaluate("stale")).toThrow("stale is not defined")
+    expect(repl.evaluate("$ui.data.count")).toBe(7)
+    expect(repl.evaluate("const fresh = 1; fresh")).toBe(1)
+  })
+
   test("宿主入口可用但不能被 REPL 重绑定", () => {
     const ui = { data: { count: 1 } }
     const repl = createEvalRepl({ $ui: ui })

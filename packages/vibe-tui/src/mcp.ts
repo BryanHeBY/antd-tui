@@ -8,6 +8,7 @@
  *   vibetui_host_snapshot() —— 获取当前宿主终端字符画（含日志/状态栏等覆盖层）
  *   vibetui_layout()        —— 查看当前 Row / Col 配置、画布尺寸与确定的换行风险
  *   vibetui_inspect({id?})  —— 查看节点 props 与组件可见文本槽位
+ *   vibetui_reset()         —— 清空 $ui 页面并重置 JS REPL 顶层作用域
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
  * 形态：进程内 HTTP（Streamable HTTP，无状态模式），随机端口。
@@ -31,6 +32,8 @@ export interface CanvasBridge {
   layout: () => unknown
   /** 节点配置与 content / props 的可见文本语义。 */
   inspect: (id?: string) => unknown
+  /** 清活树并丢弃会话级 REPL 的顶层变量、函数与闭包。 */
+  reset: () => unknown
 }
 
 function textResult(text: string, isError = false) {
@@ -59,6 +62,22 @@ function buildServer(bridge: CanvasBridge): McpServer {
         return textResult(serialized)
       } catch (err) {
         return textResult(`执行失败:${(err as Error).message}`, true)
+      }
+    },
+  )
+
+  server.registerTool(
+    "vibetui_reset",
+    {
+      description:
+        "明确重置整页迭代状态：清空 $ui 组件树、页面元信息、$ui.data 和 watch，同时丢弃 vibetui_eval 里声明的顶层 const/let/var、函数与闭包。普通 $ui.clear() 只清 UI，不重置 REPL；只有确定不再复用旧 helper/状态时才调用本工具。",
+      inputSchema: {},
+    },
+    () => {
+      try {
+        return textResult(JSON.stringify(bridge.reset(), null, 2))
+      } catch (err) {
+        return textResult(`重置失败:${(err as Error).message}`, true)
       }
     },
   )

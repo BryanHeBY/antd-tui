@@ -15,6 +15,7 @@ describe("知识注入", () => {
     expect(BOOT_PROMPT).toContain("$agent.send")
     expect(BOOT_PROMPT).toContain("vibetui_layout")
     expect(BOOT_PROMPT).toContain("vibetui_inspect")
+    expect(BOOT_PROMPT).toContain("vibetui_reset")
   })
 
   test("LIVE_GUIDE 含全部白名单组件及其 props", () => {
@@ -69,5 +70,6 @@ describe("知识注入", () => {
     expect(LIVE_GUIDE).toContain("minWidth: 28")
     expect(LIVE_GUIDE).toContain("props.message")
     expect(LIVE_GUIDE).toContain("wrap: false")
+    expect(LIVE_GUIDE).toContain("vibetui_reset()")
   })
 })

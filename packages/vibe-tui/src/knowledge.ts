@@ -17,6 +17,7 @@ export const BOOT_PROMPT = [
   "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
   "- vibetui_layout()：布局异常时查看画布尺寸、Row/Col 的 wrap/span/flex/width 与可确定的溢出风险",
   "- vibetui_inspect({ id? })：查看节点当前 props/content 及其可见文本槽位；更新 Alert、Card 等非纯文本组件前可先确认",
+  "- vibetui_reset()：仅在明确丢弃当前页面与所有 REPL 顶层变量/闭包时调用；普通 $ui.clear() 不会重置作用域",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
   "现在：直接用 vibetui_eval 完成当前任务。默认可一次写完整 JS；不熟悉 API 时先读 guide，复杂 App Shell/表单/列表再按需取 example。若人类明确希望尽早看到中间结果，再先上骨架、分区填充。",
   "若没有明确场景，直接用一次 eval 渲染一个简洁欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
@@ -115,6 +116,8 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 顶层 \`const\` / \`let\` 不能重复声明，和普通 JS REPL 一样。一次性 helper 用 const；
   需要在重新搭页时反复初始化的绑定可用 var（允许重复声明），或改为给既有 let 赋值。
 - UI 的响应式用户状态仍应放 \`$ui.data\`；REPL 变量适合 actions、格式化函数和临时节点引用。
+- 想彻底开始一页新实现时调用 \`vibetui_reset()\`：它同时清空 $ui 和 REPL 顶层作用域，旧 const/let/var、函数与闭包都不再存在。
+  它不是 \`$ui.clear()\` 的替代品；后者仍应保留为“重建 UI、复用既有 helper”的常规操作。
 
 ## 基本操作
 - 设页面：$ui.page({ title: "标题", description: "副标题", mode: "interactive" | "form",

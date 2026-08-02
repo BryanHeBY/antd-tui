@@ -12,6 +12,8 @@ import { createContext, Script, type Context } from "node:vm"
 export interface EvalRepl {
   /** 在该会话的持久词法环境中执行一段 JavaScript。 */
   evaluate(code: string): unknown
+  /** 丢弃顶层变量与闭包，重新建立仅含宿主入口的持久 REPL 作用域。 */
+  reset(): void
 }
 
 /**
@@ -22,24 +24,30 @@ export interface EvalRepl {
  * 顶层变量则是正常的可持久 REPL 变量。
  */
 export function createEvalRepl(scope: Record<string, unknown>): EvalRepl {
-  // 保留旧版 new Function 可见的 Bun/Node 全局能力；此处不是隔离执行环境。
-  // Context 只额外提供独立且持久的顶层词法环境。
-  const sandbox = Object.create(globalThis) as Record<string, unknown>
-  for (const [name, value] of Object.entries(scope)) {
-    Object.defineProperty(sandbox, name, {
-      value,
-      enumerable: true,
-      writable: false,
-      configurable: false,
-    })
+  const makeContext = (): Context => {
+    // 保留旧版 new Function 可见的 Bun/Node 全局能力；此处不是隔离执行环境。
+    // Context 只额外提供独立且持久的顶层词法环境。
+    const sandbox = Object.create(globalThis) as Record<string, unknown>
+    for (const [name, value] of Object.entries(scope)) {
+      Object.defineProperty(sandbox, name, {
+        value,
+        enumerable: true,
+        writable: false,
+        configurable: false,
+      })
+    }
+    return createContext(sandbox)
   }
-  const context: Context = createContext(sandbox)
+  let context = makeContext()
 
   return {
     evaluate(code: string): unknown {
       // Script 直接执行完整 Program，既支持语句体也保留最后一个表达式的结果；
       // 同一 Context 让各次 Script 共享全局词法环境，语义等同于一个 REPL 会话。
       return new Script(code, { filename: "vibetui_eval" }).runInContext(context)
+    },
+    reset() {
+      context = makeContext()
     },
   }
 }

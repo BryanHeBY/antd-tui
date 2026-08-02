@@ -148,6 +148,12 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
           )
         },
         inspect: (id) => liveRef.current!.inspect(id),
+        reset: () => {
+          liveRef.current!.clear()
+          replRef.current!.reset()
+          setHasCanvas(false)
+          return { cleared: true, scopeReset: true }
+        },
       })
       const client = new AcpClient(
         agentCmd,

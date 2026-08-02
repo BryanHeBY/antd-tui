@@ -19,6 +19,7 @@ function fakeBridge(): CanvasBridge {
     example: () => "EXAMPLE",
     layout: () => ({ viewport: { width: 80, height: 20 }, warnings: [] }),
     inspect: (id) => ({ id: id ?? "all", text: { content: "children" } }),
+    reset: () => ({ cleared: true, scopeReset: true }),
   }
 }
 
@@ -72,6 +73,7 @@ describe("MCP 画布服务", () => {
       "vibetui_host_snapshot",
       "vibetui_inspect",
       "vibetui_layout",
+      "vibetui_reset",
       "vibetui_snapshot",
     ])
     server.close()
@@ -122,8 +124,15 @@ describe("MCP 画布服务", () => {
     })
     expect(JSON.parse(toolText(inspect))).toEqual({ id: "alert", text: { content: "children" } })
 
-    const guide = await rpc(server.url, {
+    const reset = await rpc(server.url, {
       id: 8,
+      method: "tools/call",
+      params: { name: "vibetui_reset", arguments: {} },
+    })
+    expect(JSON.parse(toolText(reset))).toEqual({ cleared: true, scopeReset: true })
+
+    const guide = await rpc(server.url, {
+      id: 9,
       method: "tools/call",
       params: { name: "vibetui_guide", arguments: {} },
     })
