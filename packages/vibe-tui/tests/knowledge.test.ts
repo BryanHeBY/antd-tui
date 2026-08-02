@@ -13,6 +13,8 @@ describe("知识注入", () => {
     expect(BOOT_PROMPT).toContain("vibetui_guide")
     expect(BOOT_PROMPT).toContain("[page]")
     expect(BOOT_PROMPT).toContain("$agent.send")
+    expect(BOOT_PROMPT).toContain("vibetui_layout")
+    expect(BOOT_PROMPT).toContain("vibetui_inspect")
   })
 
   test("LIVE_GUIDE 含全部白名单组件及其 props", () => {
@@ -58,5 +60,14 @@ describe("知识注入", () => {
     }
     expect(LIVE_GUIDE).toContain("复杂 props 形状")
     expect(LIVE_GUIDE).toContain("dataIndex")
+  })
+
+  test("LIVE_GUIDE 提供可复制的布局诊断、窄终端与文本槽位策略", () => {
+    expect(LIVE_GUIDE).toContain("vibetui_layout()")
+    expect(LIVE_GUIDE).toContain('vibetui_inspect({ id: "..." })')
+    expect(LIVE_GUIDE).toContain('flex: "auto"')
+    expect(LIVE_GUIDE).toContain("minWidth: 28")
+    expect(LIVE_GUIDE).toContain("props.message")
+    expect(LIVE_GUIDE).toContain("wrap: false")
   })
 })

@@ -15,6 +15,8 @@ export const BOOT_PROMPT = [
   "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
   "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受 F2/F3、状态栏或输入框影响",
   "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
+  "- vibetui_layout()：布局异常时查看画布尺寸、Row/Col 的 wrap/span/flex/width 与可确定的溢出风险",
+  "- vibetui_inspect({ id? })：查看节点当前 props/content 及其可见文本槽位；更新 Alert、Card 等非纯文本组件前可先确认",
   '界面事件会以 "[page] ..." 开头的消息回流给你（按钮点击等）；$ui 的 handler 里可直接调用 $agent.send(text, payload?)。',
   "现在：直接用 vibetui_eval 完成当前任务。默认可一次写完整 JS；不熟悉 API 时先读 guide，复杂 App Shell/表单/列表再按需取 example。若人类明确希望尽早看到中间结果，再先上骨架、分区填充。",
   "若没有明确场景，直接用一次 eval 渲染一个简洁欢迎页（标题 + 一句能力介绍 + 几个引导按钮，按钮回调用 $agent.send 把用户意图回流给你）。",
@@ -99,6 +101,11 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - snapshot 是无色字符画：type: "primary" / danger / Tag 色等颜色语义在真终端可见，
   但在 snapshot 里不可辨——不要因 snapshot 看不出颜色差异而反复改颜色 props。
 - 布局直觉：非 block 的 Button 贴合内容宽度（与 antd 一致）；要撑满用 block: true 或 style.width。
+- Row/Col 看起来没有并排时，先调 \`vibetui_layout()\`：它会返回画布尺寸、Row 的最终 wrap/gutter 和 Col 的
+  span/flex/width，并提示能静态确定的 24 栅格或固定宽度溢出。它不伪造组件坐标；再用 snapshot 验收最终画面。
+- 要确认修改会更新哪段可见文字时调 \`vibetui_inspect({ id: "..." })\`。例如 Alert 的主文案是
+  \`props.message\`，\`props.description\` 是说明，\`content\` 仅作为 children；Card 的边框标题是 \`props.title\`，
+  \`content\` 是内容区首行。
 - \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括 F3 对话记录），仅用于诊断宿主层问题。
 
 ## REPL 语义
@@ -141,9 +148,23 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   \`var row = $ui.add("Row", { props: { gutter: 1, align: "middle" } });
    row.add("Col", { props: { flex: 1 } }).add("Input", { name: "query", props: { placeholder: "搜索" } });
    row.add("Col").add("Button", { content: "搜索", props: { tuiOnClick: () => $agent.send("search", $ui.data.query) } })\`
+- Row 默认 \`wrap: true\`（与 antd 一致）：空间不足会把后续 Col 换到下一行。固定“侧栏 + 主区”且不希望侧栏掉到下方时，
+  显式写 \`Row({ props: { wrap: false } })\`，侧栏给 \`style.width\`，主区给 \`flex: 1\`。这种布局在极窄终端会横向拥挤，
+  需要窄屏降级时应改用下一条的可换行卡片布局。
+- **可随终端宽度换行的卡片栅格**：
+  \`var grid = $ui.add("Row", { props: { gutter: [1, 1], wrap: true } });
+   ["服务", "任务", "告警"].forEach((title) => {
+     grid.add("Col", { props: { flex: "auto", style: { minWidth: 28 } } })
+       .add("Card", { props: { title } })
+       .add("Typography.Text", { content: "内容会在宽度不足时整列换行。" })
+   })\`
+  这里 \`flex: "auto"\` + \`style.minWidth\` 让每个卡片保有最小可读宽度，Row 只在确实放不下时换行；不要靠反复截图猜。
+- **嵌套 Card/Row**：Card 是纵向内容容器；先把 Card 放进 Col，再在 Card 里面另建 Row。
+  不要把一个 Card 直接当成 Row 的多个同级列，也不要链式 \`card.add(...).add(...)\` 误建成深层树。
 - 文案用 content（Button 文案、Typography.Text 文本）；容器（Card/Space/Flex 等）的 content
   渲染为首行文本，与子节点共存（先 content 后子节点）。
   Card 的标题请用 props.title（与 antd 一致，显示在边框上）；content 只是内容区首行。
+  Alert 也是例外：主文案请写 props.message，说明写 props.description，content 只用于额外子内容。
 - props 值可以是真函数：{ tuiOnClick: () => $agent.send('run') }；禁止 "{{ }}" 字符串
 - Input 的 \`tuiOnPressEnter\` 是“输入框内按 Enter”事件（终端没有 DOM event 参数，故用 tui 前缀）；
   它与 Button 的 \`tuiHotkey: "enter"\` 无关，输入框聚焦时按钮热键不会触发。
