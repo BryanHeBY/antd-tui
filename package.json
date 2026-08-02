@@ -15,6 +15,7 @@
     "examples:dash:dry": "bun packages/engine/src/cli.ts --schema examples/schema/dashboard.json --dry-run",
     "examples:dash:repl": "bun examples/repl/dashboard.tsx",
     "examples:dash:react": "bun examples/react/dashboard.tsx",
+    "antop": "bun examples/react/antop.tsx",
     "vibe:mock": "bun packages/vibe-tui/src/cli.ts --agent \"bun packages/vibe-tui/tests/mock-agent.ts\"",
     "build:bin": "bun build --compile packages/engine/src/cli.ts --outfile dist/antd-tui-engine"
   },
