@@ -72,6 +72,35 @@ export interface LiveUi {
   clear(): void
 }
 
+/** 供宿主诊断 Row / Col 布局的画布可用尺寸（终端字符格）。 */
+export interface LiveViewport {
+  width: number
+  height: number
+}
+
+export interface LiveLayoutWarning {
+  /** 稳定机器可读的诊断码，便于 MCP 客户端按需筛选。 */
+  code: "row-wrap" | "auto-width-col" | "span-overflow" | "fixed-width-overflow"
+  id: string
+  message: string
+}
+
+export interface LiveLayoutNode {
+  id: string
+  component: string
+  parentId: string | null
+  index: number
+  /** 与布局相关的已声明字段；不冒充渲染器实际测得的几何尺寸。 */
+  layout: Record<string, unknown>
+}
+
+export interface LiveLayoutInspection {
+  viewport?: LiveViewport
+  page: LivePageMeta
+  nodes: LiveLayoutNode[]
+  warnings: LiveLayoutWarning[]
+}
+
 export interface LiveTreeOptions {
   /** 结构/props 合法变更后回调（宿主据此切画布模式）；渲染由 observable 自驱不依赖它 */
   onMutate?: () => void
@@ -196,6 +225,98 @@ export class LiveTree {
 
   get pageMeta(): LivePageMeta {
     return this.rootState.page
+  }
+
+  /**
+   * 返回可由活树确定的布局意图与风险提示。
+   *
+   * 这刻意不是一份伪造的像素/字符格测量结果：LiveTree 不持有渲染器节点，
+   * 只能可靠给出最终 props、Row 默认 wrap 行为和可静态判定的栅格约束。
+   * 宿主可附带实际画布 viewport，agent 据此判断是否需要再取 snapshot 验收。
+   */
+  inspectLayout(viewport?: LiveViewport): LiveLayoutInspection {
+    const nodes: LiveLayoutNode[] = []
+    const warnings: LiveLayoutWarning[] = []
+
+    const visit = (id: string, parentId: string | null, index: number) => {
+      const record = this.requireRecord(id)
+      const props = record.state.props
+      const style = (props.style ?? {}) as Record<string, unknown>
+      const layout: Record<string, unknown> = {}
+
+      if (record.component === "Row") {
+        const gutter = props.gutter ?? 0
+        const wrap = props.wrap ?? true
+        layout.gutter = gutter
+        layout.wrap = wrap
+        layout.width = "100%"
+        if (style.width !== undefined) layout.styleWidth = style.width
+        if (wrap) {
+          warnings.push({
+            code: "row-wrap",
+            id,
+            message: `Row(${id}) 未显式关闭 wrap；其子列总宽度（含 gutter）超过可用宽度时会按 antd 语义换到下一行。`,
+          })
+        }
+
+        const childIds = record.state.childIds
+        const cols = childIds
+          .map((childId) => this.records.get(childId))
+          .filter((child): child is LiveNodeRecord => child?.component === "Col")
+        const spanTotal = cols.reduce((sum, col) => {
+          const colProps = col.state.props
+          return sum + (typeof colProps.span === "number" ? colProps.span : 0) + (typeof colProps.offset === "number" ? colProps.offset : 0)
+        }, 0)
+        if (spanTotal > 24) {
+          warnings.push({
+            code: "span-overflow",
+            id,
+            message: `Row(${id}) 的 Col span + offset 总和为 ${spanTotal}，超过 24 栅格；开启 wrap 时后续列会换行。`,
+          })
+        }
+
+        const horizontalGutter = Array.isArray(gutter) ? gutter[0] : gutter
+        const fixedWidth = cols.reduce((sum, col) => {
+          const colStyle = (col.state.props.style ?? {}) as Record<string, unknown>
+          return sum + (typeof colStyle.width === "number" ? colStyle.width : 0)
+        }, 0)
+        const requiredWidth = fixedWidth + Math.max(0, cols.length - 1) * (typeof horizontalGutter === "number" ? horizontalGutter : 0)
+        if (viewport && requiredWidth > viewport.width) {
+          warnings.push({
+            code: "fixed-width-overflow",
+            id,
+            message: `Row(${id}) 的已知固定列宽与 gutter 至少需要 ${requiredWidth} 列，但画布宽度只有 ${viewport.width} 列。`,
+          })
+        }
+
+        for (const col of cols) {
+          const colProps = col.state.props
+          const colStyle = (colProps.style ?? {}) as Record<string, unknown>
+          if (colProps.span === undefined && colProps.flex === undefined && colStyle.width === undefined) {
+            warnings.push({
+              code: "auto-width-col",
+              id: col.id,
+              message: `Col(${col.id}) 未设置 span、flex 或 style.width，会按子内容的固有宽度参与 Row(${id}) 排版；窄终端下可能触发换行。`,
+            })
+          }
+        }
+      } else if (record.component === "Col") {
+        layout.span = props.span
+        layout.offset = props.offset
+        layout.flex = props.flex
+        if (style.width !== undefined) layout.styleWidth = style.width
+      } else if (style.width !== undefined || style.height !== undefined || style.flex !== undefined) {
+        if (style.width !== undefined) layout.styleWidth = style.width
+        if (style.height !== undefined) layout.styleHeight = style.height
+        if (style.flex !== undefined) layout.styleFlex = style.flex
+      }
+
+      nodes.push({ id, component: record.component, parentId, index, layout })
+      record.state.childIds.forEach((childId, childIndex) => visit(childId, id, childIndex))
+    }
+
+    this.rootState.childIds.forEach((id, index) => visit(id, null, index))
+    return { viewport, page: { ...this.rootState.page }, nodes, warnings }
   }
 
   /** LiveView 提示行联动用（observable 读取） */

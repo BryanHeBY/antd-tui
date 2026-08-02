@@ -175,6 +175,25 @@ describe("LiveTree × $ui", () => {
     expect(json.content).toBe("跑")
     expect((json.props as Record<string, unknown>).tuiOnClick).toBe("[function]")
   })
+
+  test("inspectLayout：报告 Row 默认换行与可静态判定的栅格风险", () => {
+    const { tree, ui } = makeTree()
+    const row = ui.add("Row", { id: "grid", props: { gutter: 2 } })
+    row.add("Col", { id: "auto" })
+    row.add("Col", { id: "wide", props: { span: 16, offset: 12 } })
+    row.add("Col", { id: "fixed", props: { style: { width: 20 } } })
+
+    const inspection = tree.inspectLayout({ width: 18, height: 8 })
+    expect(inspection.viewport).toEqual({ width: 18, height: 8 })
+    expect(inspection.nodes.find((node) => node.id === "grid")?.layout).toMatchObject({
+      gutter: 2,
+      wrap: true,
+      width: "100%",
+    })
+    expect(inspection.warnings.map((warning) => warning.code)).toEqual(
+      expect.arrayContaining(["row-wrap", "auto-width-col", "span-overflow", "fixed-width-overflow"]),
+    )
+  })
   test("叶子组件拒绝子节点:add 与 moveTo 均抛错并提示容器列表", () => {
     const tree = new LiveTree()
     const ui = tree.ui

@@ -6,6 +6,7 @@
  *   vibetui_eval(code)      —— 在 $ui 活对象树上执行 JS（真对象+真函数）；即时变更、非事务
  *   vibetui_snapshot()      —— 等待绘制完成后获取 agent 页面字符画（不受宿主覆盖层影响）
  *   vibetui_host_snapshot() —— 获取当前宿主终端字符画（含日志/状态栏等覆盖层）
+ *   vibetui_layout()        —— 查看当前 Row / Col 配置、画布尺寸与确定的换行风险
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
  * 形态：进程内 HTTP（Streamable HTTP，无状态模式），随机端口。
@@ -25,6 +26,8 @@ export interface CanvasBridge {
   guide: () => string
   /** dashboard 参考实现全文(含 vibe 适配说明) */
   example: () => string
+  /** 当前活树可静态判定的布局配置与风险；不是伪造的渲染几何测量。 */
+  layout: () => unknown
 }
 
 function textResult(text: string, isError = false) {
@@ -53,6 +56,22 @@ function buildServer(bridge: CanvasBridge): McpServer {
         return textResult(serialized)
       } catch (err) {
         return textResult(`执行失败:${(err as Error).message}`, true)
+      }
+    },
+  )
+
+  server.registerTool(
+    "vibetui_layout",
+    {
+      description:
+        "诊断当前页面的布局配置：返回画布字符格尺寸、Row/Col 的有效 span/flex/width/wrap/gutter，以及可确定的换行或 24 栅格溢出风险。它报告的是活树配置，不会伪造组件实际坐标；用 vibetui_snapshot 复核最终视觉结果。布局异常时先调用此工具，再修改 Row/Col。",
+      inputSchema: {},
+    },
+    () => {
+      try {
+        return textResult(JSON.stringify(bridge.layout(), null, 2))
+      } catch (err) {
+        return textResult(`布局诊断失败:${(err as Error).message}`, true)
       }
     },
   )

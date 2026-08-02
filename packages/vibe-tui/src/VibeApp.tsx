@@ -141,6 +141,12 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
         hostSnapshot: captureHostFrame,
         guide: () => LIVE_GUIDE,
         example: () => EXAMPLE_REFERENCE,
+        layout: () => {
+          const pane = canvasPaneRef.current
+          return liveRef.current!.inspectLayout(
+            pane ? { width: pane.width, height: pane.height } : undefined,
+          )
+        },
       })
       const client = new AcpClient(
         agentCmd,

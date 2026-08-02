@@ -17,6 +17,7 @@ function fakeBridge(): CanvasBridge {
     hostSnapshot: () => "HOST_FRAME",
     guide: () => "GUIDE",
     example: () => "EXAMPLE",
+    layout: () => ({ viewport: { width: 80, height: 20 }, warnings: [] }),
   }
 }
 
@@ -56,7 +57,7 @@ function toolText(resp: Record<string, unknown>): string {
 }
 
 describe("MCP 画布服务", () => {
-  test("tools/list 暴露四个工具", async () => {
+  test("tools/list 暴露画布工具", async () => {
     const server = await startMcpCanvasServer(fakeBridge())
     await initSession(server.url)
     const resp = await rpc(server.url, { id: 1, method: "tools/list", params: {} })
@@ -68,6 +69,7 @@ describe("MCP 画布服务", () => {
       "vibetui_example",
       "vibetui_guide",
       "vibetui_host_snapshot",
+      "vibetui_layout",
       "vibetui_snapshot",
     ])
     server.close()
@@ -104,8 +106,15 @@ describe("MCP 画布服务", () => {
     })
     expect(toolText(hostSnap)).toBe("HOST_FRAME")
 
-    const guide = await rpc(server.url, {
+    const layout = await rpc(server.url, {
       id: 6,
+      method: "tools/call",
+      params: { name: "vibetui_layout", arguments: {} },
+    })
+    expect(JSON.parse(toolText(layout))).toEqual({ viewport: { width: 80, height: 20 }, warnings: [] })
+
+    const guide = await rpc(server.url, {
+      id: 7,
       method: "tools/call",
       params: { name: "vibetui_guide", arguments: {} },
     })
