@@ -113,7 +113,7 @@ function RadioBase({
 
   return (
     <box ref={boxRef} style={{ flexDirection: "row", minHeight: 1 }} onMouseDown={handleMouseDown}>
-      <text attributes={TextAttributes.BOLD} fg={color}>
+      <text attributes={0} fg={color}>
         {checked ? "(o) " : "( ) "}
         {focused ? <b>{children}</b> : children}
       </text>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { BoxRenderable, TextAttributes } from "@opentui/core"
+import { BoxRenderable } from "@opentui/core"
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, Input, truncateToWidth, useToken } from "@antd-tui/components"
 import { LiveTree, LiveView } from "@antd-tui/live"
@@ -253,7 +253,7 @@ function EmptyCanvas() {
   const token = useToken()
   return (
     <box style={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }}>
-      <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+      <text attributes={0} fg={token.colorTextSecondary}>
         画板空白 —— 在下方输入 prompt，由 agent 生成界面
       </text>
     </box>
@@ -286,18 +286,18 @@ function LogPanel({ log, partial }: { log: string[]; partial: string }) {
         contentOptions={{ flexDirection: "column" }}
       >
         {empty ? (
-          <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+          <text attributes={0} fg={token.colorTextSecondary}>
             暂无对话
           </text>
         ) : (
           <>
             {log.map((line, i) => (
-              <text key={i} attributes={TextAttributes.BOLD} fg={token.colorText}>
+              <text key={i} attributes={0} fg={token.colorText}>
                 {line}
               </text>
             ))}
             {partial.trim() !== "" ? (
-              <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>
+              <text attributes={0} fg={token.colorTextSecondary}>
                 {partial}
               </text>
             ) : null}
@@ -348,7 +348,7 @@ function StatusLine({
   return (
     <box style={{ flexShrink: 0, height: 1, paddingLeft: 1, paddingRight: 1, overflow: "hidden" }}>
       <text
-        attributes={TextAttributes.BOLD}
+        attributes={0}
         fg={busy ? token.colorPrimaryHover : token.colorTextSecondary}
       >
         {line}

@@ -1,4 +1,3 @@
-import { TextAttributes } from "@opentui/core"
 import type { ReactNode } from "react"
 import { useToken } from "../theme"
 import { toBoxStyle, type CssLikeStyle } from "../style"
@@ -34,14 +33,14 @@ export function FormItem({
   return (
     <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
       {label ? (
-        <text attributes={TextAttributes.BOLD} fg={token.colorText}>
+        <text attributes={0} fg={token.colorText}>
           {required ? <span fg={token.colorError}>* </span> : null}
           {label}
         </text>
       ) : null}
       {children}
       {help ? (
-        <text attributes={TextAttributes.BOLD} fg={validateStatus === "error" ? token.colorError : token.colorTextSecondary}>
+        <text attributes={0} fg={validateStatus === "error" ? token.colorError : token.colorTextSecondary}>
           {help}
         </text>
       ) : null}

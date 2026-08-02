@@ -1,4 +1,3 @@
-import { TextAttributes } from "@opentui/core"
 import { isValidElement, type ReactNode } from "react"
 import { useToken } from "../theme"
 import { useMeasuredWidth } from "../measure"
@@ -41,7 +40,7 @@ export function Divider({ dashed = false, orientation = "center", style, childre
   if (!text) {
     return (
       <box ref={boxRef} style={{ width: "100%", minHeight: 1, ...toBoxStyle(style) }}>
-        <text attributes={TextAttributes.BOLD} fg={token.colorBorder}>{char.repeat(Math.max(1, width))}</text>
+        <text attributes={0} fg={token.colorBorder}>{char.repeat(Math.max(1, width))}</text>
       </box>
     )
   }
@@ -57,7 +56,7 @@ export function Divider({ dashed = false, orientation = "center", style, childre
 
   return (
     <box ref={boxRef} style={{ width: "100%", minHeight: 1, ...toBoxStyle(style) }}>
-      <text attributes={TextAttributes.BOLD}>
+      <text attributes={0}>
         <span fg={token.colorBorder}>{char.repeat(Math.max(0, left))}</span>
         <span fg={token.colorText}>{label}</span>
         <span fg={token.colorBorder}>{char.repeat(Math.max(0, right))}</span>

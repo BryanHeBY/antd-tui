@@ -61,7 +61,7 @@ export function Alert({
         {showIcon ? `${ICONS[type]} ` : ""}
         <b>{message}</b>
       </text>
-      {description ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{description}</text> : null}
+      {description ? <text attributes={0} fg={token.colorTextSecondary}>{description}</text> : null}
       {children}
     </box>
   )

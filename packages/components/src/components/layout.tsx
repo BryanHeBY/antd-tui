@@ -45,7 +45,7 @@ export function Card({ title, extra, bordered = true, style, children }: CardPro
     extra !== undefined && extra !== null ? (
       <box style={{ flexDirection: "row", justifyContent: "flex-end" }}>
         {typeof extra === "string" || typeof extra === "number" ? (
-          <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{String(extra)}</text>
+          <text attributes={0} fg={token.colorTextSecondary}>{String(extra)}</text>
         ) : (
           extra
         )}

@@ -47,12 +47,12 @@ function Text({ type, strong, style, children }: TextProps) {
   delete layout.backgroundColor
   return (
     <text
-      attributes={TextAttributes.BOLD}
+      attributes={strong ? TextAttributes.BOLD : 0}
       fg={fg ?? color}
       bg={bg}
       style={{ ...layout, ...(alignSelf ? { alignSelf } : {}) }}
     >
-      {strong ? <b>{children}</b> : children}
+      {children}
     </text>
   )
 }

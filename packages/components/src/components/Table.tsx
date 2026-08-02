@@ -98,12 +98,12 @@ export function Table<T extends Record<string, unknown>>({
       <text attributes={TextAttributes.BOLD} fg={token.colorText}>
         <b>{header}</b>
       </text>
-      <text attributes={TextAttributes.BOLD} fg={token.colorBorder}>{rule}</text>
+      <text attributes={0} fg={token.colorBorder}>{rule}</text>
       {cells.length === 0 ? (
-        <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{tuiEmptyText}</text>
+        <text attributes={0} fg={token.colorTextSecondary}>{tuiEmptyText}</text>
       ) : (
         cells.map((row, rowIndex) => (
-          <text attributes={TextAttributes.BOLD}
+          <text attributes={0}
             key={rowKey ? String(dataSource[rowIndex]![rowKey]) : rowIndex}
             fg={token.colorText}
           >

@@ -2,7 +2,7 @@
  * antd 风格 style（CSS 子集）→ OpenTUI/Yoga 布局属性映射。
  * 框架层支持，让 schema 用标准 CSS 语义（如 flex: 1、height: "100%"）表达自适应。
  * 视觉字段同样取 CSS 标准名（color/backgroundColor/textAlign）；
- * 终端全部文本以 BOLD 基线渲染，故不提供 fontWeight。
+ * 终端暂不提供 fontWeight；正文采用常规字重，组件按信息语义为标题、按钮和关键数值加粗。
  */
 export interface CssLikeStyle {
   /** CSS flex 简写：数字 n → flexGrow n / flexShrink 1 / flexBasis 0 */

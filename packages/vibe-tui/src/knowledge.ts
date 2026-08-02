@@ -125,7 +125,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
   未知组件名与未知 props 键会立即抛错，错误信息里带可用列表
 - style：所有组件都支持 style（CSS 子集）：width / height / flex / padding / margin* /
   color / backgroundColor / textAlign。语义与 CSS 一致，如
-  { style: { textAlign: "right", color: "#faad14" } }；无 fontWeight（终端文本恒为粗体基线）。
+  { style: { textAlign: "right", color: "#faad14" } }；无 fontWeight：正文默认常规字重，标题、按钮与关键数值按组件语义加粗。
 - Modal：$ui.add("Modal", { content: "内容", props: { open: true, title: "确认",
   tuiOnOk: () => ..., tuiOnCancel: () => ... } })；热换 props.open = false 关闭。
   Esc 关闭浮层（keyboard: false 可禁用）；footer: null 隐藏底部按钮。

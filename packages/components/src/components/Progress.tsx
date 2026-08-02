@@ -53,7 +53,7 @@ export function Progress({
       ref={boxRef}
       style={{ flexDirection: "row", minHeight: 1, width: "100%", ...toBoxStyle(style) }}
     >
-      <text attributes={TextAttributes.BOLD}>
+      <text attributes={0}>
         <span fg={barColor}>{"█".repeat(filledCount)}</span>
         <span fg={token.colorBorder}>{"░".repeat(Math.max(0, width - filledCount))}</span>
       </text>

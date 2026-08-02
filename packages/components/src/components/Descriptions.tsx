@@ -55,8 +55,8 @@ export function Descriptions({
               key={item.key ?? `${rowIndex}-${colIndex}`}
               style={{ flexDirection: "row", flexGrow: 1, flexBasis: 0 }}
             >
-              <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{item.label}: </text>
-              <text attributes={TextAttributes.BOLD} fg={token.colorText}>{item.children}</text>
+              <text attributes={0} fg={token.colorTextSecondary}>{item.label}: </text>
+              <text attributes={0} fg={token.colorText}>{item.children}</text>
             </box>
           ))}
         </box>

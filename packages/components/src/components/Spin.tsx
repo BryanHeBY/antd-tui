@@ -1,4 +1,3 @@
-import { TextAttributes } from "@opentui/core"
 import { useEffect, useState, type ReactNode } from "react"
 import { useToken } from "../theme"
 import { toBoxStyle, type CssLikeStyle } from "../style"
@@ -35,8 +34,8 @@ export function Spin({ spinning = true, tip, tuiIntervalMs = 80, style, children
     <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
       {spinning ? (
         <box style={{ flexDirection: "row", minHeight: 1 }}>
-          <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
-          {tip ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}> {tip}</text> : null}
+          <text attributes={0} fg={token.colorPrimaryHover}>{FRAMES[frame]}</text>
+          {tip ? <text attributes={0} fg={token.colorTextSecondary}> {tip}</text> : null}
         </box>
       ) : null}
       {children}

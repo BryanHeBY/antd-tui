@@ -52,7 +52,7 @@ export function Statistic({
 
   return (
     <box style={{ flexDirection: "column", ...toBoxStyle(style) }}>
-      {title ? <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{title}</text> : null}
+      {title ? <text attributes={0} fg={token.colorTextSecondary}>{title}</text> : null}
       <text attributes={TextAttributes.BOLD} fg={valueColor}>
         {prefix ? <span>{String(prefix)}</span> : null}
         <b>{text}</b>
