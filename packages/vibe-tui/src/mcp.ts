@@ -7,6 +7,7 @@
  *   vibetui_snapshot()      —— 等待绘制完成后获取 agent 页面字符画（不受宿主覆盖层影响）
  *   vibetui_host_snapshot() —— 获取当前宿主终端字符画（含日志/状态栏等覆盖层）
  *   vibetui_layout()        —— 查看当前 Row / Col 配置、画布尺寸与确定的换行风险
+ *   vibetui_inspect({id?})  —— 查看节点 props 与组件可见文本槽位
  *   vibetui_guide()         —— $ui 编写规范与样例（冷启动知识）
  *
  * 形态：进程内 HTTP（Streamable HTTP，无状态模式），随机端口。
@@ -28,6 +29,8 @@ export interface CanvasBridge {
   example: () => string
   /** 当前活树可静态判定的布局配置与风险；不是伪造的渲染几何测量。 */
   layout: () => unknown
+  /** 节点配置与 content / props 的可见文本语义。 */
+  inspect: (id?: string) => unknown
 }
 
 function textResult(text: string, isError = false) {
@@ -56,6 +59,22 @@ function buildServer(bridge: CanvasBridge): McpServer {
         return textResult(serialized)
       } catch (err) {
         return textResult(`执行失败:${(err as Error).message}`, true)
+      }
+    },
+  )
+
+  server.registerTool(
+    "vibetui_inspect",
+    {
+      description:
+        "检查 $ui 节点的当前 props、content、子节点和文本槽位。传 id 时只检查该节点；省略 id 返回整棵树。尤其用于 Alert：主文案是 props.message，description 是次级说明，content 只是 children，不会替代 message。",
+      inputSchema: { id: z.string().optional().describe("可选的 $ui 节点 id") },
+    },
+    ({ id }) => {
+      try {
+        return textResult(JSON.stringify(bridge.inspect(id), null, 2))
+      } catch (err) {
+        return textResult(`组件检查失败:${(err as Error).message}`, true)
       }
     },
   )

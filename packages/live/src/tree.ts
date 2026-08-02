@@ -10,7 +10,7 @@
  */
 import { observable, reaction } from "@formily/reactive"
 import { componentPropsWhitelist, componentWhitelist, containerComponents } from "@antd-tui/components"
-import { DISPLAY_BINDING_COMPONENT, inputBindings } from "./registry"
+import { DISPLAY_BINDING_COMPONENT, inputBindings, liveTextSemantics, type LiveTextSemantics } from "./registry"
 
 export interface LivePageMeta {
   title?: string
@@ -99,6 +99,18 @@ export interface LiveLayoutInspection {
   page: LivePageMeta
   nodes: LiveLayoutNode[]
   warnings: LiveLayoutWarning[]
+}
+
+export interface LiveNodeInspection {
+  id: string
+  component: string
+  parentId: string | null
+  index: number
+  content?: string
+  props: Record<string, unknown>
+  /** content 与各展示 prop 的语义映射，帮助 agent 更新真正可见的文本。 */
+  text: LiveTextSemantics
+  children: string[]
 }
 
 export interface LiveTreeOptions {
@@ -317,6 +329,24 @@ export class LiveTree {
 
     this.rootState.childIds.forEach((id, index) => visit(id, null, index))
     return { viewport, page: { ...this.rootState.page }, nodes, warnings }
+  }
+
+  /**
+   * 返回节点的可见文本槽位与当前配置。id 缺省时返回整棵树的扁平列表，
+   * 便于 agent 在更新前确认 Alert/Card 等组件的主文案究竟属于 content 还是 props。
+   */
+  inspect(id?: string): LiveNodeInspection[] {
+    const records = id === undefined ? [...this.records.values()] : [this.requireRecord(id)]
+    return records.map((record) => ({
+      id: record.id,
+      component: record.component,
+      parentId: record.parentId,
+      index: this.childIdsOf(record.parentId).indexOf(record.id),
+      ...(record.state.content === undefined ? {} : { content: record.state.content }),
+      props: serializeInspectableValue(record.state.props) as Record<string, unknown>,
+      text: liveTextSemantics[record.component] ?? { content: "children" },
+      children: [...record.state.childIds],
+    }))
   }
 
   /** LiveView 提示行联动用（observable 读取） */
@@ -619,4 +649,19 @@ export class LiveTree {
     this.handles.set(id, cached)
     return cached
   }
+}
+
+/** 为 MCP/JSON 输出抹平函数、循环引用和 reactive proxy，不泄露宿主对象身份。 */
+function serializeInspectableValue(value: unknown, seen = new WeakSet<object>()): unknown {
+  if (typeof value === "function") return "[function]"
+  if (value === null || typeof value !== "object") return value
+  if (seen.has(value)) return "[circular]"
+  seen.add(value)
+  if (Array.isArray(value)) return value.map((item) => serializeInspectableValue(item, seen))
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+      key,
+      serializeInspectableValue(item, seen),
+    ]),
+  )
 }

@@ -194,6 +194,23 @@ describe("LiveTree × $ui", () => {
       expect.arrayContaining(["row-wrap", "auto-width-col", "span-overflow", "fixed-width-overflow"]),
     )
   })
+
+  test("inspect：说明 Alert 的主文案 props 与 content children 的不同语义", () => {
+    const { tree, ui } = makeTree()
+    ui.add("Alert", {
+      id: "notice",
+      content: "作为 children 的补充内容",
+      props: { message: "主文案", description: "说明" },
+    })
+
+    expect(tree.inspect("notice")).toEqual([
+      expect.objectContaining({
+        id: "notice",
+        props: { message: "主文案", description: "说明" },
+        text: { content: "children", primaryProp: "message", secondaryProp: "description" },
+      }),
+    ])
+  })
   test("叶子组件拒绝子节点:add 与 moveTo 均抛错并提示容器列表", () => {
     const tree = new LiveTree()
     const ui = tree.ui

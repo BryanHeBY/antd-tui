@@ -147,6 +147,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
             pane ? { width: pane.width, height: pane.height } : undefined,
           )
         },
+        inspect: (id) => liveRef.current!.inspect(id),
       })
       const client = new AcpClient(
         agentCmd,
