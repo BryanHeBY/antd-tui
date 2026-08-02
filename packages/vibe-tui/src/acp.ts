@@ -9,6 +9,12 @@
  */
 import { client, ndJsonStream, type ClientContext } from "@agentclientprotocol/sdk"
 
+/**
+ * ACP agent 可能还要解压运行时、启动 app-server、恢复认证状态；10 秒只适合轻量 mock。
+ * 保持调用方可覆盖，避免把真实 agent 的冷启动误报为协议连接失败。
+ */
+const DEFAULT_STARTUP_TIMEOUT_MS = 60_000
+
 export interface AcpClientHandlers {
   /** session/update 流式文本片段（chunk 是碎片而非整行，由上层拼接） */
   onUpdate: (text: string) => void
@@ -23,7 +29,7 @@ export interface AcpClientHandlers {
 export interface AcpClientOptions {
   /** 退出时删除临时 ACP session，默认开启；恢复的会话（sessionId 指定）永不删除 */
   ephemeral?: boolean
-  /** 等待 initialize + session 建立完成的最长时间，默认 10 秒 */
+  /** 等待 initialize + session 建立完成的最长时间，默认 60 秒 */
   startupTimeoutMs?: number
   /** 复用既有会话：经 session/load 恢复（需 agent 声明 loadSession 能力），历史经 update 回放 */
   sessionId?: string
@@ -99,7 +105,7 @@ export class AcpClient {
       throw error
     }
 
-    const startupTimeoutMs = this.options.startupTimeoutMs ?? 10_000
+    const startupTimeoutMs = this.options.startupTimeoutMs ?? DEFAULT_STARTUP_TIMEOUT_MS
     if (startupTimeoutMs > 0) {
       this.startupTimer = setTimeout(() => {
         this.rejectReady(new Error(`等待 agent 初始化超时（${startupTimeoutMs}ms）`))
