@@ -92,6 +92,12 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     setStatus(text)
   }
 
+  // vibetui_dispatch 演练深度：>0 表示当前正由 agent 主动触发回调做自测。
+  // 演练期间抑制一切 ACP 回流（$agent.send 与 onCallbackError），否则 agent 每验证
+  // 一个 tuiOnClick/回调就会被自己的 $agent.send 或抛错回灌一条 [page] prompt，
+  // 造成“自测即自我 prompt 轰炸”。演练结果已由 dispatch 工具的返回值/异常同步回传。
+  const dispatchDepthRef = useRef(0)
+
   // $ui 活对象树：唯一的画布真相源。合法变更即把画板标记为有内容（渲染由 observable 自驱）
   // agent 回调抛错（如 tuiOnClick 里 get 了不存在的节点）由框架兜住：
   // 记入对话、提示状态行，并以 [page] error 回流给 agent 让它自行修正
@@ -100,9 +106,14 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     liveRef.current = new LiveTree({
       onMutate: () => setHasCanvas(true),
       onCallbackError: (error, context) => {
-        const message = `页面回调出错（${context}）：${(error as Error).message ?? String(error)}`
-        appendMessage("error", message)
-        clientRef.current?.prompt(`[page] error ${context}: ${(error as Error).message ?? String(error)}`)
+        const detail = (error as Error).message ?? String(error)
+        // 演练触发的回调抛错：只记对话，不再回流（dispatch 会把同一错误作为工具异常返回）
+        if (dispatchDepthRef.current > 0) {
+          appendMessage("error", `[dispatch 演练] 回调出错（${context}）：${detail}`)
+          return
+        }
+        appendMessage("error", `页面回调出错（${context}）：${detail}`)
+        clientRef.current?.prompt(`[page] error ${context}: ${detail}`)
       },
     })
   }
@@ -116,6 +127,11 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
         send: (text: unknown, payload?: unknown) => {
           const suffix = payload === undefined ? "" : ` ${JSON.stringify(payload)}`
           const message = `${String(text)}${suffix}`
+          // 演练触发的 $agent.send：只记对话、不回流，避免 agent 自测时给自己灌 [page] prompt
+          if (dispatchDepthRef.current > 0) {
+            appendMessage("system", `[dispatch 演练] $agent.send：${message}（未回流）`)
+            return
+          }
           appendMessage("page", message)
           clientRef.current?.prompt(`[page] ${message}`)
         },
@@ -174,7 +190,15 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
           setHasCanvas(false)
           return { cleared: true, scopeReset: true }
         },
-        dispatch: (id, event, value) => liveRef.current!.dispatch(id, event, value),
+        dispatch: (id, event, value) => {
+          // 标记演练区间：期间 $agent.send / onCallbackError 只记对话不回流
+          dispatchDepthRef.current += 1
+          try {
+            return liveRef.current!.dispatch(id, event, value)
+          } finally {
+            dispatchDepthRef.current -= 1
+          }
+        },
       })
       const client = new AcpClient(
         agentCmd,

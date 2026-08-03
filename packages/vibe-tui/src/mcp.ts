@@ -73,7 +73,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
     "vibetui_dispatch",
     {
       description:
-        "验证已构建页面的语义事件：click 调用节点 tuiOnClick，pressEnter 调用 tuiOnPressEnter，change 调用输入组件的 change handler，并同步 name 绑定的 $ui.data。它不会模拟真实鼠标坐标、焦点移动或键盘导航；需要那些渲染器级行为时仍应让人类操作并用 snapshot 验收。disabled/loading 节点不会被调用。",
+        "验证已构建页面的语义事件：click 调用节点 tuiOnClick，pressEnter 调用 tuiOnPressEnter，change 调用输入组件的 change handler，并同步 name 绑定的 $ui.data。它不会模拟真实鼠标坐标、焦点移动或键盘导航；需要那些渲染器级行为时仍应让人类操作并用 snapshot 验收。disabled/loading 节点不会被调用。这是自测演练：回调内的 $agent.send 与抛错都不会回流成新的 [page] 消息，结果只经本工具的返回值/错误同步返回，可放心反复验证。",
       inputSchema: {
         id: z.string().describe("目标 $ui 节点 id"),
         event: z.enum(["click", "pressEnter", "change"]).describe("要验证的组件语义事件"),

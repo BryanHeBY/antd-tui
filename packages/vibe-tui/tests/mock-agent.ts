@@ -134,6 +134,18 @@ const app = agent()
       return { stopReason: "end_turn" as const }
     }
 
+    // 自测演练场景：建一个回调里 $agent.send 的按钮，再用 vibetui_dispatch 触发它。
+    // 验证 dispatch 期间回调内的 $agent.send 不会回流成新的 [page] prompt（否则自测即自我轰炸）。
+    if (text.includes("selftest")) {
+      await callCanvas('$ui.clear(); $ui.page({ title: "自测页", mode: "interactive" })')
+      await callCanvas(
+        '$ui.add("Button", { id: "boom", content: "轰", props: { tuiSize: "small", tuiOnClick: () => $agent.send("boom") } })',
+      )
+      const res = await callCanvasTool("vibetui_dispatch", { id: "boom", event: "click" })
+      await say(res.includes('"callbackCalled": true') ? "自测完成\n" : "自测异常\n")
+      return { stopReason: "end_turn" as const }
+    }
+
     // 计数器场景（$ui 活对象树）：点击 +1 回流 'inc' 后热换 Statistic 值
     if (text.includes("inc")) {
       count += 1

@@ -74,6 +74,29 @@ describe("vibe-tui × mock agent", () => {
     t.destroy()
   }, 20000)
 
+  test("dispatch 自测：回调内 $agent.send 不回流成新 [page] prompt", async () => {
+    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+      width: 100,
+      height: 24,
+    })
+    await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
+
+    // agent 建一个 $agent.send('boom') 按钮并 vibetui_dispatch 触发它
+    await t.type("selftest")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("自测完成"), 8000)
+    // 自测页仍在：dispatch 触发的 $agent.send('boom') 未作为 [page] 回流去驱动 agent 重建页面
+    expect(t.frame()).toContain("自测页")
+
+    // F3 对话：演练留痕且标注未回流；不存在正常的「页面 › boom」回流记录
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    expect(t.frame()).toContain("[dispatch 演练]")
+    expect(t.frame()).not.toContain("页面 › boom")
+
+    t.destroy()
+  }, 20000)
+
   test("输入行模式下画板键盘挂起，F2 后键盘归画板", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
       width: 100,
