@@ -17,7 +17,7 @@ const DEFAULT_STARTUP_TIMEOUT_MS = 60_000
 
 export interface AcpClientHandlers {
   /** session/update 流式文本片段（chunk 是碎片而非整行，由上层拼接） */
-  onUpdate: (text: string) => void
+  onUpdate: (text: string, kind?: "agent" | "system") => void
   /** 一轮 prompt 结束，上层可冲刷未完的流式行 */
   onTurnEnd?: () => void
   /** 运行状态变化：true = 有 prompt 轮次在途（agent 运行中），false = 空闲 */
@@ -148,7 +148,7 @@ export class AcpClient {
             options.find((o) => o.kind === "allow_once") ??
             options[0]
           if (!pick) return { outcome: { outcome: "cancelled" as const } }
-          this.handlers.onUpdate(`[自动授权] ${cx.params.toolCall?.title ?? "工具调用"}\n`)
+          this.handlers.onUpdate(`[自动授权] ${cx.params.toolCall?.title ?? "工具调用"}\n`, "system")
           return { outcome: { outcome: "selected" as const, optionId: pick.optionId } }
         },
       )

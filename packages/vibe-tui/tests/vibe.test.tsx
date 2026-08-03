@@ -56,13 +56,20 @@ describe("vibe-tui × mock agent", () => {
     expect(t.frame()).toContain("当前计数")
     expect(t.frame()).toContain("0")
     // 状态行有 agent 的流式反馈
-    expect(t.frame()).toContain("已渲染计数器")
+    await t.waitUntil(() => t.frame().includes("已渲染计数器"), 8000)
 
     // 输入行模式下鼠标直达画板：点 +1 → $agent.send('inc') 回流 → 重渲染 count=1
     const pos = locate(t.frame(), " +1 ")
     await t.raw.mockMouse.click(pos.x, pos.y)
     await t.waitUntil(() => t.frame().includes("count=1"), 8000)
     expect(t.frame()).toContain("1")
+
+    // F3 对话记录保留输入、页面回流与 agent 回复，来源均有文字标签（颜色由真终端区分）。
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
+    expect(t.frame()).toContain("你 › counter")
+    expect(t.frame()).toContain("页面 › inc")
+    expect(t.frame()).toContain("Agent › 已更新计数器（count=1）")
 
     t.destroy()
   }, 20000)

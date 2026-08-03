@@ -30,15 +30,21 @@ export interface VibeAppProps {
 }
 
 const LOG_LIMIT = 300
+type ConversationKind = "agent" | "user" | "page" | "system" | "error"
+
+interface ConversationEntry {
+  kind: ConversationKind
+  text: string
+}
 
 export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   /** 画布是否已有内容：首次 $ui 变更后置真，之前显示空画板提示 */
   const [hasCanvas, setHasCanvas] = useState(false)
   const [status, setStatus] = useState("agent 启动中…")
-  const [log, setLog] = useState<string[]>([])
+  const [log, setLog] = useState<ConversationEntry[]>([])
   /** 流式未完行：chunk 拼接缓冲，遇 \n 才沉淀成 log 行 */
-  const [partial, setPartial] = useState("")
-  const partialRef = useRef("")
+  const [partial, setPartial] = useState<ConversationEntry | null>(null)
+  const partialRef = useRef<ConversationEntry | null>(null)
   const [showLog, setShowLog] = useState(false)
   const [pageMode, setPageMode] = useState(false)
   const [input, setInput] = useState("")
@@ -48,29 +54,42 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
   const canvasPaneRef = useRef<BoxRenderable | null>(null)
   const snapshotRendererRef = useRef<PageSnapshotRenderer | null>(null)
 
-  const pushLines = (lines: string[]) => {
+  const pushLines = (kind: ConversationKind, lines: string[]) => {
     const cleaned = lines.filter((l) => l.trim() !== "")
-    if (cleaned.length > 0) setLog((prev) => [...prev, ...cleaned].slice(-LOG_LIMIT))
+    if (cleaned.length > 0) {
+      setLog((prev) => [...prev, ...cleaned.map((text) => ({ kind, text }))].slice(-LOG_LIMIT))
+    }
     return cleaned
   }
 
   /** 流式 chunk：只做拼接，完整行（含 \n）才入日志；状态行始终跟随最新文本 */
-  const appendChunk = (text: string) => {
-    const merged = partialRef.current + text
+  const appendChunk = (text: string, kind: "agent" | "system" = "agent") => {
+    // 不同来源不能混进同一个未完行：例如自动授权恰好插在 agent 流式回复中间。
+    if (partialRef.current && partialRef.current.kind !== kind) flushPartial()
+    const merged = (partialRef.current?.text ?? "") + text
     const parts = merged.split("\n")
-    partialRef.current = parts.pop() ?? ""
+    const rest = parts.pop() ?? ""
+    partialRef.current = rest === "" ? null : { kind, text: rest }
     setPartial(partialRef.current)
-    const completed = pushLines(parts)
-    const latest = partialRef.current.trim() || completed.at(-1)
+    const completed = pushLines(kind, parts)
+    const latest = rest.trim() || completed.at(-1)
     if (latest) setStatus(latest)
   }
 
   /** 轮次结束/中断：把未完行冲刷成正式日志行 */
   const flushPartial = () => {
-    const rest = partialRef.current.trim()
-    partialRef.current = ""
-    setPartial("")
-    if (rest) pushLines([rest])
+    const partialEntry = partialRef.current
+    const rest = partialEntry?.text.trim() ?? ""
+    partialRef.current = null
+    setPartial(null)
+    if (rest && partialEntry) pushLines(partialEntry.kind, [rest])
+  }
+
+  /** 非流式消息需先收束此前 agent chunk，保证对话列表的时间顺序。 */
+  const appendMessage = (kind: ConversationKind, text: string) => {
+    flushPartial()
+    pushLines(kind, [text])
+    setStatus(text)
   }
 
   // $ui 活对象树：唯一的画布真相源。合法变更即把画板标记为有内容（渲染由 observable 自驱）
@@ -82,8 +101,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
       onMutate: () => setHasCanvas(true),
       onCallbackError: (error, context) => {
         const message = `页面回调出错（${context}）：${(error as Error).message ?? String(error)}`
-        pushLines([message])
-        setStatus(message)
+        appendMessage("error", message)
         clientRef.current?.prompt(`[page] error ${context}: ${(error as Error).message ?? String(error)}`)
       },
     })
@@ -97,7 +115,9 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
       $agent: {
         send: (text: unknown, payload?: unknown) => {
           const suffix = payload === undefined ? "" : ` ${JSON.stringify(payload)}`
-          clientRef.current?.prompt(`[page] ${String(text)}${suffix}`)
+          const message = `${String(text)}${suffix}`
+          appendMessage("page", message)
+          clientRef.current?.prompt(`[page] ${message}`)
         },
       },
     }),
@@ -164,8 +184,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
           onBusy: setBusy,
           onExit: (code) => {
             flushPartial()
-            pushLines([`agent 已退出（code ${code ?? "?"}）`])
-            setStatus(`agent 已退出（code ${code ?? "?"}）`)
+            appendMessage("system", `agent 已退出（code ${code ?? "?"}）`)
           },
         },
         {
@@ -179,7 +198,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
         resumeSessionId ? "会话已恢复（F3 查看历史），引导注入中…" : "agent 就绪，引导注入中…",
       )
       // 硬编码引导：新建与恢复都注入——agent 必须知道自己身处 vibe-tui 并主动画初始界面
-      pushLines(["[已注入 vibe-tui 引导]"])
+      appendMessage("system", "[已注入 vibe-tui 引导]")
       client.prompt(BOOT_PROMPT)
     }
     void boot().catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
@@ -230,8 +249,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     setInput("")
     // 我方发言也入对话记录，未完的 agent 流式行先冲刷
     flushPartial()
-    pushLines([`> ${text}`])
-    setStatus(`> ${text}`)
+    appendMessage("user", text)
     clientRef.current?.prompt(text)
   }
 
@@ -275,9 +293,9 @@ function EmptyCanvas() {
 }
 
 /** 滚动对话面板：agent 的完整回复按行留存（含流式未完行），F3/Esc 关闭 */
-function LogPanel({ log, partial }: { log: string[]; partial: string }) {
+function LogPanel({ log, partial }: { log: ConversationEntry[]; partial: ConversationEntry | null }) {
   const token = useToken()
-  const empty = log.length === 0 && partial.trim() === ""
+  const empty = log.length === 0 && partial === null
   return (
     <box
       border
@@ -305,20 +323,32 @@ function LogPanel({ log, partial }: { log: string[]; partial: string }) {
           </text>
         ) : (
           <>
-            {log.map((line, i) => (
-              <text key={i} attributes={0} fg={token.colorText}>
-                {line}
-              </text>
+            {log.map((entry, i) => (
+              <ConversationLine key={i} entry={entry} />
             ))}
-            {partial.trim() !== "" ? (
-              <text attributes={0} fg={token.colorTextSecondary}>
-                {partial}
-              </text>
-            ) : null}
+            {partial ? <ConversationLine entry={partial} /> : null}
           </>
         )}
       </scrollbox>
     </box>
+  )
+}
+
+/** 角色前缀与颜色同时表达来源；颜色不可见时，纯字符快照仍保留可读语义。 */
+function ConversationLine({ entry }: { entry: ConversationEntry }) {
+  const token = useToken()
+  const presentation: Record<ConversationKind, { label: string; color: string }> = {
+    user: { label: "你", color: token.colorPrimaryHover },
+    agent: { label: "Agent", color: token.colorWarning },
+    page: { label: "页面", color: token.colorSuccess },
+    system: { label: "系统", color: token.colorTextSecondary },
+    error: { label: "错误", color: token.colorError },
+  }
+  const { label, color } = presentation[entry.kind]
+  return (
+    <text attributes={0} fg={color}>
+      {`${label} › ${entry.text}`}
+    </text>
   )
 }
 
