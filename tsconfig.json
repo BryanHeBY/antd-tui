@@ -16,7 +16,8 @@
     "paths": {
       "@antd-tui/components": ["packages/components/src/index.ts"],
       "@antd-tui/formily": ["packages/formily/src/index.tsx"],
-      "@antd-tui/test-utils": ["packages/test-utils/src/index.tsx"]
+      "@antd-tui/test-utils": ["packages/test-utils/src/index.tsx"],
+      "@antd-tui/antop": ["packages/antop/src/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*", "packages/*/tests/**/*"]

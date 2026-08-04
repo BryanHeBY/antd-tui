@@ -1,0 +1,19 @@
+{
+  "name": "@antd-tui/antop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.tsx"
+  },
+  "dependencies": {
+    "@antd-tui/components": "workspace:*",
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@antd-tui/test-utils": "workspace:*"
+  }
+}
