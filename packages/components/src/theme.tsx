@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useLayoutEffect, useMemo, type ReactNode } from "react"
 import { useRenderer } from "@opentui/react"
 import { darkPalette } from "./color"
 
@@ -102,11 +102,11 @@ export function ConfigProvider({ tuiTheme, children }: ConfigProviderProps) {
   // 每个 focusable 控件都经 useKeyboard 订阅 keypress；控件多的页面会越过
   // EventEmitter 默认上限 10 并刷 "Possible EventEmitter memory leak" 警告。
   // 订阅随组件卸载即清理，不是真泄漏，放开上限。
-  // 必须在 render 阶段设置而非 useEffect：React 的 effect 是「子先父后」，
-  // 放进本组件的 useEffect 会晚于子控件的 useKeyboard 订阅，前 11 个订阅时上限仍是
-  // 默认 10 而误报。ConfigProvider 是页面根，其 render 早于所有子控件 render 与 effect。
-  // setMaxListeners 幂等无状态副作用，render 阶段重复调用安全。
-  renderer?.keyInput?.setMaxListeners?.(0)
+  // useKeyboard 使用的是 passive effect。这里用 layout effect，在任何子组件的
+  // passive effect 订阅前完成配置，避免在 render 阶段修改 renderer 的外部状态。
+  useLayoutEffect(() => {
+    renderer?.keyInput?.setMaxListeners?.(0)
+  }, [renderer])
   return <ThemeContext.Provider value={merged}>{children}</ThemeContext.Provider>
 }
 

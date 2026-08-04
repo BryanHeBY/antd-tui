@@ -1,6 +1,44 @@
 import { useEffect, useRef, useState } from "react"
-import type { BoxRenderable } from "@opentui/core"
-import { useOnResize } from "@opentui/react"
+import type { BoxRenderable, CliRenderer } from "@opentui/core"
+import { useRenderer } from "@opentui/react"
+
+interface ResizeStore {
+  listeners: Set<() => void>
+  onResize: () => void
+}
+
+/**
+ * 一块终端画布只需要一个 renderer.resize 监听器。像进度条、Divider、MeterBar
+ * 这样的自测量组件可能同时存在数十个；由 store 再分发可以避免触发 EventEmitter
+ * 的监听器上限，也不会在 resize 时为每个组件分别注册底层回调。
+ */
+const resizeStores = new WeakMap<CliRenderer, ResizeStore>()
+
+function getResizeStore(renderer: CliRenderer): ResizeStore {
+  const existing = resizeStores.get(renderer)
+  if (existing) return existing
+
+  const listeners = new Set<() => void>()
+  const store: ResizeStore = {
+    listeners,
+    onResize: () => {
+      for (const listener of listeners) listener()
+    },
+  }
+  resizeStores.set(renderer, store)
+  return store
+}
+
+function subscribeToResize(renderer: CliRenderer, listener: () => void): () => void {
+  const store = getResizeStore(renderer)
+  store.listeners.add(listener)
+  if (store.listeners.size === 1) renderer.on("resize", store.onResize)
+
+  return () => {
+    store.listeners.delete(listener)
+    if (store.listeners.size === 0) renderer.off("resize", store.onResize)
+  }
+}
 
 /**
  * 测量容器布局后的实际宽度。
@@ -16,28 +54,28 @@ export function useMeasuredWidth(): {
 } {
   const boxRef = useRef<BoxRenderable | null>(null)
   const [width, setWidth] = useState<number | null>(null)
+  const [resizeVersion, setResizeVersion] = useState(0)
+  const renderer = useRenderer()
+
+  useEffect(() => {
+    return subscribeToResize(renderer, () => setResizeVersion((version) => version + 1))
+  }, [renderer])
 
   useEffect(() => {
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
     const measure = () => {
       if (cancelled) return
       const w = boxRef.current?.width
       if (w && w > 0) setWidth(w)
-      else setTimeout(measure, 16)
+      else timer = setTimeout(measure, 16)
     }
     measure()
     return () => {
       cancelled = true
+      if (timer !== undefined) clearTimeout(timer)
     }
-  }, [])
-
-  useOnResize(() => {
-    // 终端 resize 后布局同样是异步重算，等下一帧再量
-    setTimeout(() => {
-      const w = boxRef.current?.width
-      if (w && w > 0) setWidth(w)
-    }, 16)
-  })
+  }, [resizeVersion])
 
   return { boxRef, width }
 }
