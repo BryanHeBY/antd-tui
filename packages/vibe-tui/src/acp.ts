@@ -131,6 +131,9 @@ export class AcpClient {
     const app = client()
       // 统一的 update 通道：新会话的流式输出与 session/load 的历史回放走同一处理
       .onNotification("session/update", (cx) => {
+        // React 宿主已经卸载时，stdio 连接可能仍在收尾并送达最后几个 chunk。
+        // 这些消息不能再回写已销毁的 VibeApp。
+        if (this.stopped) return
         const params = cx.params as SessionUpdateParams
         if (this.sessionId && params.sessionId !== this.sessionId) return
         const text = params.update?.content?.text
@@ -142,6 +145,7 @@ export class AcpClient {
         "session/request_permission",
         (params: unknown) => params as PermissionRequestParams,
         (cx) => {
+          if (this.stopped) return { outcome: { outcome: "cancelled" as const } }
           const options = cx.params.options ?? []
           const pick =
             options.find((o) => o.kind === "allow_always") ??
@@ -211,12 +215,16 @@ export class AcpClient {
   private trackTurn(delta: 1 | -1): void {
     const wasBusy = this.inflight > 0
     this.inflight = Math.max(0, this.inflight + delta)
+    // stop() 后仍可能有已经发出的 session/prompt 完成；只维护内部计数，
+    // 不再把异步收尾回调送往已经卸载的宿主。
+    if (this.stopped) return
     const busy = this.inflight > 0
     if (busy !== wasBusy) this.handlers.onBusy?.(busy)
   }
 
   /** 发送一轮 prompt（人类输入或页面事件回流）；轮次结束时触发 onTurnEnd */
   prompt(text: string): void {
+    if (this.stopped) return
     this.trackTurn(1)
     void this.ready
       .then(() => {
