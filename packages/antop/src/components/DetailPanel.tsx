@@ -1,5 +1,5 @@
 import { TextAttributes } from "@opentui/core"
-import { displayWidth, truncateToWidth, useToken } from "@antd-tui/components"
+import { Descriptions, Divider, displayWidth, truncateToWidth, useToken } from "@antd-tui/components"
 import type { AntopProcess } from "../types"
 import { TopMenuAction } from "./TopMenuAction"
 
@@ -45,7 +45,6 @@ export function DetailPanel({
   onTerminateRequest: (pid: number) => void
 }) {
   const token = useToken()
-  const sepWidth = Math.max(0, panelWidth - 2)
   const cpuColor = proc.cpu >= 80 ? token.colorError : proc.cpu >= 50 ? token.colorWarning : token.colorSuccess
   const memColor = proc.memory >= 10 ? token.colorWarning : token.colorText
   const stateColor =
@@ -67,7 +66,7 @@ export function DetailPanel({
         <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }} />
         <TopMenuAction onActivate={onClose}>× 关闭</TopMenuAction>
       </box>
-      <text attributes={0} fg={token.colorBorder} style={{ flexShrink: 0 }}>{sepWidth > 0 ? "─".repeat(sepWidth) : ""}</text>
+      <Divider style={{ flexShrink: 0 }} />
 
       {/* 可滚动内容区 */}
       <scrollbox
@@ -77,38 +76,35 @@ export function DetailPanel({
         contentOptions={{ flexDirection: "column", width: "100%" }}
       >
         {/* 基本信息 */}
-        <box style={{ height: 1, flexShrink: 0, flexDirection: "row", marginTop: 1 }}>
-          <text attributes={0} fg={token.colorTextSecondary}>{"PID  "}</text>
-          <text attributes={TextAttributes.BOLD} fg={token.colorText}>{String(proc.pid)}</text>
-          <text attributes={0} fg={token.colorBorder}>{"  │  "}</text>
-          <text attributes={0} fg={token.colorTextSecondary}>{"PPID  "}</text>
-          <text attributes={0} fg={token.colorText}>{String(proc.ppid)}</text>
-        </box>
-        <box style={{ height: 1, flexShrink: 0, flexDirection: "row" }}>
-          <text attributes={0} fg={token.colorTextSecondary}>{"用户  "}</text>
-          <text attributes={0} fg={token.colorText}>{proc.user}</text>
-          <text attributes={0} fg={token.colorBorder}>{"  │  "}</text>
-          <text attributes={0} fg={token.colorTextSecondary}>{"状态  "}</text>
-          <text attributes={TextAttributes.BOLD} fg={stateColor}>{proc.state}</text>
-        </box>
+        <Descriptions
+          column={2}
+          style={{ flexShrink: 0, marginTop: 1 }}
+          items={[
+            { label: "PID", children: <b>{String(proc.pid)}</b> },
+            { label: "PPID", children: String(proc.ppid) },
+            { label: "用户", children: proc.user },
+            { label: "状态", children: <span fg={stateColor}><b>{proc.state}</b></span> },
+          ]}
+        />
 
         {/* CPU / MEM 指标 */}
-        <text attributes={0} fg={token.colorBorder} style={{ flexShrink: 0, marginTop: 1 }}>{sepWidth > 0 ? "─".repeat(sepWidth) : ""}</text>
-        <box style={{ height: 1, flexShrink: 0, flexDirection: "row", gap: 0 }}>
-          <text attributes={0} fg={token.colorTextSecondary}>{"CPU  "}</text>
-          <text attributes={TextAttributes.BOLD} fg={cpuColor}>{`${proc.cpu.toFixed(1)}%`}</text>
-          <text attributes={0} fg={token.colorBorder}>{"    │    "}</text>
-          <text attributes={0} fg={token.colorTextSecondary}>{"MEM  "}</text>
-          <text attributes={TextAttributes.BOLD} fg={memColor}>{`${proc.memory.toFixed(1)}%`}</text>
-        </box>
+        <Divider style={{ flexShrink: 0, marginTop: 1 }} />
+        <Descriptions
+          column={2}
+          style={{ flexShrink: 0 }}
+          items={[
+            { label: "CPU", children: <span fg={cpuColor}><b>{`${proc.cpu.toFixed(1)}%`}</b></span> },
+            { label: "MEM", children: <span fg={memColor}><b>{`${proc.memory.toFixed(1)}%`}</b></span> },
+          ]}
+        />
 
         {/* 完整命令行 */}
-        <text attributes={0} fg={token.colorBorder} style={{ flexShrink: 0, marginTop: 1 }}>{sepWidth > 0 ? "─".repeat(sepWidth) : ""}</text>
+        <Divider style={{ flexShrink: 0, marginTop: 1 }} />
         <text attributes={0} fg={token.colorTextSecondary} style={{ flexShrink: 0 }}>{"命令行"}</text>
         <text attributes={0} fg={token.colorText} wrapMode="word" style={{ flexShrink: 0 }}>{proc.command}</text>
 
         {/* 进程树 */}
-        <text attributes={0} fg={token.colorBorder} style={{ flexShrink: 0, marginTop: 1 }}>{sepWidth > 0 ? "─".repeat(sepWidth) : ""}</text>
+        <Divider style={{ flexShrink: 0, marginTop: 1 }} />
         <text attributes={0} fg={token.colorTextSecondary} style={{ flexShrink: 0 }}>{"进程树"}</text>
         {ancestors.map((ancestor, i) => {
           const connector = i === ancestors.length - 1 ? "├─ " : "│  "
@@ -154,7 +150,7 @@ export function DetailPanel({
       </scrollbox>
 
       {/* 操作区（固定） */}
-      <text attributes={0} fg={token.colorBorder} style={{ flexShrink: 0 }}>{sepWidth > 0 ? "─".repeat(sepWidth) : ""}</text>
+      <Divider style={{ flexShrink: 0 }} />
       <box style={{ height: 1, flexShrink: 0, flexDirection: "row", marginBottom: 1 }}>
         <TopMenuAction danger onActivate={() => onTerminateRequest(proc.pid)}>结束请求</TopMenuAction>
       </box>

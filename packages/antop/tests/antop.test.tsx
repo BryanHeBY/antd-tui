@@ -111,7 +111,7 @@ describe("antop", () => {
     expect(lastLine(t.frame(), "nginx: worker process")).toBeLessThan(lastLine(t.frame(), "postgres: checkpointer"))
     // 双击进程行打开分屏详情面板
     await doubleClick(t, "postgres: checkpointer")
-    await t.waitUntil(() => t.frame().includes("PID  "), 4000)
+    await t.waitUntil(() => t.frame().includes("PID: "), 4000)
     expect(t.frame()).toContain("1700431")
     await click(t, "结束请求")
     await t.waitUntil(() => t.frame().includes("发起结束请求"), 4000)
