@@ -74,7 +74,7 @@ describe("vibe-tui × mock agent", () => {
     t.destroy()
   }, 20000)
 
-  test("dispatch 自测：回调内 $agent.send 不回流成新 [page] prompt", async () => {
+  test("dispatch 自测不回流，但后续真实点击仍会回流", async () => {
     const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
       width: 100,
       height: 24,
@@ -93,6 +93,15 @@ describe("vibe-tui × mock agent", () => {
     await t.waitUntil(() => t.frame().includes("对话记录"), 2000)
     expect(t.frame()).toContain("[dispatch 演练]")
     expect(t.frame()).not.toContain("页面 › boom")
+
+    // 演练结束后 guard 必须由 finally 复位：同一个按钮的真实鼠标点击应重新回流。
+    await t.press("\u001bOR")
+    await t.waitUntil(() => !t.frame().includes("对话记录"), 2000)
+    const pos = locate(t.frame(), "轰")
+    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.waitUntil(() => t.frame().includes("已渲染计数器"), 8000)
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("页面 › boom"), 2000)
 
     t.destroy()
   }, 20000)
