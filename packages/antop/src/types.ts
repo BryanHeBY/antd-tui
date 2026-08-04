@@ -6,6 +6,22 @@ export interface AntopProcess {
   cpu: number
   memory: number
   command: string
+  time?: string
+  ioRead?: number
+  ioWrite?: number
+}
+
+export interface AntopDiskStat {
+  name: string
+  readBps: number
+  writeBps: number
+}
+
+export interface AntopDashboardSample {
+  cpuUsage: number
+  cpuFreqMhz: number
+  cpuTempC?: number
+  memUsage: number
 }
 
 /** htop 式 CPU 条：各段均为该核心一个采样周期内的百分比。 */
@@ -30,9 +46,11 @@ export interface AntopSnapshot {
   swapUsed?: number
   cpuMeters?: AntopCpuMeter[]
   processes: AntopProcess[]
+  diskStats?: AntopDiskStat[]
+  dashboardSample?: AntopDashboardSample
 }
 
-export type ProcessSortKey = "pid" | "user" | "state" | "cpu" | "memory" | "command"
+export type ProcessSortKey = "pid" | "user" | "state" | "cpu" | "memory" | "time" | "ioRead" | "ioWrite" | "command"
 
 export interface AntopActions {
   submit: (values: Record<string, unknown>) => void

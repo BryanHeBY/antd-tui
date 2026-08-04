@@ -1,8 +1,10 @@
 import { cpus, freemem, hostname, loadavg, totalmem } from "node:os"
 import { readFileSync } from "node:fs"
-import type { AntopCpuMeter, AntopProcess, AntopSnapshot } from "./types"
+import type { AntopCpuMeter, AntopDiskStat, AntopDashboardSample, AntopProcess, AntopSnapshot } from "./types"
 
 let previousCpuTimes: Array<{ user: number; nice: number; system: number; irq: number; idle: number }> | null = null
+let previousDiskStats: Map<string, { rSectors: number; wSectors: number; ts: number }> | null = null
+let previousProcIo: Map<number, { readBytes: number; writeBytes: number; ts: number }> | null = null
 
 function readCpuMeters(): AntopCpuMeter[] {
   const current = cpus().map(({ times }) => ({
@@ -66,33 +68,131 @@ function readMemoryMeters() {
 
 function readProcesses(): AntopProcess[] {
   try {
-    const result = Bun.spawnSync(["ps", "-axo", "pid=,ppid=,user=,state=,pcpu=,pmem=,args="])
+    const result = Bun.spawnSync(["ps", "-axo", "pid=,ppid=,user=,state=,pcpu=,pmem=,etime=,args="])
     if (result.exitCode !== 0) return []
     const text = new TextDecoder().decode(result.stdout)
-    return text
+    const now = Date.now()
+    const currentProcIo = new Map<number, { readBytes: number; writeBytes: number; ts: number }>()
+    const prev = previousProcIo
+
+    const processes = text
       .split("\n")
       .flatMap((line) => {
-        const fields = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/)
+        const fields = line.trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/)
         if (!fields) return []
-        const [, pid, ppid, user, state, cpu, memory, command] = fields
+        const [, pid, ppid, user, state, cpu, memory, etime, command] = fields
+        const pidNum = Number(pid)
+
+        let ioRead: number | undefined
+        let ioWrite: number | undefined
+        try {
+          const ioText = readFileSync(`/proc/${pidNum}/io`, "utf8")
+          const rb = Number(ioText.match(/read_bytes:\s*(\d+)/)?.[1] ?? "0")
+          const wb = Number(ioText.match(/write_bytes:\s*(\d+)/)?.[1] ?? "0")
+          currentProcIo.set(pidNum, { readBytes: rb, writeBytes: wb, ts: now })
+          const prevEntry = prev?.get(pidNum)
+          if (prevEntry) {
+            const elapsed = Math.max(1, (now - prevEntry.ts) / 1000)
+            ioRead = Math.max(0, (rb - prevEntry.readBytes) / elapsed)
+            ioWrite = Math.max(0, (wb - prevEntry.writeBytes) / elapsed)
+          }
+        } catch {
+          // no permission or no /proc entry
+        }
+
         return [{
-          pid: Number(pid),
+          pid: pidNum,
           ppid: Number(ppid),
           user: user ?? "?",
           state: state ?? "?",
           cpu: Number(cpu) || 0,
           memory: Number(memory) || 0,
           command: command ?? "unknown",
+          time: etime,
+          ioRead,
+          ioWrite,
         }]
       })
       .filter((p) => !/(?:^|\/)ps(\s|$)/.test(p.command))
+
+    previousProcIo = currentProcIo
+    return processes
   } catch {
     return []
   }
 }
 
+function readDiskStats(): AntopDiskStat[] {
+  try {
+    const now = Date.now()
+    const text = readFileSync("/proc/diskstats", "utf8")
+    const current = new Map<string, { rSectors: number; wSectors: number; ts: number }>()
+    for (const line of text.split("\n")) {
+      const parts = line.trim().split(/\s+/)
+      if (parts.length < 14) continue
+      const name = parts[2]!
+      // skip partitions: nvmeXnYpZ, sdaN, vdaN; skip loop devices
+      if (/p\d+$/.test(name)) continue           // nvme partitions: nvme0n1p1
+      if (/^(sd|vd|hd|xvd)[a-z]\d+$/.test(name)) continue  // sda1, vdb2
+      if (/^loop\d+$/.test(name)) continue        // loop0..N
+      const rSectors = Number(parts[5])
+      const wSectors = Number(parts[9])
+      current.set(name, { rSectors, wSectors, ts: now })
+    }
+
+    const prev = previousDiskStats
+    previousDiskStats = current
+
+    return Array.from(current.entries()).map(([name, cur]) => {
+      const p = prev?.get(name)
+      if (!p) return { name, readBps: 0, writeBps: 0 }
+      const elapsed = Math.max(0.001, (now - p.ts) / 1000)
+      return {
+        name,
+        readBps: Math.max(0, (cur.rSectors - p.rSectors) * 512 / elapsed),
+        writeBps: Math.max(0, (cur.wSectors - p.wSectors) * 512 / elapsed),
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function readDashboardSample(cpuMeters: ReturnType<typeof readCpuMeters>, memResult: ReturnType<typeof readMemoryMeters>): AntopDashboardSample {
+  const cpuUsage = cpuMeters.length > 0
+    ? cpuMeters.reduce((sum, m) => sum + (100 - m.idle), 0) / cpuMeters.length
+    : 0
+
+  let cpuFreqMhz = 0
+  try {
+    const glob = Bun.spawnSync(["sh", "-c", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null"])
+    const freqText = new TextDecoder().decode(glob.stdout)
+    const freqs = freqText.split("\n").flatMap((l) => {
+      const n = Number(l.trim())
+      return n > 0 ? [n] : []
+    })
+    if (freqs.length > 0) {
+      cpuFreqMhz = Math.round(freqs.reduce((s, v) => s + v, 0) / freqs.length / 1000)
+    }
+  } catch { /* no cpufreq support */ }
+
+  let cpuTempC: number | undefined
+  try {
+    const tempText = readFileSync("/sys/class/thermal/thermal_zone0/temp", "utf8")
+    const raw = Number(tempText.trim())
+    if (raw > 0) cpuTempC = Math.round(raw / 1000)
+  } catch { /* no thermal sensor */ }
+
+  const memUsage = memResult.total > 0
+    ? Math.min(100, Math.max(0, (memResult.used / memResult.total) * 100))
+    : 0
+
+  return { cpuUsage, cpuFreqMhz, cpuTempC, memUsage }
+}
+
 export function readAntopSnapshot(): AntopSnapshot {
   const memory = readMemoryMeters()
+  const cpuMeters = readCpuMeters()
   const processes = readProcesses()
   return {
     host: hostname(),
@@ -105,7 +205,7 @@ export function readAntopSnapshot(): AntopSnapshot {
     memoryCache: memory.cache,
     swapTotal: memory.swapTotal,
     swapUsed: memory.swapUsed,
-    cpuMeters: readCpuMeters(),
+    cpuMeters,
     processes:
       processes.length > 0
         ? processes
@@ -118,6 +218,8 @@ export function readAntopSnapshot(): AntopSnapshot {
             memory: 0,
             command: process.title || "bun",
           }],
+    diskStats: readDiskStats(),
+    dashboardSample: readDashboardSample(cpuMeters, memory),
   }
 }
 
