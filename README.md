@@ -95,7 +95,7 @@ MCP 工具:`vibetui_eval`(在 `$ui` 上执行 JS)、`vibetui_snapshot` / `vibetu
 
 31 个组件,命名与语义对齐 antd:`Button` / `Input` / `InputNumber` / `TextArea` / `Select` / `Checkbox` / `Radio` / `Switch` / `Slider` / `FormItem` / `Typography`(Text/Title/Link)/ `Card` / `Space` / `Flex` / `Row` / `Col` / `List` / `Table` / `Descriptions` / `Statistic` / `Progress` / `Tag` / `Alert` / `Divider` / `Spin` / `Modal` / `message` 等。
 
-命名原则:与 antd **行为完全一致**的字段沿用原名(如 `type`、`options`、`onChange`);因终端适配而**行为相近但不同**的字段加 `tui` 前缀(如 `tuiOnClick` 无 DOM 事件参、`tuiHotkey` 全局热键、`tuiScroll` 滚动视口)。样式经 `style`(CSS 子集:`width`/`flex`/`padding`/`margin*`/`color`/`backgroundColor`/`textAlign`)表达。
+命名原则:与 antd **行为完全一致**的字段沿用原名(如 `type`、`options`、`onChange`);因终端适配而**行为相近但不同**的字段加 `tui` 前缀(如 `tuiOnClick` 无 DOM 事件参、`tuiHotkey` 全局热键、`tuiScroll` 滚动视口)。样式经 `style`(CSS 子集:`width`/`flex`/`padding`/`margin*`/`color`/`backgroundColor`/`textAlign`/`overflow`)表达。
 
 ## 开发
 

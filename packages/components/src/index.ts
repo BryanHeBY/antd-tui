@@ -1,6 +1,7 @@
 export { ConfigProvider, useToken, defaultTokens, deriveTokens, type ThemeTokens } from "./theme"
 export { darkPalette } from "./color"
 export { displayWidth, truncateToWidth } from "./width"
+export { useMeasuredWidth } from "./measure"
 export {
   FocusScope,
   useFocusable,

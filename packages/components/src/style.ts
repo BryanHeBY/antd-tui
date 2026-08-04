@@ -7,6 +7,12 @@
 export interface CssLikeStyle {
   /** CSS flex 简写：数字 n → flexGrow n / flexShrink 1 / flexBasis 0 */
   flex?: number
+  /** 同 CSS：覆盖 flex 简写的 flexGrow */
+  flexGrow?: number
+  /** 同 CSS：覆盖 flex 简写的 flexShrink */
+  flexShrink?: number
+  /** 同 CSS：覆盖 flex 简写的 flexBasis */
+  flexBasis?: number | `${number}%`
   width?: number | `${number}%`
   height?: number | `${number}%`
   minWidth?: number
@@ -20,6 +26,8 @@ export interface CssLikeStyle {
   color?: string
   /** 同 CSS：背景色 */
   backgroundColor?: string
+  /** 同 CSS：内容溢出处理（终端主要用于裁剪超出容器的文本/条形图） */
+  overflow?: "hidden" | "visible"
   /** 同 CSS 语义：文本在父容器中的水平对齐（终端以交叉轴 alignSelf 实现） */
   textAlign?: "left" | "center" | "right"
 }
@@ -32,6 +40,9 @@ export function toBoxStyle(style?: CssLikeStyle): Record<string, unknown> {
     out.flexShrink = 1
     out.flexBasis = 0
   }
+  if (style.flexGrow !== undefined) out.flexGrow = style.flexGrow
+  if (style.flexShrink !== undefined) out.flexShrink = style.flexShrink
+  if (style.flexBasis !== undefined) out.flexBasis = style.flexBasis
   for (const key of [
     "width",
     "height",
@@ -43,6 +54,7 @@ export function toBoxStyle(style?: CssLikeStyle): Record<string, unknown> {
     "marginRight",
     "marginLeft",
     "backgroundColor",
+    "overflow",
   ] as const) {
     if (style[key] !== undefined) out[key] = style[key]
   }

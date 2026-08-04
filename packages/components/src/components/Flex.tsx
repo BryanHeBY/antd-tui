@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import type { ReactNode, RefObject } from "react"
 import { toBoxStyle, type CssLikeStyle } from "../style"
 
 /**
@@ -18,6 +18,9 @@ export interface FlexProps {
   style?: CssLikeStyle
   /** TUI 扩展：以纵向 ScrollBox 承载内容，滚轮/方向键可滚动。 */
   tuiScroll?: boolean
+  /** TUI 扩展：转发内部 scrollbox 的 ref（用于手动虚拟化读 scrollTop/viewport）。 */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tuiScrollRef?: RefObject<any>
   children?: ReactNode
 }
 
@@ -30,6 +33,7 @@ export function Flex({
   flex,
   style,
   tuiScroll = false,
+  tuiScrollRef,
   children,
 }: FlexProps) {
   const layout: Record<string, unknown> = {
@@ -55,6 +59,7 @@ export function Flex({
       vertical && style?.width === undefined ? { ...scrollRootLayout, width: "100%" } : scrollRootLayout
     return (
       <scrollbox
+        ref={tuiScrollRef}
         style={scrollLayout}
         scrollY
         scrollX={false}

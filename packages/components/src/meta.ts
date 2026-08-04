@@ -101,7 +101,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
   "List.Item": ["extra", "actions", "style"],
   Card: ["title", "extra", "bordered", "style"],
   Space: ["direction", "size", "wrap", "style"],
-  Flex: ["vertical", "gap", "justify", "align", "wrap", "flex", "style", "tuiScroll"],
+  Flex: ["vertical", "gap", "justify", "align", "wrap", "flex", "style", "tuiScroll", "tuiScrollRef"],
   Button: ["type", "disabled", "loading", "danger", "block", "tuiSize", "style", "tuiHotkey", "tuiOnClick"],
   "Button.Group": ["block", "tuiBordered", "style"],
   Alert: ["type", "message", "description", "showIcon", "style"],
