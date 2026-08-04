@@ -10,6 +10,7 @@ import { Button } from "./Button"
  *
  * 终端形态：绝对定位居中浮层（无遮罩半透明，用实心背景覆盖）。
  * 内部自带 FocusScope，打开时下层作用域按键静默（焦点圈闭），Esc 关闭。
+ * 内容区自适应高度，超出终端视口时自动滚动（同 antd overflow-y: auto）。
  */
 export interface ModalProps {
   /** 同 antd：是否可见 */
@@ -109,6 +110,7 @@ function ModalBody({
   delete boxStyle.width
   const left = Math.max(0, Math.floor((dims.width - width) / 2))
   const top = Math.max(1, Math.floor(dims.height / 4))
+  const maxHeight = Math.max(3, dims.height - top - 1)
 
   return (
     <box
@@ -117,6 +119,7 @@ function ModalBody({
         top,
         left,
         width,
+        maxHeight,
         zIndex: 100,
         backgroundColor,
         borderColor,
@@ -130,7 +133,14 @@ function ModalBody({
       title={typeof title === "string" ? title : undefined}
     >
       {title && typeof title !== "string" ? <box>{title}</box> : null}
-      <box style={{ flexDirection: "column" }}>{children}</box>
+      <scrollbox
+        scrollY
+        scrollX={false}
+        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
+        contentOptions={{ flexDirection: "column", width: "100%" }}
+      >
+        {children}
+      </scrollbox>
       {footer === null ? null : (
         <box style={{ flexDirection: "row", gap: 2, justifyContent: "flex-end" }}>
           <Button type="primary" tuiSize="small" tuiOnClick={tuiOnOk}>
