@@ -32,22 +32,19 @@ function lineWith(frame: string, target: string): string {
 
 async function click(t: TuiTestSetup, label: string) {
   const pos = locate(t.frame(), label)
-  await t.raw.mockMouse.click(pos.x, pos.y)
-  await t.settle()
+  await t.click(pos.x, pos.y)
 }
 
 async function clickTopMenu(t: TuiTestSetup, label: string) {
   const topLine = t.frame().split("\n")[0] ?? ""
   const index = topLine.indexOf(label)
   if (index < 0) throw new Error(`顶部菜单中找不到 "${label}"`)
-  await t.raw.mockMouse.click(displayWidth(topLine.slice(0, index)) + Math.floor(displayWidth(label) / 2), 0)
-  await t.settle()
+  await t.click(displayWidth(topLine.slice(0, index)) + Math.floor(displayWidth(label) / 2), 0)
 }
 
 async function doubleClick(t: TuiTestSetup, label: string) {
   const pos = locate(t.frame(), label)
-  await t.raw.mockMouse.doubleClick(pos.x, pos.y)
-  await t.settle()
+  await t.doubleClick(pos.x, pos.y)
 }
 
 describe("antop", () => {
@@ -131,8 +128,7 @@ describe("antop", () => {
     expect(lineWith(t.frame(), "postgres: checkpointer").indexOf("postgres")).toBe(headerBefore.indexOf("USER"))
     const dividerX = displayWidth(headerBefore.slice(0, headerBefore.indexOf("│")))
     const dividerY = lastLine(t.frame(), "PID")
-    await t.raw.mockMouse.drag(dividerX, dividerY, dividerX + 2, dividerY)
-    await t.settle()
+    await t.drag(dividerX, dividerY, dividerX + 2, dividerY)
     expect(lineWith(t.frame(), "USER").indexOf("USER")).toBe(headerBefore.indexOf("USER") + 2)
     expect(lineWith(t.frame(), "postgres: checkpointer").indexOf("postgres")).toBe(lineWith(t.frame(), "USER").indexOf("USER"))
     await click(t, "postgres: checkpointer")

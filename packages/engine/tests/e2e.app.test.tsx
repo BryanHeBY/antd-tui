@@ -96,8 +96,7 @@ describe("计算器 E2E", () => {
     const t = await render(() => {})
 
     const pos = locate(t.frame(), "9")
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     await t.waitUntil(() => {
       // 显示屏右对齐出现 9：帧中 9 的出现次数增加
       const count = t.frame().split("9").length - 1

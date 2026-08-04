@@ -52,7 +52,7 @@ describe("vibe-tui × mock agent", () => {
     // 输入 prompt 生成计数器页面
     await t.type("counter")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("计数器"), 8000)
+    await t.waitUntil(() => t.frame().includes("计数器") && t.frame().includes("当前计数"), 8000)
     expect(t.frame()).toContain("当前计数")
     expect(t.frame()).toContain("0")
     // 状态行有 agent 的流式反馈
@@ -60,7 +60,7 @@ describe("vibe-tui × mock agent", () => {
 
     // 输入行模式下鼠标直达画板：点 +1 → $agent.send('inc') 回流 → 重渲染 count=1
     const pos = locate(t.frame(), " +1 ")
-    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.click(pos.x, pos.y)
     await t.waitUntil(() => t.frame().includes("count=1"), 8000)
     expect(t.frame()).toContain("1")
 
@@ -98,7 +98,7 @@ describe("vibe-tui × mock agent", () => {
     await t.press("\u001bOR")
     await t.waitUntil(() => !t.frame().includes("对话记录"), 2000)
     const pos = locate(t.frame(), "轰")
-    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.click(pos.x, pos.y)
     await t.waitUntil(() => t.frame().includes("已渲染计数器"), 8000)
     await t.press("\u001bOR")
     await t.waitUntil(() => t.frame().includes("页面 › boom"), 2000)
@@ -273,7 +273,7 @@ describe("$ui 活对象树 REPL", () => {
 
     // 真函数 handler：点击 → $agent.send("live-hit") 回流给 agent
     const pos = locate(t.frame(), "触发")
-    await t.raw.mockMouse.click(pos.x, pos.y)
+    await t.click(pos.x, pos.y)
     await t.waitUntil(() => t.frame().includes("收到 live-hit"), 8000)
 
     // 重建页面（counter 场景先 $ui.clear()）：旧活树内容消失

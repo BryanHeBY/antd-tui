@@ -296,8 +296,7 @@ describe("Select", () => {
     const t = await renderTui(wrap(<Demo />), { width: 40, height: 10 })
 
     // 布局：Checkbox 占 y=0，Select 上边框 y=1，选项行 y=2/3/4；点第二行选中「测试」
-    await t.raw.mockMouse.click(2, 3)
-    await t.settle()
+    await t.click(2, 3)
     expect(seen).toEqual(["test"])
 
     // 点击已转移焦点：↓ 由 Select 消费，移到「生产」
@@ -322,8 +321,7 @@ describe("Select", () => {
       ),
       { width: 40, height: 8 },
     )
-    await t.raw.mockMouse.click(2, 2)
-    await t.settle()
+    await t.click(2, 2)
     expect(called).toBe(false)
     t.destroy()
   })
@@ -350,10 +348,8 @@ describe("Select", () => {
     const t = await renderTui(wrap(<Demo />), { width: 40, height: 8 })
 
     // 独立 Select 的上边框在 y=0，第二个选项在 y=2。
-    await t.raw.mockMouse.click(2, 2)
-    await t.settle()
-    await t.raw.mockMouse.click(2, 2)
-    await t.settle()
+    await t.click(2, 2)
+    await t.click(2, 2)
 
     expect(seen).toEqual(["b", "b"])
     t.destroy()

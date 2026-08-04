@@ -106,14 +106,12 @@ describe("LiveView × $ui", () => {
     await t.settle()
 
     const pos = locate(t.frame(), "运行")
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     expect(hits).toEqual(["旧"])
 
     btn.props.tuiOnClick = () => hits.push("新")
     await t.settle()
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     expect(hits).toEqual(["旧", "新"])
 
     t.destroy()
@@ -158,8 +156,7 @@ describe("LiveView × $ui", () => {
     expect(t.frame()).toContain("查看文档")
 
     const pos = locate(t.frame(), "查看文档")
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     expect(clicks).toEqual(["docs"])
     t.destroy()
   }, 20000)
@@ -195,12 +192,10 @@ describe("LiveView × $ui", () => {
     await t.settle()
 
     const pos = locate(t.frame(), "同意条款")
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     expect(ui.data.agree).toBe(true)
 
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
     expect(ui.data.agree).toBe(false)
 
     t.destroy()
@@ -290,8 +285,7 @@ describe("LiveView × $ui", () => {
 
     const t = await mount(tree)
     const pos = locate(t.frame(), "  炸  ")
-    await t.raw.mockMouse.click(pos.x, pos.y)
-    await t.settle()
+    await t.click(pos.x, pos.y)
 
     expect(errors.length).toBe(1)
     expect(errors[0]!.context).toBe("boom.tuiOnClick")

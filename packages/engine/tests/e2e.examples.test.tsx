@@ -35,8 +35,7 @@ function locate(frame: string, target: string): { x: number; y: number } {
 
 async function click(t: Awaited<ReturnType<typeof render>>, target: string, dx = 2) {
   const pos = locate(t.frame(), target)
-  await t.raw.mockMouse.click(pos.x + dx, pos.y)
-  await t.settle()
+  await t.click(pos.x + dx, pos.y)
 }
 
 /** 登录进 shell：登录页无必填校验（声明式版），直接点登录 */

@@ -27,8 +27,7 @@ function locate(frame: string, target: string): { x: number; y: number } {
 
 async function click(t: TuiTestSetup, label: string) {
   const pos = locate(t.frame(), label)
-  await t.raw.mockMouse.click(pos.x, pos.y)
-  await t.settle()
+  await t.click(pos.x, pos.y)
 }
 
 describe("examples/react", () => {

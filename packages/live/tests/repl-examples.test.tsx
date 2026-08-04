@@ -37,8 +37,7 @@ async function mount(tree: LiveTree, height = 26) {
 
 async function click(t: TuiTestSetup, label: string) {
   const pos = locate(t.frame(), label)
-  await t.raw.mockMouse.click(pos.x, pos.y)
-  await t.settle()
+  await t.click(pos.x, pos.y)
 }
 
 describe("examples/repl", () => {
@@ -88,8 +87,7 @@ describe("examples/repl", () => {
           pos = { x: x + Math.floor(displayWidth("user-api") / 2), y }
         }
       }
-      await t.raw.mockMouse.click(pos!.x, pos!.y)
-      await t.settle()
+      await t.click(pos!.x, pos!.y)
     }
     await t.waitUntil(() => t.frame().includes("user-api 详情"), 4000)
     expect(t.frame()).toContain("v1.9.0")

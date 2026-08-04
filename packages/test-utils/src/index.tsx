@@ -1,8 +1,12 @@
 import { testRender } from "@opentui/react/test-utils"
 import type { TestRendererOptions, TestRendererSetup } from "@opentui/core/testing"
-import type { ReactNode } from "react"
+import { act, type ReactNode } from "react"
 
 export { KeyCodes } from "@opentui/core/testing"
+
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined
+}
 
 /**
  * antd-tui 测试工具。
@@ -30,6 +34,12 @@ export interface TuiTestSetup {
   enter: () => Promise<void>
   /** Esc（自动 settle） */
   escape: () => Promise<void>
+  /** 鼠标单击（自动 settle） */
+  click: (x: number, y: number) => Promise<void>
+  /** 鼠标双击（自动 settle） */
+  doubleClick: (x: number, y: number) => Promise<void>
+  /** 鼠标拖动（自动 settle） */
+  drag: (fromX: number, fromY: number, toX: number, toY: number) => Promise<void>
   /** 等待某个断言成立（轮询 settle） */
   waitUntil: (predicate: () => boolean, timeoutMs?: number) => Promise<void>
   /** 销毁 renderer */
@@ -46,18 +56,37 @@ export async function renderTui(
   // 与组件库的 FocusScope 焦点体系冲突（焦点权威在 FocusScope），必须关闭
   const raw = await testRender(node, { width: 60, height: 20, autoFocus: false, ...options })
 
-  const settle = async () => {
+  const flushUpdates = async () => {
     // 两轮「让出宏任务 + flush」：第一轮消化按键回调里的 setState，
     // 第二轮消化由重渲染引发的连锁更新（如 focused prop 变化触发 focus()）
     for (let i = 0; i < 2; i++) {
       await yieldMacrotask()
-      await raw.flush()
+      await act(async () => {
+        await raw.flush()
+      })
     }
   }
 
+  /**
+   * OpenTUI 的输入/鼠标会同步进入 renderer，后续 React 更新则经异步任务投递。
+   * 事件注入与每一次 flush 都进入 act；两者之间保留一个真实的任务周期，避免
+   * 测试夹具改变输入协议与宿主异步源的时序。等待外部结果时，waitUntil 会在
+   * 每轮观察间隔内单独进入 act；不能把整个轮询包在一个 act 中，否则 React 会
+   * 延后提交，字符帧将永远看不到正在等待的异步结果。
+   */
+  const settle = async () => {
+    await flushUpdates()
+  }
+
+  const runInteraction = async (interaction: () => void | Promise<void>) => {
+    await act(async () => {
+      await interaction()
+    })
+    await flushUpdates()
+  }
+
   const press: TuiTestSetup["press"] = async (key, modifiers) => {
-    raw.mockInput.pressKey(key as never, modifiers)
-    await settle()
+    await runInteraction(() => raw.mockInput.pressKey(key as never, modifiers))
   }
 
   const setup: TuiTestSetup = {
@@ -65,34 +94,53 @@ export async function renderTui(
     frame: () => raw.captureCharFrame(),
     settle,
     type: async (text) => {
-      await raw.mockInput.typeText(text)
-      await settle()
+      await runInteraction(() => raw.mockInput.typeText(text))
     },
     press,
     tab: async (shift = false) => {
-      raw.mockInput.pressTab(shift ? { shift: true } : undefined)
-      await settle()
+      await runInteraction(() => raw.mockInput.pressTab(shift ? { shift: true } : undefined))
     },
     enter: async () => {
-      raw.mockInput.pressEnter()
-      await settle()
+      await runInteraction(() => raw.mockInput.pressEnter())
     },
     escape: async () => {
-      raw.mockInput.pressEscape()
+      await act(async () => {
+        raw.mockInput.pressEscape()
+      })
       // legacy 键盘协议下 ESC 是转义序列前缀，parser 需要歧义等待超时后才会发出 escape 事件
       await new Promise((resolve) => setTimeout(resolve, 80))
-      await settle()
+      await flushUpdates()
     },
+    click: async (x, y) => runInteraction(() => raw.mockMouse.click(x, y)),
+    doubleClick: async (x, y) => runInteraction(() => raw.mockMouse.doubleClick(x, y)),
+    drag: async (fromX, fromY, toX, toY) => runInteraction(() => raw.mockMouse.drag(fromX, fromY, toX, toY)),
     waitUntil: async (predicate, timeoutMs = 2000) => {
       const deadline = Date.now() + timeoutMs
       while (!predicate()) {
         if (Date.now() > deadline) throw new Error("waitUntil 超时")
-        await settle()
+        await act(async () => {
+          await yieldMacrotask()
+          await raw.flush()
+        })
       }
     },
-    destroy: () => raw.renderer.destroy(),
+    destroy: () => {
+      // renderer.destroy() 会触发 React 根节点卸载；外层 act 接住 renderer
+      // 更新。OpenTUI 内部会在 onDestroy 中把全局 act 标记复位，因此在外层
+      // act 结束前恢复它，避免 React 将这个嵌套销毁误报为环境未配置。
+      act(() => {
+        raw.renderer.destroy()
+        globalThis.IS_REACT_ACT_ENVIRONMENT = true
+      })
+    },
   }
 
+  // 首次挂载后的 effect（焦点注册、尺寸测量等）会在下一轮任务中 setState。
+  // 先在 act 内接住这一轮，再走常规 settle，避免首帧自身成为 act 警告来源。
+  await act(async () => {
+    await yieldMacrotask()
+    await raw.flush()
+  })
   await settle()
   return setup
 }
