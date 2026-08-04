@@ -6,11 +6,11 @@
 
 ## 为什么
 
-终端里做交互界面通常要手写光标、布局与事件循环。antd-tui 把这些收敛成组件:你用 `<Button>`、`<Table>`、`<Form>` 的直觉写页面,拿到的是可点击、可聚焦、可滚动的真机终端界面。更进一步,它为 Agent 设计了机器友好的驱动面——Schema 校验、无头快照、Playwright 式驱动会话、以及一块完全由 Agent 经 MCP 工具操控的画布。
+终端里做交互界面通常要手写光标、布局与事件循环。antd-tui 把这些收敛成组件:你用 `<Button>`、`<Table>`、`<FormItem>` 的直觉写页面,拿到的是可点击、可聚焦、可滚动的真机终端界面。更进一步,它为 Agent 设计了机器友好的驱动面——Schema 校验、无头快照、Playwright 式驱动会话、以及一块完全由 Agent 经 MCP 工具操控的画布。
 
 ## 包结构
 
-Bun workspace,六个包:
+Bun workspace,七个包:
 
 | 包 | 职责 |
 |---|---|
@@ -19,6 +19,7 @@ Bun workspace,六个包:
 | `@antd-tui/formily` | 把 Formily `SchemaField` 映射到组件库(Schema 通路的表单引擎) |
 | `@antd-tui/live` | `$ui` 活对象树运行时:真 JS 对象 + 真函数、操作级校验、observable 自驱渲染 |
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
+| `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
 | `@antd-tui/test-utils` | 进程内终端渲染的测试夹具 |
 
 ## 三条通路
@@ -87,15 +88,32 @@ bun run vibe:mock
 bun packages/vibe-tui/src/cli.ts --agent "qodercli --acp"
 ```
 
-MCP 工具:`vibetui_eval`(在 `$ui` 上执行 JS)、`vibetui_snapshot` / `vibetui_host_snapshot`(截帧)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码)。会话就绪后自动注入引导,指导 Agent 骨架优先、逐区填充。
+MCP 工具:`vibetui_eval`(会话级 JS REPL)、`vibetui_snapshot` / `vibetui_host_snapshot`(页面/宿主截帧)、`vibetui_layout`(Row/Col 布局诊断)、`vibetui_inspect`(节点 props 与可见文本)、`vibetui_dispatch`(语义事件自测)、`vibetui_reset`(清空页面与 REPL 作用域)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码)。会话就绪后自动注入引导:默认可直接执行完整 JS；不熟悉 API 或搭复杂壳时按需读取 guide/example；只有需要尽早展示中间结果时再分区增量构建。
 
 交互:输入框输入 prompt(Enter 发送);F2 进入页面模式操作画板,F3 对话记录,Esc 返回;鼠标随时可点画板。
+
+## antop:终端系统监控器
+
+`@antd-tui/antop` 是仓库内独立的 React workspace package，同时提供真实终端 CLI。它采集 CPU、内存、磁盘 IO 与进程数据，支持 CPU / IO / 看板页、表头排序、列宽拖动和进程详情弹窗。
+
+```sh
+# 需要真实 TTY
+bun run antop
+```
+
+作为组件嵌入时可传入 `snapshot` 做确定性渲染/测试，或省略它以自动采样本机数据：
+
+```tsx
+import { Antop } from "@antd-tui/antop"
+
+<Antop />
+```
 
 ## 组件
 
 31 个组件,命名与语义对齐 antd:`Button` / `Input` / `InputNumber` / `TextArea` / `Select` / `Checkbox` / `Radio` / `Switch` / `Slider` / `FormItem` / `Typography`(Text/Title/Link)/ `Card` / `Space` / `Flex` / `Row` / `Col` / `List` / `Table` / `Descriptions` / `Statistic` / `Progress` / `Tag` / `Alert` / `Divider` / `Spin` / `Modal` / `message` 等。
 
-命名原则:与 antd **行为完全一致**的字段沿用原名(如 `type`、`options`、`onChange`);因终端适配而**行为相近但不同**的字段加 `tui` 前缀(如 `tuiOnClick` 无 DOM 事件参、`tuiHotkey` 全局热键、`tuiScroll` 滚动视口)。样式经 `style`(CSS 子集:`width`/`flex`/`padding`/`margin*`/`color`/`backgroundColor`/`textAlign`/`overflow`)表达。
+命名原则:与 antd **行为完全一致**的字段沿用原名(如 `type`、`options`、`onChange`);因终端适配而**行为相近但不同**的字段加 `tui` 前缀(如 `tuiOnClick` 无 DOM 事件参、`tuiHotkey` 全局热键、`tuiScroll` 滚动视口)。样式经 `style`(CSS 子集:`width`/`flex`/`flexGrow`/`flexShrink`/`flexBasis`/`padding`/`margin*`/`color`/`backgroundColor`/`textAlign`/`overflow`)表达。
 
 ## 开发
 
