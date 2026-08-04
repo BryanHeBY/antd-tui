@@ -14,16 +14,19 @@ import {
 } from "@antd-tui/components"
 import type { AntopProcess, AntopProps, ProcessSortKey } from "./types"
 import { readAntopSnapshot, percent, formatBytes, formatUptime } from "./snapshot"
-import { fit, processLabel } from "./utils/format"
-import { WAVEFORM_WIDTH, WAVEFORM_MEM_WIDTH, WAVEFORM_MAX_SAMPLES, renderWaveform, fallbackCpuMeters, foldCpuMeters } from "./utils/meters"
+import { fit, processLabel, formatTime, formatIoBps } from "./utils/format"
+import { WAVEFORM_WIDTH, WAVEFORM_MAX_SAMPLES, renderWaveform, fallbackCpuMeters, foldCpuMeters } from "./utils/meters"
 import { MeterBar } from "./components/MeterBar"
 import { TopMenuAction } from "./components/TopMenuAction"
 import { DetailPanel } from "./components/DetailPanel"
+import { DashboardPanel } from "./components/DashboardPanel"
+
+type AntopTab = "cpu" | "io" | "dashboard"
 
 const MIN_COLUMN_WIDTH = 3
-const INITIAL_PROCESS_WIDTHS = [8, 10, 2, 6, 6]
-const PROCESS_HEADERS = ["PID", "USER", "S", "CPU%", "MEM%", "COMMAND"]
-const PROCESS_SORT_KEYS: ProcessSortKey[] = ["pid", "user", "state", "cpu", "memory", "command"]
+const INITIAL_PROCESS_WIDTHS = [8, 10, 2, 6, 6, 9, 6, 6]
+const PROCESS_HEADERS = ["PID", "USER", "S", "CPU%", "MEM%", "TIME", "IOR", "IOW", "COMMAND"]
+const PROCESS_SORT_KEYS: ProcessSortKey[] = ["pid", "user", "state", "cpu", "memory", "time", "ioRead", "ioWrite", "command"]
 
 export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProps) {
   const [data, setData] = useState(() => snapshot ?? readAntopSnapshot())
@@ -38,6 +41,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   const resizeState = useRef<{ index: number; startX: number; widths: number[] } | null>(null)
   const processListRef = useRef<any>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 })
+  const [activeTab, setActiveTab] = useState<AntopTab>("cpu")
 
   const [splitDetailPid, setSplitDetailPid] = useState<number | null>(null)
   const [splitLeftWidth, setSplitLeftWidth] = useState(0)
@@ -47,7 +51,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
 
   const { isActiveScope } = useFocusScopeState()
   const token = useToken()
-  const { width: terminalWidth } = useTerminalDimensions()
+  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions()
 
   const refresh = () => setData(snapshot ?? readAntopSnapshot())
 
@@ -62,10 +66,15 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     return data.processes
       .filter((p) => !query || `${p.pid} ${p.user} ${p.command}`.toLowerCase().includes(query))
       .sort((a, b) => {
-        const compared =
-          sortBy === "pid" || sortBy === "cpu" || sortBy === "memory"
-            ? a[sortBy] - b[sortBy]
-            : a[sortBy].localeCompare(b[sortBy])
+        const numericKeys = ["pid", "cpu", "memory", "ioRead", "ioWrite"]
+        let compared: number
+        if (numericKeys.includes(sortBy)) {
+          const av = (a as any)[sortBy] ?? -Infinity
+          const bv = (b as any)[sortBy] ?? -Infinity
+          compared = av - bv
+        } else {
+          compared = String((a as any)[sortBy] ?? "").localeCompare(String((b as any)[sortBy] ?? ""))
+        }
         return sortOrder === "desc" ? -compared : compared
       })
   }, [data.processes, filter, sortBy, sortOrder])
@@ -107,21 +116,55 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     push("mem", percent(data.memoryUsed, data.memoryTotal))
     push("swap", percent(data.swapUsed ?? 0, data.swapTotal ?? 0))
     foldedCoreMeters.forEach((item, i) => push(`cpu-${i}`, Math.round(100 - item.meter.idle)))
+
+    // Dashboard history
+    if (data.dashboardSample) {
+      push("dash-cpu", data.dashboardSample.cpuUsage)
+      push("dash-freq", data.dashboardSample.cpuFreqMhz > 0 ? Math.min(100, (data.dashboardSample.cpuFreqMhz / 5000) * 100) : 0)
+      if (data.dashboardSample.cpuTempC !== undefined) {
+        push("dash-temp", Math.min(100, (data.dashboardSample.cpuTempC / 100) * 100))
+      }
+      push("dash-mem", data.dashboardSample.memUsage)
+    }
+
+    // Disk IO history — normalize to % of rolling max
+    if (data.diskStats) {
+      for (const disk of data.diskStats) {
+        const rKey = `disk-r-${disk.name}`
+        const wKey = `disk-w-${disk.name}`
+        const rHistory = historyRef.current.get(rKey) ?? []
+        const wHistory = historyRef.current.get(wKey) ?? []
+        const maxR = Math.max(10 * 1024 * 1024, ...rHistory.map((v) => v), disk.readBps)
+        const maxW = Math.max(10 * 1024 * 1024, ...wHistory.map((v) => v), disk.writeBps)
+        push(rKey, (disk.readBps / maxR) * 100)
+        push(wKey, (disk.writeBps / maxW) * 100)
+      }
+    }
   }, [data])
 
   const listPanelWidth = splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : terminalWidth
-  const coreColumns = terminalWidth >= 90 && foldedCoreMeters.length > 1 ? 2 : 1
-  const coreColumnWidth = Math.floor(terminalWidth / coreColumns)
-  const coreBarWidthNoWave = Math.max(8, coreColumnWidth - 15)
-  const showWaveform = coreBarWidthNoWave >= 28
-  const coreBarWidth = showWaveform ? coreBarWidthNoWave - WAVEFORM_WIDTH - 1 : coreBarWidthNoWave
-  const summaryBarWidth = Math.max(8, Math.min(14, Math.floor(terminalWidth / 3) - 24))
-  const metersPerColumn = Math.ceil(foldedCoreMeters.length / coreColumns)
+  // ── 统一行布局宽度模型 ──
+  // 每行: label [ bar ] value ~wave~
+  // totalWidth = labelWidth + bracketOverhead + barWidth + valueWidth + waveOverhead
+  const halfWidth = Math.floor(terminalWidth / 2)
+  const labelWidth = 10        // CPU标签/MEM/SWP
+  const valueWidth = 12        // 数值列
+  const bracketOverhead = 4    // " [" + "] "
+  const waveOverhead = WAVEFORM_WIDTH + 1  // 分隔空格 + 波形
+  const showWaveform = halfWidth - labelWidth - bracketOverhead - valueWidth - waveOverhead >= 16
+  const effectiveWave = showWaveform ? waveOverhead : 0
+  const coreBarWidth = Math.max(4, halfWidth - labelWidth - bracketOverhead - valueWidth - effectiveWave)
+  // IO 磁盘行: " name R [" + bar + "] value/s " + wave
+  const ioNameWidth = Math.max(8, ...(data.diskStats ?? []).map((d) => d.name.length))
+  const ioLabelOverhead = ioNameWidth + 5   // " " + nameW + " R [" / " W ["
+  const ioBarWidth = Math.max(4, halfWidth - ioLabelOverhead - valueWidth - effectiveWave)
+  // CPU 面板每栏核心数
+  const cpuMetersPerCol = Math.ceil(foldedCoreMeters.length / 2)
   const memoryPercent = percent(data.memoryUsed, data.memoryTotal)
   const memoryBuffersPercent = percent(data.memoryBuffers ?? 0, data.memoryTotal)
   const memoryCachePercent = percent(data.memoryCache ?? 0, data.memoryTotal)
   const swapPercent = percent(data.swapUsed ?? 0, data.swapTotal ?? 0)
-  const commandWidth = Math.max(12, listPanelWidth - 4 - processWidths.reduce((sum, w) => sum + w, 0) - 5)
+  const commandWidth = Math.max(12, listPanelWidth - 4 - processWidths.reduce((sum, w) => sum + w, 0) - (processWidths.length * 2 - 1))
   const tableWidths = [...processWidths, commandWidth]
 
   const selected = data.processes.find((p) => p.pid === selectedPid) ?? processes[0]
@@ -132,14 +175,19 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     ? (data.processes.find((p) => p.pid === splitDetailPid) ?? null)
     : null
 
+  const dashboardAvailableHeight = Math.max(4, terminalHeight - 1) // minus statusbar
+
   useKeyboard((key) => {
-    if (key.name === "escape" && !confirmOpen && isActiveScope()) {
+    if ((key.name === "escape" || key.sequence === "q") && !confirmOpen && isActiveScope()) {
       if (splitDetailPid != null) {
         setSplitDetailPid(null)
       } else {
         actions?.submit({ selectedPid: selected?.pid, filter, sortBy, sortOrder })
       }
     }
+    if (key.sequence === "1" && isActiveScope()) setActiveTab("cpu")
+    if (key.sequence === "2" && isActiveScope()) setActiveTab("io")
+    if (key.sequence === "3" && isActiveScope()) setActiveTab("dashboard")
   })
 
   const handleProcessClick = (proc: AntopProcess) => {
@@ -202,7 +250,10 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     fit(proc.state, tableWidths[2]!),
     fit(`${proc.cpu.toFixed(1)}%`, tableWidths[3]!, "right"),
     fit(`${proc.memory.toFixed(1)}%`, tableWidths[4]!, "right"),
-    processLabel(proc, tableWidths[5]!),
+    fit(formatTime(proc.time), tableWidths[5]!, "right"),
+    fit(formatIoBps(proc.ioRead), tableWidths[6]!, "right"),
+    fit(formatIoBps(proc.ioWrite), tableWidths[7]!, "right"),
+    processLabel(proc, tableWidths[8]!),
   ]
 
   const renderProcessRow = (
@@ -229,6 +280,9 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
             stateColor,
             options.process.cpu >= 80 ? token.colorError : options.process.cpu >= 50 ? token.colorWarning : token.colorPrimaryHover,
             options.process.memory >= 10 ? token.colorWarning : token.colorText,
+            token.colorTextSecondary,
+            token.colorTextSecondary,
+            token.colorTextSecondary,
             token.colorText,
           ]
         : []
@@ -279,7 +333,8 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   const separatorLine = tableWidths.map((w) => "─".repeat(w)).join("┼")
   const processHeaders = PROCESS_HEADERS.map((header, index) => {
     const indicator = PROCESS_SORT_KEYS[index] === sortBy ? (sortOrder === "desc" ? "↓" : "↑") : ""
-    return fit(`${header}${indicator}`, tableWidths[index]!, index === 0 || index === 3 || index === 4 ? "right" : "left")
+    const rightAligned = index === 0 || index === 3 || index === 4 || index === 5 || index === 6 || index === 7
+    return fit(`${header}${indicator}`, tableWidths[index]!, rightAligned ? "right" : "left")
   })
 
   return (
@@ -294,6 +349,18 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
         </TopMenuAction>
         <text attributes={0} fg={token.colorBorder}> │ </text>
         <TopMenuAction danger disabled={!selected} onActivate={() => setConfirmOpen(true)}>结束</TopMenuAction>
+        <text attributes={0} fg={token.colorBorder}> │ </text>
+        {/* Tab 按钮 */}
+        <TopMenuAction hotkey="1" onActivate={() => setActiveTab("cpu")}>
+          {activeTab === "cpu" ? "▸CPU" : " CPU"}
+        </TopMenuAction>
+        <TopMenuAction hotkey="2" onActivate={() => setActiveTab("io")}>
+          {activeTab === "io" ? "▸IO" : " IO"}
+        </TopMenuAction>
+        <TopMenuAction hotkey="3" onActivate={() => setActiveTab("dashboard")}>
+          {activeTab === "dashboard" ? "▸看板" : " 看板"}
+        </TopMenuAction>
+        <text attributes={0} fg={token.colorBorder}> │ </text>
         <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, flexDirection: "row", justifyContent: "center" }}>
           <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}> antop </text>
           <text attributes={0} fg={token.colorTextSecondary}>{data.host}</text>
@@ -304,145 +371,230 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
         </text>
       </box>
 
-      {/* ── CPU 面板 ── */}
-      <box style={{ flexDirection: "row", flexShrink: 0, backgroundColor: "#141414", overflow: "hidden" }}>
-        {Array.from({ length: coreColumns }, (_, column) => (
-          <box
-            key={column}
-            style={{ width: coreColumnWidth, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}
-          >
-            {foldedCoreMeters.slice(column * metersPerColumn, (column + 1) * metersPerColumn).map((item, index) => {
-              const globalIndex = column * metersPerColumn + index
-              const active = 100 - item.meter.idle
-              const activeColor =
-                active >= 85 ? token.colorError :
-                active >= 50 ? token.colorWarning :
-                token.colorTextSecondary
-              return (
-                <box key={globalIndex} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
-                  <text attributes={0} fg={token.colorTextSecondary}>{`${fit(item.label, 5, "right")} [`}</text>
-                  <MeterBar
-                    width={coreBarWidth}
-                    segments={[
+      {/* ── Dashboard Tab：全屏看板 ── */}
+      {activeTab === "dashboard" && (
+        <DashboardPanel
+          sample={data.dashboardSample}
+          historyRef={historyRef}
+          terminalWidth={terminalWidth}
+          terminalHeight={dashboardAvailableHeight}
+        />
+      )}
+
+      {/* ── CPU / IO Tab：统一两栏面板 ── */}
+      {activeTab !== "dashboard" && (
+        <>
+          {/* 顶部两栏面板（CPU tab = cpu+mem/swp，IO tab = 读/写条）*/}
+          <box style={{ flexDirection: "row", flexShrink: 0, backgroundColor: "#141414", overflow: "hidden" }}>
+
+            {/* ── 左栏 ── */}
+            <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}>
+              {activeTab === "cpu" && foldedCoreMeters.slice(0, cpuMetersPerCol).map((item, i) => {
+                const active = 100 - item.meter.idle
+                const activeColor = active >= 85 ? token.colorError : active >= 50 ? token.colorWarning : token.colorTextSecondary
+                return (
+                  <box key={i} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                    <text attributes={0} fg={token.colorTextSecondary}>{`${fit(item.label, labelWidth, "right")} [`}</text>
+                    <MeterBar width={coreBarWidth} segments={[
                       { value: item.meter.nice, color: "#1677ff" },
                       { value: item.meter.user, color: "#52c41a" },
                       { value: item.meter.system, color: "#ff4d4f" },
                       { value: item.meter.irq, color: "#13c2c2" },
-                    ]}
-                  />
-                  <text attributes={0} fg={activeColor}>{`] ${fit(`${active.toFixed(1)}%`, 6, "right")}`}</text>
-                  {showWaveform && (
-                    <text
-                      attributes={0}
-                      content={new StyledText([
-                        fg(token.colorBorder)(" "),
-                        ...renderWaveform(
-                          historyRef.current.get(`cpu-${globalIndex}`) ?? [],
-                          WAVEFORM_WIDTH, "#52c41a", "#162516",
-                        ),
-                      ])}
-                    />
-                  )}
-                </box>
-              )
-            })}
+                    ]} />
+                    <text attributes={0} fg={activeColor}>{`] ${fit(`${active.toFixed(1)}%`, valueWidth, "right")}`}</text>
+                    {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get(`cpu-${i}`) ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
+                  </box>
+                )
+              })}
+              {activeTab === "io" && (data.diskStats ?? []).map((disk) => {
+                const maxR = Math.max(10 * 1024 * 1024, disk.readBps) * 1.2
+                const rPct = (disk.readBps / maxR) * 100
+                const rHistory = historyRef.current.get(`disk-r-${disk.name}`) ?? []
+                return (
+                  <box key={disk.name} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                    <text attributes={0} fg={token.colorText}>{` ${fit(disk.name, ioNameWidth)} R [`}</text>
+                    <MeterBar width={ioBarWidth} segments={[{ value: rPct, color: "#52c41a" }]} />
+                    <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatIoBps(disk.readBps)}/s`, valueWidth, "right")}`}</text>
+                    {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(rHistory, WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
+                  </box>
+                )
+              })}
+            </box>
+
+            {/* ── 右栏 ── */}
+            <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}>
+              {activeTab === "cpu" && (
+                <>
+                  {foldedCoreMeters.slice(cpuMetersPerCol).map((item, i) => {
+                    const globalIndex = cpuMetersPerCol + i
+                    const active = 100 - item.meter.idle
+                    const activeColor = active >= 85 ? token.colorError : active >= 50 ? token.colorWarning : token.colorTextSecondary
+                    return (
+                      <box key={globalIndex} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                        <text attributes={0} fg={token.colorTextSecondary}>{`${fit(item.label, labelWidth, "right")} [`}</text>
+                        <MeterBar width={coreBarWidth} segments={[
+                          { value: item.meter.nice, color: "#1677ff" },
+                          { value: item.meter.user, color: "#52c41a" },
+                          { value: item.meter.system, color: "#ff4d4f" },
+                          { value: item.meter.irq, color: "#13c2c2" },
+                        ]} />
+                        <text attributes={0} fg={activeColor}>{`] ${fit(`${active.toFixed(1)}%`, valueWidth, "right")}`}</text>
+                        {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get(`cpu-${globalIndex}`) ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
+                      </box>
+                    )
+                  })}
+                </>
+              )}
+              {activeTab === "io" && (data.diskStats ?? []).map((disk) => {
+                const maxW = Math.max(10 * 1024 * 1024, disk.writeBps) * 1.2
+                const wPct = (disk.writeBps / maxW) * 100
+                const wHistory = historyRef.current.get(`disk-w-${disk.name}`) ?? []
+                return (
+                  <box key={disk.name} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                    <text attributes={0} fg={token.colorText}>{` ${fit(disk.name, ioNameWidth)} W [`}</text>
+                    <MeterBar width={ioBarWidth} segments={[{ value: wPct, color: "#fa8c16" }]} />
+                    <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatIoBps(disk.writeBps)}/s`, valueWidth, "right")}`}</text>
+                    {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(wHistory, WAVEFORM_WIDTH, "#fa8c16", "#2a1800")])} />}
+                  </box>
+                )
+              })}
+            </box>
+
           </box>
-        ))}
-      </box>
 
-      {/* ── 内存 + Swap 行 ── */}
-      <box style={{ height: 1, flexShrink: 0, flexDirection: "row", backgroundColor: "#141414", overflow: "hidden" }}>
-        <text attributes={0} fg={token.colorTextSecondary}> MEM [</text>
-        <MeterBar
-          width={summaryBarWidth}
-          segments={[
-            { value: memoryPercent, color: "#52c41a" },
-            { value: memoryBuffersPercent, color: "#1677ff" },
-            { value: memoryCachePercent, color: "#fa8c16" },
-          ]}
-        />
-        <text attributes={0} fg={token.colorTextSecondary}>{`] ${formatBytes(data.memoryUsed)}/${formatBytes(data.memoryTotal)} `}</text>
-        <text
-          attributes={0}
-          content={new StyledText(renderWaveform(historyRef.current.get("mem") ?? [], WAVEFORM_MEM_WIDTH, "#52c41a", "#162516"))}
-        />
-        <text attributes={0} fg={token.colorTextSecondary}>{"  SWP ["}</text>
-        <MeterBar width={summaryBarWidth} segments={[{ value: swapPercent, color: "#a855f7" }]} />
-        <text attributes={0} fg={token.colorTextSecondary}>{`] ${formatBytes(data.swapUsed ?? 0)}/${formatBytes(data.swapTotal ?? 0)} `}</text>
-        <text
-          attributes={0}
-          content={new StyledText(renderWaveform(historyRef.current.get("swap") ?? [], WAVEFORM_MEM_WIDTH, "#a855f7", "#1e0a2e"))}
-        />
-        <text attributes={0} fg={token.colorTextSecondary}>{`  LOAD ${data.load.map((v) => v.toFixed(2)).join(" ")}`}</text>
-      </box>
-
-      {/* ── 过滤栏 + 进程计数 ── */}
-      <box style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
-        <text attributes={0} fg={token.colorTextDisabled}>{" ⌕ "}</text>
-        <Input
-          compact
-          placeholder="过滤 PID / 用户 / 命令"
-          value={filter}
-          tuiOnChange={setFilter}
-        />
-        <text attributes={0} fg={token.colorTextSecondary}>
-          {` ${processes.length}/${data.processes.length}  双击查看详情  Esc ${splitDetailPid ? "关闭详情" : "退出"} `}
-        </text>
-      </box>
-
-      {/* ── 进程表（表头 + 分屏内容区）── */}
-      <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column" }}>
-        {renderProcessRow(processHeaders, "process-header", { header: true })}
-        <text attributes={0} fg={token.colorBorder}>{separatorLine}</text>
-
-        <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "row" }}>
-          {/* 左：虚拟化进程列表 */}
-          <scrollbox
-            ref={processListRef}
-            scrollY
-            scrollX={false}
-            style={{
-              width: splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : "100%",
-              flexShrink: 0,
-              minHeight: 0,
-            }}
-            contentOptions={{ flexDirection: "column", gap: 0, minHeight: "100%", width: "100%" }}
-          >
-            {processes.length === 0 ? (
-              <text attributes={0} fg={token.colorTextSecondary}> 没有匹配的进程</text>
-            ) : (
-              <>
-                {topSpacer > 0 && <box style={{ height: topSpacer }} />}
-                {visibleProcesses.map((p) => renderProcessRow(processCells(p), String(p.pid), { process: p }))}
-                {bottomSpacer > 0 && <box style={{ height: bottomSpacer }} />}
-              </>
-            )}
-          </scrollbox>
-
-          {/* 可拖动分割线 */}
-          {splitDetailPid && (
-            <box
-              style={{ width: 1, flexShrink: 0, backgroundColor: "#252525" }}
-              onMouseDown={handleSplitDividerDown}
-              onMouseDrag={handleSplitDividerDrag}
-              onMouseDragEnd={() => { splitResizeRef.current = null }}
-            />
-          )}
-
-          {/* 右：详情面板 */}
-          {splitDetailPid && detailProcess && (
-            <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflow: "hidden" }}>
-              <DetailPanel
-                process={detailProcess}
-                allProcesses={data.processes}
-                panelWidth={terminalWidth - (splitLeftWidth > 0 ? splitLeftWidth : Math.floor(terminalWidth * 0.6)) - 1}
-                onClose={() => setSplitDetailPid(null)}
-                onTerminateRequest={(pid) => { setSelectedPid(pid); setConfirmOpen(true) }}
-              />
+          {/* ── MEM | SWP 行（仅 CPU tab，左右各半）── */}
+          {activeTab === "cpu" && (
+            <box style={{ height: 1, flexShrink: 0, flexDirection: "row", backgroundColor: "#141414", overflow: "hidden" }}>
+              {/* 左：MEM */}
+              <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                <text attributes={0} fg={token.colorTextSecondary}>{`${fit("MEM", labelWidth, "right")} [`}</text>
+                <MeterBar width={coreBarWidth} segments={[
+                  { value: memoryPercent, color: "#52c41a" },
+                  { value: memoryBuffersPercent, color: "#1677ff" },
+                  { value: memoryCachePercent, color: "#fa8c16" },
+                ]} />
+                <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatBytes(data.memoryUsed)}/${formatBytes(data.memoryTotal)}`, valueWidth, "right")}`}</text>
+                {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get("mem") ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
+              </box>
+              {/* 右：SWP */}
+              <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                <text attributes={0} fg={token.colorTextSecondary}>{`${fit("SWP", labelWidth, "right")} [`}</text>
+                <MeterBar width={coreBarWidth} segments={[{ value: swapPercent, color: "#a855f7" }]} />
+                <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatBytes(data.swapUsed ?? 0)}/${formatBytes(data.swapTotal ?? 0)}`, valueWidth, "right")}`}</text>
+                {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get("swap") ?? [], WAVEFORM_WIDTH, "#a855f7", "#1e0a2e")])} />}
+              </box>
             </box>
           )}
-        </box>
-      </box>
+
+          {/* ── IO Tab：过滤栏 + 进程表 ── */}
+          {activeTab === "io" && (
+            <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column" }}>
+              <box style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                <text attributes={0} fg={token.colorTextDisabled}>{" ⌕ "}</text>
+                <Input compact placeholder="过滤 PID / 用户 / 命令" value={filter} tuiOnChange={setFilter} />
+                <text attributes={0} fg={token.colorTextSecondary}>
+                  {` ${processes.length}/${data.processes.length}  双击查看详情 `}
+                </text>
+              </box>
+              <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column" }}>
+                {renderProcessRow(processHeaders, "process-header-io", { header: true })}
+                <text attributes={0} fg={token.colorBorder}>{separatorLine}</text>
+                <scrollbox
+                  ref={processListRef}
+                  scrollY
+                  scrollX={false}
+                  style={{ width: "100%", flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
+                  contentOptions={{ flexDirection: "column", gap: 0, minHeight: "100%", width: "100%" }}
+                >
+                  {processes.length === 0 ? (
+                    <text attributes={0} fg={token.colorTextSecondary}> 没有匹配的进程</text>
+                  ) : (
+                    <>
+                      {topSpacer > 0 && <box style={{ height: topSpacer }} />}
+                      {visibleProcesses.map((p) => renderProcessRow(processCells(p), String(p.pid), { process: p }))}
+                      {bottomSpacer > 0 && <box style={{ height: bottomSpacer }} />}
+                    </>
+                  )}
+                </scrollbox>
+              </box>
+            </box>
+          )}
+
+
+          {/* ── CPU Tab：过滤栏 + 进程表 ── */}
+          {activeTab === "cpu" && (
+            <>
+              {/* ── 过滤栏 + 进程计数 ── */}
+              <box style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                <text attributes={0} fg={token.colorTextDisabled}>{" ⌕ "}</text>
+                <Input
+                  compact
+                  placeholder="过滤 PID / 用户 / 命令"
+                  value={filter}
+                  tuiOnChange={setFilter}
+                />
+                <text attributes={0} fg={token.colorTextSecondary}>
+                  {` ${processes.length}/${data.processes.length}  双击查看详情  Esc/q ${splitDetailPid ? "关闭详情" : "退出"} `}
+                </text>
+              </box>
+
+              {/* ── 进程表（表头 + 分屏内容区）── */}
+              <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column" }}>
+                {renderProcessRow(processHeaders, "process-header", { header: true })}
+                <text attributes={0} fg={token.colorBorder}>{separatorLine}</text>
+
+                <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "row" }}>
+                  {/* 左：虚拟化进程列表 */}
+                  <scrollbox
+                    ref={processListRef}
+                    scrollY
+                    scrollX={false}
+                    style={{
+                      width: splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : "100%",
+                      flexShrink: 0,
+                      minHeight: 0,
+                    }}
+                    contentOptions={{ flexDirection: "column", gap: 0, minHeight: "100%", width: "100%" }}
+                  >
+                    {processes.length === 0 ? (
+                      <text attributes={0} fg={token.colorTextSecondary}> 没有匹配的进程</text>
+                    ) : (
+                      <>
+                        {topSpacer > 0 && <box style={{ height: topSpacer }} />}
+                        {visibleProcesses.map((p) => renderProcessRow(processCells(p), String(p.pid), { process: p }))}
+                        {bottomSpacer > 0 && <box style={{ height: bottomSpacer }} />}
+                      </>
+                    )}
+                  </scrollbox>
+
+                  {/* 可拖动分割线 */}
+                  {splitDetailPid && (
+                    <box
+                      style={{ width: 1, flexShrink: 0, backgroundColor: "#252525" }}
+                      onMouseDown={handleSplitDividerDown}
+                      onMouseDrag={handleSplitDividerDrag}
+                      onMouseDragEnd={() => { splitResizeRef.current = null }}
+                    />
+                  )}
+
+                  {/* 右：详情面板 */}
+                  {splitDetailPid && detailProcess && (
+                    <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflow: "hidden" }}>
+                      <DetailPanel
+                        process={detailProcess}
+                        allProcesses={data.processes}
+                        panelWidth={terminalWidth - (splitLeftWidth > 0 ? splitLeftWidth : Math.floor(terminalWidth * 0.6)) - 1}
+                        onClose={() => setSplitDetailPid(null)}
+                        onTerminateRequest={(pid) => { setSelectedPid(pid); setConfirmOpen(true) }}
+                      />
+                    </box>
+                  )}
+                </box>
+              </box>
+            </>
+          )}
+        </>
+      )}
 
       {/* ── 结束请求确认 Modal ── */}
       <Modal
