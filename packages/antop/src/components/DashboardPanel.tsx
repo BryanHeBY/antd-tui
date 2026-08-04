@@ -1,7 +1,6 @@
 import { StyledText, fg, TextAttributes } from "@opentui/core"
-import { useToken } from "@antd-tui/components"
+import { Flex, useToken } from "@antd-tui/components"
 import type { AntopDashboardSample } from "../types"
-import { WAVEFORM_MAX_SAMPLES, renderWaveform } from "../utils/meters"
 
 interface MetricPanelProps {
   label: string
@@ -26,12 +25,12 @@ function MetricPanel({ label, valueStr, history, color, dimColor, height, width 
   const cols = Math.min(waveformWidth, Math.ceil(samples.length / rows) + waveformWidth)
 
   return (
-    <box style={{ height, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}>
+    <Flex vertical style={{ height, flexShrink: 0, overflow: "hidden" }}>
       <box style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
         <text attributes={TextAttributes.BOLD} fg={token.colorTextSecondary}>{headerLine}</text>
       </box>
       {chartLines > 0 && (
-        <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column", overflow: "hidden" }}>
+        <Flex vertical style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, overflow: "hidden" }}>
           {Array.from({ length: chartLines }, (_, row) => {
             const rowHistory = history.slice(-waveformWidth)
             const threshold = 1 - (row + 1) / chartLines
@@ -52,9 +51,9 @@ function MetricPanel({ label, valueStr, history, color, dimColor, height, width 
               </box>
             )
           })}
-        </box>
+        </Flex>
       )}
-    </box>
+    </Flex>
   )
 }
 
@@ -119,7 +118,7 @@ export function DashboardPanel({
     : 3
 
   return (
-    <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column", backgroundColor: "#0d0d0d", overflow: "hidden" }}>
+    <Flex vertical style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, backgroundColor: "#0d0d0d", overflow: "hidden" }}>
       {visibleMetrics.map((metric, i) => {
         const history = historyRef.current.get(metric.key) ?? []
         const height = i === visibleMetrics.length - 1
@@ -138,6 +137,6 @@ export function DashboardPanel({
           />
         )
       })}
-    </box>
+    </Flex>
   )
 }
