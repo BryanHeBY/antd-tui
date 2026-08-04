@@ -23,6 +23,8 @@ export interface InputProps {
   style?: CssLikeStyle
   /** 类似 antd onPressEnter，但无 DOM 事件参数；未提供时默认移动焦点到下一个控件 */
   tuiOnPressEnter?: () => void
+  /** TUI 扩展：无边框单行模式，适合内联过滤栏等 height=1 场景 */
+  compact?: boolean
 }
 
 export function InputBase({
@@ -33,9 +35,41 @@ export function InputBase({
   maxLength,
   style,
   tuiOnPressEnter,
+  compact = false,
 }: InputProps) {
   const token = useToken()
   const { focused, focusNext, requestFocus } = useFocusable({ kind: "input", disabled })
+
+  if (compact) {
+    return (
+      <box
+        style={{
+          flexGrow: 1,
+          flexShrink: 1,
+          flexBasis: 0,
+          minWidth: 0,
+          height: 1,
+          ...toBoxStyle(style),
+        }}
+        onMouseDown={() => {
+          if (!disabled) requestFocus()
+        }}
+      >
+        <input
+          value={value ?? ""}
+          maxLength={maxLength}
+          placeholder={placeholder ?? ""}
+          focused={focused && !disabled}
+          onInput={(v: string) => tuiOnChange?.(v)}
+          onSubmit={() => {
+            if (tuiOnPressEnter) tuiOnPressEnter()
+            else focusNext()
+          }}
+          width="100%"
+        />
+      </box>
+    )
+  }
 
   return (
     <box
