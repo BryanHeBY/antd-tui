@@ -25,6 +25,20 @@ export function formatTime(etime?: string): string {
   return `${String(m).padStart(2, "0")}m`
 }
 
+/** 将 ps etime（[[DD-]HH:]MM:SS）转为秒，供真实时长排序使用。 */
+export function parseElapsedSeconds(etime?: string): number | undefined {
+  if (!etime) return undefined
+  const match = etime.match(/^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/)
+  if (!match) return undefined
+  const [, days, hours, minutes, seconds] = match
+  return (
+    (days ? Number(days) : 0) * 24 * 60 * 60 +
+    (hours ? Number(hours) : 0) * 60 * 60 +
+    Number(minutes) * 60 +
+    Number(seconds)
+  )
+}
+
 export function formatIoBps(bps?: number): string {
   if (bps === undefined) return "-"
   if (bps >= 1024 * 1024 * 1024) return `${(bps / (1024 * 1024 * 1024)).toFixed(1)}G`

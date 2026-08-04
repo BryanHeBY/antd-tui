@@ -36,6 +36,14 @@ async function click(t: TuiTestSetup, label: string) {
   await t.settle()
 }
 
+async function clickTopMenu(t: TuiTestSetup, label: string) {
+  const topLine = t.frame().split("\n")[0] ?? ""
+  const index = topLine.indexOf(label)
+  if (index < 0) throw new Error(`顶部菜单中找不到 "${label}"`)
+  await t.raw.mockMouse.click(displayWidth(topLine.slice(0, index)) + Math.floor(displayWidth(label) / 2), 0)
+  await t.settle()
+}
+
 async function doubleClick(t: TuiTestSetup, label: string) {
   const pos = locate(t.frame(), label)
   await t.raw.mockMouse.doubleClick(pos.x, pos.y)
@@ -43,6 +51,41 @@ async function doubleClick(t: TuiTestSetup, label: string) {
 }
 
 describe("antop", () => {
+  test("CPU、IO 与看板页可通过顶部菜单切换", async () => {
+    const snapshot: AntopSnapshot = {
+      host: "workstation",
+      capturedAt: new Date("2026-07-30T09:00:00Z"),
+      cpuCount: 2,
+      load: [0.4, 0.8, 1.2],
+      memoryTotal: 16 * 1024 ** 3,
+      memoryUsed: 9 * 1024 ** 3,
+      cpuMeters: [
+        { user: 20, nice: 0, system: 10, irq: 0, idle: 70 },
+        { user: 10, nice: 0, system: 5, irq: 0, idle: 85 },
+      ],
+      diskStats: [{ name: "nvme0n1", readBps: 1024 * 1024, writeBps: 2 * 1024 * 1024 }],
+      dashboardSample: { cpuUsage: 30, cpuFreqMhz: 3200, cpuTempC: 55, memUsage: 56.25 },
+      processes: [{ pid: 1, ppid: 0, user: "root", state: "S", cpu: 0, memory: 0, command: "init" }],
+    }
+    const t = await renderTui(
+      <ConfigProvider>
+        <FocusScope><Antop snapshot={snapshot} /></FocusScope>
+      </ConfigProvider>,
+      { width: 100, height: 28 },
+    )
+    await t.waitUntil(() => t.frame().includes("CPU0 ["), 8000)
+
+    await clickTopMenu(t, " IO")
+    await t.waitUntil(() => t.frame().includes("nvme0n1  R [") && t.frame().includes("nvme0n1  W ["), 4000)
+
+    await clickTopMenu(t, " 看板")
+    await t.waitUntil(() => t.frame().includes("CPU 使用率") && t.frame().includes("CPU 频率"), 4000)
+
+    await clickTopMenu(t, " CPU")
+    await t.waitUntil(() => t.frame().includes("CPU0 [") && t.frame().includes("SWP ["), 4000)
+    t.destroy()
+  }, 20000)
+
   test("鼠标选择进程、过滤与结束请求确认", async () => {
     const snapshot: AntopSnapshot = {
       host: "workstation",

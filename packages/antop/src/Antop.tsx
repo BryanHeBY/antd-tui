@@ -13,6 +13,7 @@ import {
 import type { AntopProcess, AntopProps, ProcessSortKey } from "./types"
 import { readAntopSnapshot, percent, formatBytes, formatUptime } from "./snapshot"
 import { fit, processLabel, formatTime, formatIoBps } from "./utils/format"
+import { sortProcesses } from "./utils/sort"
 import { WAVEFORM_WIDTH, WAVEFORM_MAX_SAMPLES, renderWaveform, fallbackCpuMeters, foldCpuMeters } from "./utils/meters"
 import { MeterBar } from "./components/MeterBar"
 import { TopMenuAction } from "./components/TopMenuAction"
@@ -59,20 +60,9 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
 
   const processes = useMemo(() => {
     const query = filter.trim().toLowerCase()
-    return data.processes
+    const filtered = data.processes
       .filter((p) => !query || `${p.pid} ${p.user} ${p.command}`.toLowerCase().includes(query))
-      .sort((a, b) => {
-        const numericKeys = ["pid", "cpu", "memory", "ioRead", "ioWrite"]
-        let compared: number
-        if (numericKeys.includes(sortBy)) {
-          const av = (a as any)[sortBy] ?? -Infinity
-          const bv = (b as any)[sortBy] ?? -Infinity
-          compared = av - bv
-        } else {
-          compared = String((a as any)[sortBy] ?? "").localeCompare(String((b as any)[sortBy] ?? ""))
-        }
-        return sortOrder === "desc" ? -compared : compared
-      })
+    return sortProcesses(filtered, sortBy, sortOrder)
   }, [data.processes, filter, sortBy, sortOrder])
 
   useEffect(() => {
