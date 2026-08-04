@@ -50,6 +50,9 @@ export function DetailPanel({
 
   const { ancestors, descendants } = buildProcessTree(proc, allProcesses)
   const treeInnerWidth = Math.max(4, panelWidth - 4)
+  const ancestorBase = ancestors.length > 0
+    ? "│  ".repeat(ancestors.length - 1) + "   "
+    : ""
 
   return (
     <>
@@ -86,7 +89,7 @@ export function DetailPanel({
         <text attributes={0} fg={token.colorTextSecondary} style={{ flexShrink: 0 }}>{"进程树"}</text>
         {ancestors.map((ancestor, i) => {
           const connector = i === ancestors.length - 1 ? "├─ " : "│  "
-          const prefix = "│  ".repeat(i) + (i > 0 ? connector : "")
+          const prefix = i === 0 ? "" : "│  ".repeat(Math.max(0, i - 1)) + connector
           const pidStr = String(ancestor.pid)
           const name = ancestor.command.split(" ")[0] ?? ancestor.command
           const full = truncateToWidth(`${prefix}${pidStr} ${name}`, treeInnerWidth)
@@ -115,7 +118,7 @@ export function DetailPanel({
           )
         })()}
         {descendants.map(({ proc: d, isLast, isLastAtDepth }) => {
-          const prefix = isLastAtDepth.map((last) => last ? "   " : "│  ").join("") + (isLast ? "└─ " : "├─ ")
+          const prefix = ancestorBase + isLastAtDepth.map((last) => last ? "   " : "│  ").join("") + (isLast ? "└─ " : "├─ ")
           const pidStr = String(d.pid)
           const name = d.command.split(" ")[0] ?? d.command
           const full = truncateToWidth(`${prefix}${pidStr} ${name}`, treeInnerWidth)
