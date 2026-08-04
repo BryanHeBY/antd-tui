@@ -3,12 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { TextAttributes, StyledText, fg, type MouseEvent } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import {
-  displayWidth,
   Flex,
   Input,
   Modal,
   Typography,
-  truncateToWidth,
   useFocusScopeState,
   useToken,
 } from "@antd-tui/components"
@@ -143,22 +141,11 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   }, [data])
 
   const listPanelWidth = splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : terminalWidth
-  // ── 统一行布局宽度模型 ──
-  // 每行: label [ bar ] value ~wave~
-  // totalWidth = labelWidth + bracketOverhead + barWidth + valueWidth + waveOverhead
-  const halfWidth = Math.floor(terminalWidth / 2)
-  const labelWidth = 10        // CPU标签/MEM/SWP
-  const valueWidth = 12        // 数值列
-  const bracketOverhead = 4    // " [" + "] "
-  const waveOverhead = WAVEFORM_WIDTH + 1  // 分隔空格 + 波形
-  const showWaveform = halfWidth - labelWidth - bracketOverhead - valueWidth - waveOverhead >= 16
-  const effectiveWave = showWaveform ? waveOverhead : 0
-  const coreBarWidth = Math.max(4, halfWidth - labelWidth - bracketOverhead - valueWidth - effectiveWave)
-  // IO 磁盘行: " name R [" + bar + "] value/s " + wave
+  // Flex 自动分配两栏宽度，MeterBar 自测填满 — 无需手算 barWidth
+  const labelWidth = 10        // CPU标签/MEM/SWP 对齐
+  const valueWidth = 12        // 数值列对齐
+  const showWaveform = terminalWidth >= 80
   const ioNameWidth = Math.max(8, ...(data.diskStats ?? []).map((d) => d.name.length))
-  const ioLabelOverhead = ioNameWidth + 5   // " " + nameW + " R [" / " W ["
-  const ioBarWidth = Math.max(4, halfWidth - ioLabelOverhead - valueWidth - effectiveWave)
-  // CPU 面板每栏核心数
   const cpuMetersPerCol = Math.ceil(foldedCoreMeters.length / 2)
   const memoryPercent = percent(data.memoryUsed, data.memoryTotal)
   const memoryBuffersPercent = percent(data.memoryBuffers ?? 0, data.memoryTotal)
@@ -338,7 +325,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   })
 
   return (
-    <box style={{ width: "100%", height: "100%", flexDirection: "column", backgroundColor: "#0d0d0d" }}>
+    <Flex vertical style={{ width: "100%", height: "100%", backgroundColor: "#0d0d0d" }}>
 
       {/* ── 顶部状态栏 ── */}
       <box style={{ height: 1, flexShrink: 0, flexDirection: "row", backgroundColor: "#1a1a1a", overflow: "hidden" }}>
@@ -385,17 +372,17 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
       {activeTab !== "dashboard" && (
         <>
           {/* 顶部两栏面板（CPU tab = cpu+mem/swp，IO tab = 读/写条）*/}
-          <box style={{ flexDirection: "row", flexShrink: 0, backgroundColor: "#141414", overflow: "hidden" }}>
+          <Flex style={{ flexShrink: 0, backgroundColor: "#141414", overflow: "hidden" }}>
 
             {/* ── 左栏 ── */}
-            <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}>
+            <Flex vertical flex={1} style={{ overflow: "hidden" }}>
               {activeTab === "cpu" && foldedCoreMeters.slice(0, cpuMetersPerCol).map((item, i) => {
                 const active = 100 - item.meter.idle
                 const activeColor = active >= 85 ? token.colorError : active >= 50 ? token.colorWarning : token.colorTextSecondary
                 return (
-                  <box key={i} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                  <Flex key={i} style={{ height: 1, flexShrink: 0, overflow: "hidden" }}>
                     <text attributes={0} fg={token.colorTextSecondary}>{`${fit(item.label, labelWidth, "right")} [`}</text>
-                    <MeterBar width={coreBarWidth} segments={[
+                    <MeterBar segments={[
                       { value: item.meter.nice, color: "#1677ff" },
                       { value: item.meter.user, color: "#52c41a" },
                       { value: item.meter.system, color: "#ff4d4f" },
@@ -403,7 +390,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                     ]} />
                     <text attributes={0} fg={activeColor}>{`] ${fit(`${active.toFixed(1)}%`, valueWidth, "right")}`}</text>
                     {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get(`cpu-${i}`) ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
-                  </box>
+                  </Flex>
                 )
               })}
               {activeTab === "io" && (data.diskStats ?? []).map((disk) => {
@@ -411,18 +398,18 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                 const rPct = (disk.readBps / maxR) * 100
                 const rHistory = historyRef.current.get(`disk-r-${disk.name}`) ?? []
                 return (
-                  <box key={disk.name} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                  <Flex key={disk.name} style={{ height: 1, flexShrink: 0, overflow: "hidden" }}>
                     <text attributes={0} fg={token.colorText}>{` ${fit(disk.name, ioNameWidth)} R [`}</text>
-                    <MeterBar width={ioBarWidth} segments={[{ value: rPct, color: "#52c41a" }]} />
+                    <MeterBar segments={[{ value: rPct, color: "#52c41a" }]} />
                     <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatIoBps(disk.readBps)}/s`, valueWidth, "right")}`}</text>
                     {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(rHistory, WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
-                  </box>
+                  </Flex>
                 )
               })}
-            </box>
+            </Flex>
 
             {/* ── 右栏 ── */}
-            <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "column", overflow: "hidden" }}>
+            <Flex vertical flex={1} style={{ overflow: "hidden" }}>
               {activeTab === "cpu" && (
                 <>
                   {foldedCoreMeters.slice(cpuMetersPerCol).map((item, i) => {
@@ -430,9 +417,9 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                     const active = 100 - item.meter.idle
                     const activeColor = active >= 85 ? token.colorError : active >= 50 ? token.colorWarning : token.colorTextSecondary
                     return (
-                      <box key={globalIndex} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                      <Flex key={globalIndex} style={{ height: 1, flexShrink: 0, overflow: "hidden" }}>
                         <text attributes={0} fg={token.colorTextSecondary}>{`${fit(item.label, labelWidth, "right")} [`}</text>
-                        <MeterBar width={coreBarWidth} segments={[
+                        <MeterBar segments={[
                           { value: item.meter.nice, color: "#1677ff" },
                           { value: item.meter.user, color: "#52c41a" },
                           { value: item.meter.system, color: "#ff4d4f" },
@@ -440,7 +427,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                         ]} />
                         <text attributes={0} fg={activeColor}>{`] ${fit(`${active.toFixed(1)}%`, valueWidth, "right")}`}</text>
                         {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get(`cpu-${globalIndex}`) ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
-                      </box>
+                      </Flex>
                     )
                   })}
                 </>
@@ -450,40 +437,40 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                 const wPct = (disk.writeBps / maxW) * 100
                 const wHistory = historyRef.current.get(`disk-w-${disk.name}`) ?? []
                 return (
-                  <box key={disk.name} style={{ height: 1, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+                  <Flex key={disk.name} style={{ height: 1, flexShrink: 0, overflow: "hidden" }}>
                     <text attributes={0} fg={token.colorText}>{` ${fit(disk.name, ioNameWidth)} W [`}</text>
-                    <MeterBar width={ioBarWidth} segments={[{ value: wPct, color: "#fa8c16" }]} />
+                    <MeterBar segments={[{ value: wPct, color: "#fa8c16" }]} />
                     <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatIoBps(disk.writeBps)}/s`, valueWidth, "right")}`}</text>
                     {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(wHistory, WAVEFORM_WIDTH, "#fa8c16", "#2a1800")])} />}
-                  </box>
+                  </Flex>
                 )
               })}
-            </box>
+            </Flex>
 
-          </box>
+          </Flex>
 
           {/* ── MEM | SWP 行（仅 CPU tab，左右各半）── */}
           {activeTab === "cpu" && (
-            <box style={{ height: 1, flexShrink: 0, flexDirection: "row", backgroundColor: "#141414", overflow: "hidden" }}>
+            <Flex style={{ height: 1, flexShrink: 0, backgroundColor: "#141414", overflow: "hidden" }}>
               {/* 左：MEM */}
-              <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+              <Flex flex={1} style={{ overflow: "hidden" }}>
                 <text attributes={0} fg={token.colorTextSecondary}>{`${fit("MEM", labelWidth, "right")} [`}</text>
-                <MeterBar width={coreBarWidth} segments={[
+                <MeterBar segments={[
                   { value: memoryPercent, color: "#52c41a" },
                   { value: memoryBuffersPercent, color: "#1677ff" },
                   { value: memoryCachePercent, color: "#fa8c16" },
                 ]} />
                 <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatBytes(data.memoryUsed)}/${formatBytes(data.memoryTotal)}`, valueWidth, "right")}`}</text>
                 {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get("mem") ?? [], WAVEFORM_WIDTH, "#52c41a", "#162516")])} />}
-              </box>
+              </Flex>
               {/* 右：SWP */}
-              <box style={{ width: halfWidth, flexShrink: 0, flexDirection: "row", overflow: "hidden" }}>
+              <Flex flex={1} style={{ overflow: "hidden" }}>
                 <text attributes={0} fg={token.colorTextSecondary}>{`${fit("SWP", labelWidth, "right")} [`}</text>
-                <MeterBar width={coreBarWidth} segments={[{ value: swapPercent, color: "#a855f7" }]} />
+                <MeterBar segments={[{ value: swapPercent, color: "#a855f7" }]} />
                 <text attributes={0} fg={token.colorTextSecondary}>{`] ${fit(`${formatBytes(data.swapUsed ?? 0)}/${formatBytes(data.swapTotal ?? 0)}`, valueWidth, "right")}`}</text>
                 {showWaveform && <text attributes={0} content={new StyledText([fg(token.colorBorder)(" "), ...renderWaveform(historyRef.current.get("swap") ?? [], WAVEFORM_WIDTH, "#a855f7", "#1e0a2e")])} />}
-              </box>
-            </box>
+              </Flex>
+            </Flex>
           )}
 
           {/* ── IO Tab：过滤栏 + 进程表 ── */}
@@ -610,6 +597,6 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
       >
         <Typography.Text>确认将结束请求回传给宿主？antop 示例不会直接终止本机进程。</Typography.Text>
       </Modal>
-    </box>
+    </Flex>
   )
 }
