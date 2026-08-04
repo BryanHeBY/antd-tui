@@ -41,9 +41,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 })
   const [activeTab, setActiveTab] = useState<AntopTab>("cpu")
 
-  const [splitDetailPid, setSplitDetailPid] = useState<number | null>(null)
-  const [splitLeftWidth, setSplitLeftWidth] = useState(0)
-  const splitResizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  const [detailPid, setDetailPid] = useState<number | null>(null)
 
   const historyRef = useRef<Map<string, number[]>>(new Map())
 
@@ -140,7 +138,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     }
   }, [data])
 
-  const listPanelWidth = splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : terminalWidth
+  const listPanelWidth = terminalWidth
   // Flex 自动分配两栏宽度，MeterBar 自测填满 — 无需手算 barWidth
   const labelWidth = 10        // CPU标签/MEM/SWP 对齐
   const valueWidth = 12        // 数值列对齐
@@ -158,19 +156,15 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
   const visibleProcesses = processes.slice(visibleRange.start, visibleRange.end)
   const topSpacer = visibleRange.start
   const bottomSpacer = processes.length - visibleRange.end
-  const detailProcess = splitDetailPid != null
-    ? (data.processes.find((p) => p.pid === splitDetailPid) ?? null)
+  const detailProcess = detailPid != null
+    ? (data.processes.find((p) => p.pid === detailPid) ?? null)
     : null
 
   const dashboardAvailableHeight = Math.max(4, terminalHeight - 1) // minus statusbar
 
   useKeyboard((key) => {
     if ((key.name === "escape" || key.sequence === "q") && !confirmOpen && isActiveScope()) {
-      if (splitDetailPid != null) {
-        setSplitDetailPid(null)
-      } else {
-        actions?.submit({ selectedPid: selected?.pid, filter, sortBy, sortOrder })
-      }
+      actions?.submit({ selectedPid: selected?.pid, filter, sortBy, sortOrder })
     }
     if (key.sequence === "1" && isActiveScope()) setActiveTab("cpu")
     if (key.sequence === "2" && isActiveScope()) setActiveTab("io")
@@ -182,8 +176,7 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
     const previous = lastRowClick.current
     setSelectedPid(proc.pid)
     if (previous?.pid === proc.pid && now - previous.at <= 350) {
-      setSplitDetailPid((cur) => (cur === proc.pid ? null : proc.pid))
-      if (splitLeftWidth === 0) setSplitLeftWidth(Math.floor((terminalWidth || 110) * 0.6))
+      setDetailPid((cur) => (cur === proc.pid ? null : proc.pid))
       lastRowClick.current = null
     } else {
       lastRowClick.current = { pid: proc.pid, at: now }
@@ -215,20 +208,6 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
       widths[index] = Math.min(maximum, Math.max(MIN_COLUMN_WIDTH, state.widths[index]! + delta))
     }
     setProcessWidths(widths)
-  }
-
-  const handleSplitDividerDown = (event: MouseEvent) => {
-    splitResizeRef.current = { startX: event.x, startWidth: splitLeftWidth }
-    event.stopPropagation()
-  }
-
-  const handleSplitDividerDrag = (event: MouseEvent) => {
-    const state = splitResizeRef.current
-    if (!state) return
-    const delta = event.x - state.startX
-    const minLeft = 30
-    const minRight = 20
-    setSplitLeftWidth(Math.max(minLeft, Math.min(terminalWidth - 1 - minRight, state.startWidth + delta)))
   }
 
   const processCells = (proc: AntopProcess) => [
@@ -521,73 +500,42 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
                   tuiOnChange={setFilter}
                 />
                 <text attributes={0} fg={token.colorTextSecondary}>
-                  {` ${processes.length}/${data.processes.length}  双击查看详情  Esc/q ${splitDetailPid ? "关闭详情" : "退出"} `}
+                  {` ${processes.length}/${data.processes.length}  双击查看详情  Esc/q 退出 `}
                 </text>
               </box>
 
-              {/* ── 进程表（表头 + 分屏内容区）── */}
+              {/* ── 进程表 ── */}
               <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "column" }}>
                 {renderProcessRow(processHeaders, "process-header", { header: true })}
                 <text attributes={0} fg={token.colorBorder}>{separatorLine}</text>
-
-                <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0, flexDirection: "row" }}>
-                  {/* 左：虚拟化进程列表 */}
-                  <scrollbox
-                    ref={processListRef}
-                    scrollY
-                    scrollX={false}
-                    style={{
-                      width: splitDetailPid && splitLeftWidth > 0 ? splitLeftWidth : "100%",
-                      flexShrink: 0,
-                      minHeight: 0,
-                    }}
-                    contentOptions={{ flexDirection: "column", gap: 0, minHeight: "100%", width: "100%" }}
-                  >
-                    {processes.length === 0 ? (
-                      <text attributes={0} fg={token.colorTextSecondary}> 没有匹配的进程</text>
-                    ) : (
-                      <>
-                        {topSpacer > 0 && <box style={{ height: topSpacer }} />}
-                        {visibleProcesses.map((p) => renderProcessRow(processCells(p), String(p.pid), { process: p }))}
-                        {bottomSpacer > 0 && <box style={{ height: bottomSpacer }} />}
-                      </>
-                    )}
-                  </scrollbox>
-
-                  {/* 可拖动分割线 */}
-                  {splitDetailPid && (
-                    <box
-                      style={{ width: 1, flexShrink: 0, backgroundColor: "#252525" }}
-                      onMouseDown={handleSplitDividerDown}
-                      onMouseDrag={handleSplitDividerDrag}
-                      onMouseDragEnd={() => { splitResizeRef.current = null }}
-                    />
+                <scrollbox
+                  ref={processListRef}
+                  scrollY
+                  scrollX={false}
+                  style={{ width: "100%", flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
+                  contentOptions={{ flexDirection: "column", gap: 0, minHeight: "100%", width: "100%" }}
+                >
+                  {processes.length === 0 ? (
+                    <text attributes={0} fg={token.colorTextSecondary}> 没有匹配的进程</text>
+                  ) : (
+                    <>
+                      {topSpacer > 0 && <box style={{ height: topSpacer }} />}
+                      {visibleProcesses.map((p) => renderProcessRow(processCells(p), String(p.pid), { process: p }))}
+                      {bottomSpacer > 0 && <box style={{ height: bottomSpacer }} />}
+                    </>
                   )}
-
-                  {/* 右：详情面板 */}
-                  {splitDetailPid && detailProcess && (
-                    <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, overflow: "hidden" }}>
-                      <DetailPanel
-                        process={detailProcess}
-                        allProcesses={data.processes}
-                        panelWidth={terminalWidth - (splitLeftWidth > 0 ? splitLeftWidth : Math.floor(terminalWidth * 0.6)) - 1}
-                        onClose={() => setSplitDetailPid(null)}
-                        onTerminateRequest={(pid) => { setSelectedPid(pid); setConfirmOpen(true) }}
-                      />
-                    </box>
-                  )}
-                </box>
+                </scrollbox>
               </box>
             </>
           )}
         </>
       )}
 
-      {/* ── 结束请求确认 Modal ── */}
+      {/* ── 终止进程确认 Modal ── */}
       <Modal
         open={confirmOpen}
-        title="发起结束请求"
-        okText="回传请求"
+        title="终止进程"
+        okText="确认终止"
         cancelText="取消"
         tuiOnCancel={() => setConfirmOpen(false)}
         tuiOnOk={() => {
@@ -595,7 +543,28 @@ export function Antop({ actions, snapshot, tuiPollIntervalMs = 2000 }: AntopProp
           setConfirmOpen(false)
         }}
       >
-        <Typography.Text>确认将结束请求回传给宿主？antop 示例不会直接终止本机进程。</Typography.Text>
+        <Typography.Text type="danger">⚠ 即将终止 PID {selected?.pid}（{selected?.command.split(" ")[0] ?? ""}），此操作不可撤销。</Typography.Text>
+      </Modal>
+
+      {/* ── 进程详情 Modal ── */}
+      <Modal
+        open={detailPid != null}
+        title={detailProcess ? fit(detailProcess.command.split(" ")[0] ?? detailProcess.command, 60) : "进程详情"}
+        okText="终止进程"
+        cancelText="关闭窗口"
+        tuiWidth={Math.min(100, terminalWidth)}
+        tuiOnCancel={() => setDetailPid(null)}
+        tuiOnOk={() => {
+          if (detailProcess) { setSelectedPid(detailProcess.pid); setConfirmOpen(true) }
+        }}
+      >
+        {detailProcess && (
+          <DetailPanel
+            process={detailProcess}
+            allProcesses={data.processes}
+            panelWidth={Math.min(100, terminalWidth) - 4}
+          />
+        )}
       </Modal>
     </Flex>
   )

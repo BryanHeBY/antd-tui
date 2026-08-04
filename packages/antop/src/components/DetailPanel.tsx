@@ -1,7 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import { Descriptions, Divider, displayWidth, truncateToWidth, useToken } from "@antd-tui/components"
 import type { AntopProcess } from "../types"
-import { TopMenuAction } from "./TopMenuAction"
 
 export function buildProcessTree(proc: AntopProcess, allProcesses: AntopProcess[]): {
   ancestors: AntopProcess[]
@@ -35,14 +34,10 @@ export function DetailPanel({
   process: proc,
   allProcesses,
   panelWidth,
-  onClose,
-  onTerminateRequest,
 }: {
   process: AntopProcess
   allProcesses: AntopProcess[]
   panelWidth: number
-  onClose: () => void
-  onTerminateRequest: (pid: number) => void
 }) {
   const token = useToken()
   const cpuColor = proc.cpu >= 80 ? token.colorError : proc.cpu >= 50 ? token.colorWarning : token.colorSuccess
@@ -57,24 +52,7 @@ export function DetailPanel({
   const treeInnerWidth = Math.max(4, panelWidth - 4)
 
   return (
-    <box style={{ flexDirection: "column", height: "100%", backgroundColor: "#1a2030", paddingLeft: 1, paddingRight: 1, overflow: "hidden" }}>
-      {/* 标题行（固定） */}
-      <box style={{ height: 1, flexShrink: 0, flexDirection: "row", marginTop: 1 }}>
-        <text attributes={TextAttributes.BOLD} fg={token.colorPrimaryHover}>
-          {truncateToWidth(proc.command.split(" ")[0] ?? proc.command, panelWidth - 8)}
-        </text>
-        <box style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }} />
-        <TopMenuAction onActivate={onClose}>× 关闭</TopMenuAction>
-      </box>
-      <Divider style={{ flexShrink: 0 }} />
-
-      {/* 可滚动内容区 */}
-      <scrollbox
-        scrollY
-        scrollX={false}
-        style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }}
-        contentOptions={{ flexDirection: "column", width: "100%" }}
-      >
+    <>
         {/* 基本信息 */}
         <Descriptions
           column={2}
@@ -147,13 +125,6 @@ export function DetailPanel({
             </box>
           )
         })}
-      </scrollbox>
-
-      {/* 操作区（固定） */}
-      <Divider style={{ flexShrink: 0 }} />
-      <box style={{ height: 1, flexShrink: 0, flexDirection: "row", marginBottom: 1 }}>
-        <TopMenuAction danger onActivate={() => onTerminateRequest(proc.pid)}>结束请求</TopMenuAction>
-      </box>
-    </box>
+      </>
   )
 }

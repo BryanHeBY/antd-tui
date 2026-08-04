@@ -113,18 +113,18 @@ describe("antop", () => {
     await doubleClick(t, "postgres: checkpointer")
     await t.waitUntil(() => t.frame().includes("PID: "), 4000)
     expect(t.frame()).toContain("1700431")
-    await click(t, "结束请求")
-    await t.waitUntil(() => t.frame().includes("发起结束请求"), 4000)
-    await click(t, "回传请求")
+    await click(t, "终止进程")
+    await t.waitUntil(() => t.frame().includes("即将终止"), 4000)
+    await click(t, "确认终止")
     expect(submitted as Record<string, unknown> | null).toEqual({
       action: "terminate-request",
       pid: 1700431,
       command: "postgres: checkpointer --config /etc/postgresql.conf",
     })
 
-    // 关闭详情面板再过滤，否则详情区仍显示 postgres 进程信息
+    // 关闭详情 Modal 再过滤，否则详情区仍显示 postgres 进程信息
     await t.type("\x1b")
-    await t.waitUntil(() => !t.frame().includes("× 关闭"), 2000)
+    await t.waitUntil(() => !t.frame().includes("进程树"), 2000)
 
     await click(t, "过滤 PID / 用户 / 命令")
     await t.type("nginx")
