@@ -187,4 +187,19 @@ describe("createAntermSession", () => {
     await new Promise((resolve) => setTimeout(resolve, 80))
     expect(frames).toBe(settled)
   })
+
+  test("销毁会抑制迟到的 onExit 回调", async () => {
+    let exitCalls = 0
+    const session = createAntermSession({
+      command: "cat",
+      cols: 20,
+      rows: 4,
+      onExit: () => {
+        exitCalls++
+      },
+    })
+    session.kill()
+    await waitUntil(() => session.exited)
+    expect(exitCalls).toBe(0)
+  })
 })

@@ -7,6 +7,14 @@ function collect() {
   return { lines, onLine: (text: string, stream: "out" | "err") => lines.push({ text, stream }) }
 }
 
+async function waitUntil(predicate: () => boolean, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error("等待超时")
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
 describe("runCommand", () => {
   test("回显 stdout 并以退出码 0 结束", async () => {
     const c = collect()
@@ -48,6 +56,47 @@ describe("runCommand", () => {
     setTimeout(() => cmd.kill("SIGINT"), 100)
     const code = await cmd.exited
     expect(code).not.toBe(0)
+  })
+
+  test("中断会终止 shell 管道中的子进程", async () => {
+    // setsid 是 Linux 下为命令创建独立进程组的实现；其他平台走兼容降级。
+    if (process.platform !== "linux" || !Bun.which("setsid")) return
+    const c = collect()
+    let childPid = 0
+    const cmd = runCommand({
+      // `sleep` 在管道前台执行；仅杀 sh 时它会被遗留，组信号才会送达它。
+      line: 'sh -c "echo CHILD:\\$\\$; sleep 30" | cat',
+      cwd: tmpdir(),
+      onLine: c.onLine,
+    })
+    try {
+      await waitUntil(() => c.lines.some((line) => line.text.startsWith("CHILD:")))
+      childPid = Number(c.lines.find((line) => line.text.startsWith("CHILD:"))?.text.slice(6))
+      expect(childPid).toBeGreaterThan(0)
+
+      cmd.kill("SIGINT")
+      expect(await cmd.exited).not.toBe(0)
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      // 测试容器的 PID 1 未必立即回收 zombie；Z 和 /proc 消失都说明 sleep
+      // 已结束，只有仍为 S/R 才代表后台子进程被遗留。
+      let stopped = false
+      try {
+        const stat = await Bun.file(`/proc/${childPid}/stat`).text()
+        stopped = stat.split(" ")[2] === "Z"
+      } catch {
+        stopped = true
+      }
+      expect(stopped).toBe(true)
+    } finally {
+      // 回归失败时也不让测试遗留 sleep 子进程。
+      if (childPid > 0) {
+        try {
+          process.kill(childPid, "SIGKILL")
+        } catch {
+          /* 已被命令组中断 */
+        }
+      }
+    }
   })
 
   test("剥掉残留 ANSI 转义", async () => {

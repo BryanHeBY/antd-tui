@@ -77,12 +77,33 @@ function createScreen(vt: Terminal): AntermScreen {
  * 其他平台没有等价的现成命令，按仓库惯例降级为直接运行：显示与输入照常，
  * 只是 Ctrl-C 等信号键失效。
  */
-function resolveLaunch(command: string, args: string[]): string[] {
+interface TerminalLaunch {
+  cmd: string[]
+  isolatedProcessGroup: boolean
+}
+
+function resolveLaunch(command: string, args: string[]): TerminalLaunch {
   if (process.platform === "linux") {
     const setsid = Bun.which("setsid")
-    if (setsid) return [setsid, "--ctty", command, ...args]
+    if (setsid) return { cmd: [setsid, "--ctty", command, ...args], isolatedProcessGroup: true }
   }
-  return [command, ...args]
+  return { cmd: [command, ...args], isolatedProcessGroup: false }
+}
+
+function killTerminalProcess(
+  proc: ReturnType<typeof Bun.spawn>,
+  isolatedProcessGroup: boolean,
+) {
+  if (isolatedProcessGroup && proc.pid > 0) {
+    try {
+      // setsid 后 leader PID 同时是新进程组 ID，销毁终端时不能留下其子作业。
+      process.kill(-proc.pid, "SIGKILL")
+      return
+    } catch {
+      // 已退出或不支持组信号时由 Bun 直接终止 leader。
+    }
+  }
+  proc.kill()
 }
 
 export function createAntermSession(opts: AntermSessionOptions): AntermSession {
@@ -130,8 +151,9 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     },
   })
 
+  const launch = resolveLaunch(opts.command, opts.args ?? [])
   const proc = Bun.spawn({
-    cmd: resolveLaunch(opts.command, opts.args ?? []),
+    cmd: launch.cmd,
     cwd: opts.cwd,
     env: {
       ...process.env,
@@ -150,6 +172,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
 
   void proc.exited.then((code) => {
     exited = true
+    if (disposed) return
     markDirty()
     opts.onExit?.(code)
   })
@@ -173,7 +196,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
       listeners.clear()
       dataSub.dispose()
       titleSub.dispose()
-      if (!exited) proc.kill()
+      if (!exited) killTerminalProcess(proc, launch.isolatedProcessGroup)
       pty.close()
       vt.dispose()
     },

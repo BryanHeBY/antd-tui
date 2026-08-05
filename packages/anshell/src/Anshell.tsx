@@ -37,6 +37,7 @@ export function Anshell({
 
   const runningRef = useRef<RunningCommand | null>(null)
   const clientRef = useRef<AcpClient | null>(null)
+  const quittingRef = useRef(false)
   const history = useRef<string[]>([])
   const historyPos = useRef<number>(-1)
   const cwdRef = useRef(cwd)
@@ -54,9 +55,13 @@ export function Anshell({
   latest.current = { transcript }
 
   const quit = useCallback(() => {
+    if (quittingRef.current) return
+    quittingRef.current = true
     runningRef.current?.kill("SIGKILL")
-    void clientRef.current?.stop()
-    ;(onQuit ?? (() => process.exit(0)))()
+    const done = onQuit ?? (() => process.exit(0))
+    const client = clientRef.current
+    if (client) void client.stop().finally(done)
+    else done()
   }, [onQuit])
 
   // 可选 agent：配置了 agentCmd 就起 ACP 客户端，走基础 prompt/stream 闭环
