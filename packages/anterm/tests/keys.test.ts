@@ -66,6 +66,13 @@ describe("逃逸键", () => {
     expect(matchesEscapeKey(key("\x1d"), spec)).toBe(true)
     expect(matchesEscapeKey(key("\x03"), spec)).toBe(false)
   })
+
+  test("hotkey 匹配：Ctrl+O 命中其 spec，普通键不命中（用于 tuiHotkeys 拦截）", () => {
+    const spec = parseEscapeKey("ctrl+o")
+    expect(matchesEscapeKey(key("\x0f"), spec)).toBe(true) // Ctrl+O = 0x0f
+    expect(matchesEscapeKey(key("o"), spec)).toBe(false)
+    expect(matchesEscapeKey(key("\x03"), spec)).toBe(false)
+  })
 })
 
 describe("encodePaste", () => {

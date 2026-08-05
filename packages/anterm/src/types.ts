@@ -86,6 +86,11 @@ export interface AntermProps {
   tuiPalette?: readonly string[]
   /** 交还焦点的逃逸键，默认 "ctrl+]"（telnet 风格）。终端独占全部按键，没有它焦点出不来。 */
   tuiEscapeKey?: string
+  /**
+   * 宿主热键表（键名如 "ctrl+o"）。终端聚焦时命中的键被拦截并调用回调，不透传给
+   * 子进程——供宿主保留少量自己的快捷键（如切换窗口大小）。
+   */
+  tuiHotkeys?: Record<string, () => void>
   tuiOnTitleChange?: (title: string) => void
   tuiOnReady?: (handle: AntermHandle) => void
 }

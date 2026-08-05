@@ -33,6 +33,7 @@ export function Anterm({
   tuiScrollback = 1000,
   tuiPalette,
   tuiEscapeKey = DEFAULT_ESCAPE_KEY,
+  tuiHotkeys,
   tuiOnTitleChange,
   tuiOnReady,
 }: AntermProps) {
@@ -99,6 +100,11 @@ export function Anterm({
   }, [autoFocus])
 
   const escapeSpec = useMemo(() => parseEscapeKey(tuiEscapeKey), [tuiEscapeKey])
+  const hotkeys = useMemo(
+    () =>
+      Object.entries(tuiHotkeys ?? {}).map(([key, cb]) => ({ spec: parseEscapeKey(key), cb })),
+    [tuiHotkeys],
+  )
 
   useKeyboard((key) => {
     const session = sessionRef.current
@@ -106,6 +112,13 @@ export function Anterm({
     if (matchesEscapeKey(key, escapeSpec)) {
       focusNext()
       return
+    }
+    // 宿主热键：命中则拦截，不透传子进程
+    for (const { spec, cb } of hotkeys) {
+      if (matchesEscapeKey(key, spec)) {
+        cb()
+        return
+      }
     }
     const bytes = encodeKey(key, { applicationCursorKeys: session.applicationCursorKeys })
     if (bytes === null) return
