@@ -10,7 +10,7 @@
 
 ## 包结构
 
-Bun workspace,八个包:
+Bun workspace,十个包:
 
 | 包 | 职责 |
 |---|---|
@@ -18,9 +18,11 @@ Bun workspace,八个包:
 | `@antd-tui/engine` | 页面 Schema 校验、`PageView`/`App` 渲染、无头快照与 `--drive` 驱动器、CLI |
 | `@antd-tui/formily` | 把 Formily `SchemaField` 映射到组件库(Schema 通路的表单引擎) |
 | `@antd-tui/live` | `$ui` 活对象树运行时:真 JS 对象 + 真函数、操作级校验、observable 自驱渲染 |
+| `@antd-tui/acp` | ACP 客户端桥:连接 agent 子进程(initialize/session/prompt/update),纯协议、零 UI |
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
 | `@antd-tui/anterm` | 内嵌可交互子终端,能跑 `vim` / `htop` / `ssh` |
+| `@antd-tui/anshell` | agent 时代的对话式 shell:分诊命令/交互程序/agent |
 | `@antd-tui/test-utils` | 进程内终端渲染的测试夹具 |
 
 ## 三条通路
@@ -135,7 +137,35 @@ import { Anterm } from "@antd-tui/anterm"
 - **鼠标按协商级别透传**。子进程经 DECSET 1000/1002/1003 声明追踪级别,组件据此过滤事件种类,并按 1006 决定用 SGR 还是 X10 编码。注意 DECSET 允许合并参数(htop 发的是 `\x1b[?1006;1000h`),必须按参数拆开判断,否则会退化成 X10 而让子进程把坐标字节读成按键。子进程没要鼠标时,滚轮用来翻组件自己的回看缓冲。
 - **ANSI 0-15 走自带色板**。opentui 会把 palette 索引摊平成 xterm 的静态默认值(ANSI 1 是 `#800000`),放在现代终端里内容会明显发闷,所以组件自带一张 Campbell 色板,可经 `tuiPalette` 覆盖。索引 16-255 是与主题无关的标准 256 色立方体,不受影响。
 
+## anshell:对话式 shell
+
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个对话框:输入经启发式分诊走三条路——
+
+- **命令**:首词能在 PATH 解析,或整行含 shell 元字符(`| > & ; $` …)→ 经 `sh -lc` 一次性跑,输出流式回显进对话。
+- **交互程序**:首词是 `bash`/`vim`/`htop`/`ssh` 等 → 压入视图栈,嵌入 `@antd-tui/anterm` 全屏接管;程序结束(`exit`/`:q`/`q`)出栈回对话框。
+- **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
+
+```sh
+# 需要真实 TTY
+bun run ansh
+bun run ansh --agent "<agent 启动命令>"
+```
+
+```tsx
+import { Anshell } from "@antd-tui/anshell"
+
+<Anshell agentCmd={["qodercli", "--acp"]} />
+```
+
+要点:
+
+- **视图栈建模**。对话为基座,交互程序压栈接管,为后续「窗口嵌套」预留结构。
+- **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层:内嵌程序先收到就自己结束出栈,对话层再收到才退 anshell);**Ctrl-C 只中断**在跑的命令,不退出。
+- **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。
+- 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。
+
 ## 组件
+
 
 31 个组件,命名与语义对齐 antd:`Button` / `Input` / `InputNumber` / `TextArea` / `Select` / `Checkbox` / `Radio` / `Switch` / `Slider` / `FormItem` / `Typography`(Text/Title/Link)/ `Card` / `Space` / `Flex` / `Row` / `Col` / `List` / `Table` / `Descriptions` / `Statistic` / `Progress` / `Tag` / `Alert` / `Divider` / `Spin` / `Modal` / `message` 等。
 
