@@ -19,7 +19,8 @@
       "@antd-tui/test-utils": ["packages/test-utils/src/index.tsx"],
       "@antd-tui/acp": ["packages/acp/src/index.ts"],
       "@antd-tui/antop": ["packages/antop/src/index.ts"],
-      "@antd-tui/anterm": ["packages/anterm/src/index.ts"]
+      "@antd-tui/anterm": ["packages/anterm/src/index.ts"],
+      "@antd-tui/anshell": ["packages/anshell/src/index.ts"]
     }
   },
   "include": ["packages/*/src/**/*", "packages/*/tests/**/*"]
