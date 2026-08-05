@@ -1,8 +1,3 @@
-import { access, readdir } from "node:fs/promises"
-import { constants } from "node:fs"
-import { basename, dirname, isAbsolute, join, resolve } from "node:path"
-import { homedir } from "node:os"
-
 export type ShellTokenKind =
   | "command"
   | "word"
@@ -26,23 +21,6 @@ export interface ShellToken {
 export interface ShellLexResult {
   tokens: ShellToken[]
   incomplete: boolean
-}
-
-export type SyntaxDiagnostic =
-  | { kind: "valid"; message?: undefined }
-  | { kind: "incomplete" | "invalid"; message: string }
-
-export interface CompletionItem {
-  label: string
-  value: string
-  kind: "command" | "directory" | "file" | "variable"
-}
-
-export interface CompletionResult {
-  /** Unicode code point offsets，直接用于 InputEdit。 */
-  start: number
-  end: number
-  items: CompletionItem[]
 }
 
 const CONTROL_OPERATORS = ["<<<", "&&", "||", ">>", "<<", ";;", "|&", ";", "|", "&", ">", "<", "(", ")", "{", "}"]
@@ -265,6 +243,10 @@ export function lexShell(input: string): ShellLexResult {
   return { tokens, incomplete }
 }
 
+export function isCommandSeparator(text: string): boolean {
+  return COMMAND_SEPARATORS.has(text)
+}
+
 export function toCodePointOffset(text: string, utf16Offset: number): number {
   return Array.from(text.slice(0, utf16Offset)).length
 }
@@ -278,160 +260,4 @@ export function unquoteShellWord(word: string): string {
     return word.slice(1, -1)
   }
   return word.replace(/\\(.)/g, "$1")
-}
-
-export function resolveShell(shell?: string): string {
-  return shell || process.env.SHELL || "/bin/sh"
-}
-
-export async function checkShellSyntax(
-  line: string,
-  shell: string,
-  cwd: string,
-): Promise<SyntaxDiagnostic> {
-  if (line.trim() === "") return { kind: "valid" }
-  const dialect = basename(shell)
-  const args = dialect === "bash"
-    ? ["--noprofile", "--norc", "-n", "-c", line]
-    : dialect === "zsh"
-      ? ["-f", "-n", "-c", line]
-      : ["-n", "-c", line]
-  const proc = Bun.spawn([shell, ...args], {
-    cwd,
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "pipe",
-    env: { ...process.env, BASH_ENV: "", ENV: "" },
-  })
-  const timer = setTimeout(() => proc.kill("SIGKILL"), 1500)
-  try {
-    const [code, stderr] = await Promise.all([
-      proc.exited,
-      new Response(proc.stderr as ReadableStream<Uint8Array>).text(),
-    ])
-    if (code === 0) return { kind: "valid" }
-    const message = stderr.trim().split("\n").at(-1) || `${dialect} 语法检查失败`
-    const incomplete = lexShell(line).incomplete || /unexpected (?:end of file|EOF)|unmatched|matching/.test(stderr)
-    return { kind: incomplete ? "incomplete" : "invalid", message }
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-let executableCache: { path: string; expires: number; values: string[] } | null = null
-
-async function executableNames(pathValue: string): Promise<string[]> {
-  if (executableCache?.path === pathValue && executableCache.expires > Date.now()) {
-    return executableCache.values
-  }
-  const names = new Set<string>(SHELL_BUILTINS)
-  await Promise.all(
-    pathValue.split(":").filter(Boolean).map(async (dir) => {
-      let entries
-      try {
-        entries = await readdir(dir, { withFileTypes: true })
-      } catch {
-        return
-      }
-      await Promise.all(entries.filter((entry) => !entry.isDirectory()).map(async (entry) => {
-        try {
-          await access(join(dir, entry.name), constants.X_OK)
-          names.add(entry.name)
-        } catch {
-          // PATH 中不可执行的文件不是命令候选。
-        }
-      }))
-    }),
-  )
-  const values = [...names].sort()
-  executableCache = { path: pathValue, expires: Date.now() + 2000, values }
-  return values
-}
-
-function expandHome(path: string): string {
-  if (path === "~") return homedir()
-  if (path.startsWith("~/")) return join(homedir(), path.slice(2))
-  return path
-}
-
-function escapeShellWord(value: string, quoted: boolean): string {
-  return quoted ? value : value.replace(/([\s\\'"`$&|;<>()[\]{}*?!#])/g, "\\$1")
-}
-
-function completionRange(line: string, cursorUtf16: number): { start: number; raw: string; command: boolean } {
-  const before = line.slice(0, cursorUtf16)
-  const lexed = lexShell(before)
-  const last = lexed.tokens.at(-1)
-  if (last && last.end === cursorUtf16 && last.kind !== "operator" && last.kind !== "comment") {
-    return { start: last.start, raw: line.slice(last.start, cursorUtf16), command: last.kind === "command" }
-  }
-  const previous = lexed.tokens.at(-1)
-  const command = !previous || (previous.kind === "operator" && COMMAND_SEPARATORS.has(previous.text))
-  return { start: cursorUtf16, raw: "", command }
-}
-
-export async function completeShellInput(
-  line: string,
-  cursor: number,
-  cwd: string,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<CompletionResult> {
-  const cursorUtf16 = toUtf16Offset(line, cursor)
-  const range = completionRange(line, cursorUtf16)
-  const raw = range.raw
-  const quote = raw.startsWith("'") || raw.startsWith('"') ? raw[0] : ""
-  const prefix = unquoteShellWord(quote ? raw.slice(1) : raw)
-  let items: CompletionItem[] = []
-
-  if (range.command && !prefix.includes("/")) {
-    const names = await executableNames(env.PATH ?? "")
-    items = names
-      .filter((name) => name.startsWith(prefix))
-      .map((name) => ({ label: name, value: `${quote}${name}`, kind: "command" as const }))
-  } else if (prefix.startsWith("$") && /^\$[A-Za-z0-9_]*$/.test(prefix)) {
-    const needle = prefix.slice(1)
-    items = Object.keys(env)
-      .filter((name) => name.startsWith(needle))
-      .sort()
-      .map((name) => ({ label: `$${name}`, value: `$${name}`, kind: "variable" as const }))
-  } else {
-    const expanded = expandHome(prefix)
-    const dirPart = dirname(expanded)
-    const basePart = basename(expanded)
-    const searchDir = isAbsolute(expanded) ? dirPart : resolve(cwd, dirPart === "." ? "" : dirPart)
-    try {
-      const entries = await readdir(searchDir, { withFileTypes: true })
-      const prefixDir = dirname(prefix)
-      const shownDir = prefixDir === "." ? "" : prefixDir === "/" ? "/" : `${prefixDir}/`
-      items = entries
-        .filter((entry) => entry.name.startsWith(basePart))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((entry) => {
-          const display = `${shownDir}${entry.name}${entry.isDirectory() ? "/" : ""}`
-          return {
-            label: display,
-            value: `${quote}${escapeShellWord(display, quote !== "")}`,
-            kind: entry.isDirectory() ? "directory" as const : "file" as const,
-          }
-        })
-    } catch {
-      items = []
-    }
-  }
-
-  return {
-    start: toCodePointOffset(line, range.start),
-    end: cursor,
-    items: items.slice(0, 200),
-  }
-}
-
-export function commonPrefix(values: string[]): string {
-  if (values.length === 0) return ""
-  let prefix = values[0]!
-  for (const value of values.slice(1)) {
-    while (!value.startsWith(prefix) && prefix.length > 0) prefix = prefix.slice(0, -1)
-    if (prefix === "") break
-  }
-  return prefix
 }
