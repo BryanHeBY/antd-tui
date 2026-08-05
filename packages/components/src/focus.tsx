@@ -18,7 +18,7 @@ import { useKeyboard } from "@opentui/react"
  * 注册项可选提供 getRect（布局后屏幕坐标），↑↓←→ 按空间最近邻导航。
  */
 
-export type FocusableKind = "input" | "action"
+export type FocusableKind = "input" | "action" | "capture"
 
 export interface FocusableRect {
   x: number
@@ -188,21 +188,22 @@ export function FocusScope({ suspended = false, children }: FocusScopeProps) {
   useKeyboard((key) => {
     // 焦点圈闭：浮层打开时只有最内层作用域响应按键
     if (!isActiveScope()) return
+    const focused = entriesRef.current.find((e) => e.id === focusedIdRef.current)
+    // capture 类组件（内嵌终端）独占全部按键：Tab 要透传给子进程做 shell 补全
+    if (focused && focused.kind === "capture") return
     if (key.name === "tab") {
       move(key.shift ? -1 : 1)
       return
     }
     if (key.name === "up" || key.name === "down" || key.name === "left" || key.name === "right") {
-      const entry = entriesRef.current.find((e) => e.id === focusedIdRef.current)
       // input 类组件自行消费方向键（光标移动 / Select 选项切换）
-      if (entry && entry.kind === "input") return
+      if (focused && focused.kind === "input") return
       spatialMove(key.name)
       return
     }
     if (key.name === "return" || key.name === "enter") {
-      const entry = entriesRef.current.find((e) => e.id === focusedIdRef.current)
       // input 类组件自行消费 Enter（onSubmit），这里只激活 action
-      if (entry && entry.kind === "action" && !entry.disabled) entry.activate?.()
+      if (focused && focused.kind === "action" && !focused.disabled) focused.activate?.()
     }
   })
 
