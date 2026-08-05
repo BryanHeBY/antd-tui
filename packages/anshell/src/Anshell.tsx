@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle, useToken } from "@antd-tui/components"
@@ -10,6 +10,7 @@ import { useTranscript } from "./transcript"
 import { BlockView, DraftCard, type PromotedTerminal } from "./cards"
 import { cardTint } from "./theme"
 import { TerminalInputHandoff } from "./terminal-input"
+import { draftReducer, initialDraftState } from "./draft-state"
 import type { AnshellProps, Overlay } from "./types"
 import {
   checkShellSyntax,
@@ -17,8 +18,6 @@ import {
   completeShellInput,
   lexShell,
   resolveShell,
-  type CompletionItem,
-  type SyntaxDiagnostic,
 } from "./shell"
 
 /**
@@ -41,14 +40,11 @@ export function Anshell({
   style,
 }: AnshellProps) {
   const [cwd, setCwd] = useState(initialCwd ?? process.cwd())
-  const [input, setInput] = useState("")
-  const [busy, setBusy] = useState(false)
+  const [draft, dispatchDraft] = useReducer(draftReducer, initialDraftState)
+  const { input, routeOverride, diagnostic, completions } = draft
   const [overlay, setOverlay] = useState<Overlay | null>(null)
   const [promotedTerminal, setPromotedTerminal] = useState<PromotedTerminal | null>(null)
   const [promotedMode, setPromotedMode] = useState<"popup" | "fullscreen">("popup")
-  const [routeOverride, setRouteOverride] = useState<"shell" | "agent" | null>(null)
-  const [diagnostic, setDiagnostic] = useState<SyntaxDiagnostic | null>(null)
-  const [completions, setCompletions] = useState<CompletionItem[]>([])
   const [draftCursorVisible, setDraftCursorVisible] = useState(true)
   const transcript = useTranscript()
   const commandShell = useMemo(() => resolveShell(shell), [shell])
@@ -113,7 +109,6 @@ export function Anshell({
       {
         onUpdate: (text) => latest.current.transcript.appendAgentChunk(text),
         onTurnEnd: () => latest.current.transcript.flushAgent(),
-        onBusy: setBusy,
         onExit: () => {
           latest.current.transcript.flushAgent()
           latest.current.transcript.addNote("system", "agent 已退出")
@@ -139,9 +134,12 @@ export function Anshell({
     }
     const timer = setTimeout(() => {
       void checkShellSyntax(input, commandShell, cwdRef.current).then((result) => {
-        if (!cancelled && result.kind !== "valid") setDiagnostic(result)
+        if (!cancelled && result.kind !== "valid") dispatchDraft({ type: "diagnostic", diagnostic: result })
       }).catch((error: unknown) => {
-        if (!cancelled) setDiagnostic({ kind: "invalid", message: `语法检查失败：${(error as Error).message}` })
+        if (!cancelled) dispatchDraft({
+          type: "diagnostic",
+          diagnostic: { kind: "invalid", message: `语法检查失败：${(error as Error).message}` },
+        })
       })
     }, 120)
     return () => {
@@ -168,16 +166,11 @@ export function Anshell({
   }, [commandShell])
 
   const changeInput = useCallback((value: string) => {
-    setInput(value)
-    setCompletions([])
-    setDiagnostic(null)
+    dispatchDraft({ type: "change", input: value })
   }, [])
 
   const cancelDraft = useCallback(() => {
-    setInput("")
-    setRouteOverride(null)
-    setCompletions([])
-    setDiagnostic(null)
+    dispatchDraft({ type: "reset" })
     historyPos.current = -1
   }, [])
 
@@ -188,7 +181,7 @@ export function Anshell({
       if (inputMode !== "shell" && routeOverride === "agent") return
       const result = await completeShellInput(value, cursor, cwdRef.current)
       if (result.items.length === 0) {
-        setCompletions([])
+        dispatchDraft({ type: "completions", completions: [] })
         return
       }
       const chars = Array.from(value)
@@ -202,13 +195,13 @@ export function Anshell({
         if (prefix.length > current.length) replacement = prefix
       }
       if (replacement !== "") {
-        setCompletions([])
+        dispatchDraft({ type: "completions", completions: [] })
         return {
           value: [...chars.slice(0, result.start), replacement, ...chars.slice(result.end)].join(""),
           cursor: result.start + Array.from(replacement).length,
         }
       }
-      setCompletions(result.items.slice(0, 50))
+      dispatchDraft({ type: "completions", completions: result.items.slice(0, 50) })
     },
     [inputMode, routeOverride],
   )
@@ -216,10 +209,7 @@ export function Anshell({
   const submitLine = useCallback(() => {
     const line = input.trim()
     const mode = inputMode
-    setInput("")
-    setRouteOverride(null)
-    setCompletions([])
-    setDiagnostic(null)
+    dispatchDraft({ type: "reset" })
     historyPos.current = -1
     if (line === "") return
     history.current.push(line)
@@ -260,10 +250,7 @@ export function Anshell({
   const submitInteractiveLine = useCallback(() => {
     const line = input.trim()
     if (line === "") return
-    setInput("")
-    setRouteOverride(null)
-    setCompletions([])
-    setDiagnostic(null)
+    dispatchDraft({ type: "reset" })
     historyPos.current = -1
     history.current.push(line)
     openInteractiveLine(line)
@@ -290,7 +277,7 @@ export function Anshell({
   const handleTerminalSessionReady = useCallback((session: AntermSession) => {
     terminalInput.attach(session)
     // 覆盖交接窗口内旧 DraftCard 可能产生的迟到 onChange。
-    setInput("")
+    dispatchDraft({ type: "change", input: "" })
   }, [terminalInput])
 
   const handleTerminalSessionRelease = useCallback((session: AntermSession) => {
@@ -320,9 +307,7 @@ export function Anshell({
     if (key.ctrl && key.name === "t") {
       key.preventDefault?.()
       key.stopPropagation?.()
-      setRouteOverride(inputMode === "shell" ? "agent" : "shell")
-      setCompletions([])
-      setDiagnostic(null)
+      dispatchDraft({ type: "route", route: inputMode === "shell" ? "agent" : "shell" })
       return
     }
     if (key.ctrl && key.name === "d") {
