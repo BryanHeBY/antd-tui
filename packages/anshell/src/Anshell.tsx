@@ -15,8 +15,8 @@ import type { AnshellProps, Overlay } from "./types"
  * anshell：agent 时代的对话式 shell（流式布局 + shell 行内输入）。
  *
  * 单条流式滚动：命令/终端/agent 各成卡片自上而下流动。输入是流尾「草稿卡片」的
- * 可编辑头部（`<cwd> ❯ …`），Enter 后就地冻结成命令卡片头、输出在同卡片下方延伸
- * （所见即所得），命令跑完再现空草稿。启发式分诊：一次性命令成命令卡片；
+ * 可编辑头部（`<cwd> ❯ …`），Enter 后就地冻结成输入卡，输出以不同底色的卡片
+ * 紧贴其下（所见即所得），命令跑完再现空草稿。启发式分诊：一次性命令成命令记录；
  * bash/vim/htop 等重型终端走弹窗浮层（Ctrl+O 切全屏）；inlineCommands 内嵌流内活
  * 终端卡片；自然语言交给 agent。退出用 Ctrl-D（空输入）或 exit；Ctrl-C 中断在跑命令。
  */
@@ -200,7 +200,7 @@ export function Anshell({
               scrollX={false}
               stickyScroll
               stickyStart="bottom"
-              contentOptions={{ flexDirection: "column", width: "100%", minHeight: "100%", gap: 1 }}
+              contentOptions={{ flexDirection: "column", width: "100%", minHeight: "100%", gap: 0 }}
             >
               {transcript.blocks.map((block) => (
                 <BlockView

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { parseColor } from "@opentui/core"
 import type { ReactNode } from "react"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
-import { Anshell, type AnshellProps } from "../src/index"
+import { Anshell, cardTint, type AnshellProps } from "../src/index"
 
 let active: TuiTestSetup | null = null
 
@@ -44,6 +45,28 @@ describe("Anshell 流式布局", () => {
     const frame = t.frame()
     expect(frame).toContain("hello-shell")
     expect(frame).toContain("❯")
+  })
+
+  test("输入与输出使用不同底色并连续相邻", async () => {
+    const t = await mount({}, { width: 60, height: 10 })
+    await t.type("echo $((6*7))")
+    await t.enter()
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"))
+    await t.waitUntil(() => t.frame().includes("输入命令或对话"))
+
+    const textLines = t.frame().split("\n")
+    const inputRow = textLines.findIndex((line) => line.includes("❯ echo $((6*7))"))
+    const outputRow = textLines.findIndex((line) => line.trim() === "42")
+    const draftRow = textLines.findIndex((line) => line.includes("❯ 输入命令或对话"))
+    expect(outputRow).toBe(inputRow + 1)
+    expect(draftRow).toBe(outputRow + 1)
+
+    const captured = t.raw.captureSpans()
+    const commandSpan = captured.lines[inputRow]!.spans.find((span) => span.text.includes("echo"))
+    const outputSpan = captured.lines[outputRow]!.spans.find((span) => span.text.includes("42"))
+    expect(commandSpan?.bg.toInts()).toEqual(parseColor(cardTint.input).toInts())
+    expect(outputSpan?.bg.toInts()).toEqual(parseColor(cardTint.output).toInts())
+    expect(commandSpan?.bg.toInts()).not.toEqual(outputSpan?.bg.toInts())
   })
 
   test("cwd 进提示前缀（cd 后更新，无独立状态行）", async () => {

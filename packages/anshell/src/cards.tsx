@@ -28,44 +28,61 @@ function RunningFooter() {
   )
 }
 
-/** 命令卡片：<cwd> ❯ 命令头（输入色）+ 输出行（较暗，区分输入）+ 运行/退出码尾。 */
+/**
+ * 命令记录：输入卡与输出卡是两个不同底色的相邻区域。
+ * 外层 gap=0，保证两张卡以及前后流项目之间不会露出空行。
+ */
 export function CommandCard({ block }: { block: Extract<Block, { kind: "command" }> }) {
   const token = useToken()
+  const hasOutput = block.lines.length > 0 || block.running || (block.exitCode !== null && block.exitCode !== 0)
   return (
-    <box
-      style={{
-        backgroundColor: cardTint.command,
-        flexDirection: "column",
-        paddingLeft: 1,
-        paddingRight: 1,
-        width: "100%",
-      }}
-    >
-      <text attributes={0}>
-        <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
-        <span fg={token.colorPrimaryHover}>❯ </span>
-        <span fg={token.colorText}>{block.command}</span>
-      </text>
-      {block.lines.map((line, i) => (
-        <text
-          key={i}
-          attributes={0}
-          fg={line.stream === "err" ? token.colorError : token.colorTextSecondary}
-        >
-          {line.text === "" ? " " : line.text}
+    <box style={{ flexDirection: "column", gap: 0, width: "100%" }}>
+      <box
+        style={{
+          backgroundColor: cardTint.input,
+          paddingLeft: 1,
+          paddingRight: 1,
+          width: "100%",
+        }}
+      >
+        <text attributes={0}>
+          <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
+          <span fg={token.colorPrimaryHover}>❯ </span>
+          <span fg={token.colorText}>{block.command}</span>
         </text>
-      ))}
-      {block.running ? (
-        <RunningFooter />
-      ) : block.exitCode !== null && block.exitCode !== 0 ? (
-        <text attributes={0} fg={token.colorTextDisabled}>{`exit ${block.exitCode}`}</text>
+      </box>
+      {hasOutput ? (
+        <box
+          style={{
+            backgroundColor: cardTint.output,
+            flexDirection: "column",
+            paddingLeft: 1,
+            paddingRight: 1,
+            width: "100%",
+          }}
+        >
+          {block.lines.map((line, i) => (
+            <text
+              key={i}
+              attributes={0}
+              fg={line.stream === "err" ? token.colorError : token.colorTextSecondary}
+            >
+              {line.text === "" ? " " : line.text}
+            </text>
+          ))}
+          {block.running ? (
+            <RunningFooter />
+          ) : block.exitCode !== null && block.exitCode !== 0 ? (
+            <text attributes={0} fg={token.colorTextDisabled}>{`exit ${block.exitCode}`}</text>
+          ) : null}
+        </box>
       ) : null}
     </box>
   )
 }
 
 /**
- * 草稿卡片：流尾正在敲的下一条命令。与命令卡片头同底色、同 `<cwd> ❯ ` 头格式，
+ * 草稿卡片：流尾正在敲的下一条命令。与已提交输入卡同底色、同 `<cwd> ❯ ` 头格式，
  * 故 Enter 后原样冻结成命令卡片头（所见即所得）。
  */
 export function DraftCard({
@@ -83,7 +100,7 @@ export function DraftCard({
   return (
     <box
       style={{
-        backgroundColor: cardTint.command,
+        backgroundColor: cardTint.input,
         flexDirection: "row",
         paddingLeft: 1,
         paddingRight: 1,
@@ -100,7 +117,7 @@ export function DraftCard({
         compact
         tuiOnChange={onChange}
         tuiOnPressEnter={onSubmit}
-        style={{ backgroundColor: cardTint.command, flexGrow: 1 }}
+        style={{ backgroundColor: cardTint.input, flexGrow: 1 }}
       />
     </box>
   )
