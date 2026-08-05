@@ -163,7 +163,7 @@ import { Anshell } from "@antd-tui/anshell"
 
 - **感知式行内输入(所见即所得)**。自动路由以 `$`(Shell)/`◆`(Agent)实时反馈,`Ctrl+T` 显式切换当前草稿;Enter 后原样冻结,输出以较暗底色的卡片紧贴其下,所有流项目之间不留空行。无独立底部输入框、无状态行,cwd 融进每张输入卡的提示符。
 - **PTY 行为驱动视图**。normal buffer 平铺进历史流并自然增长;alternate screen 自动弹出。视图切换复用同一个 PTY 会话,不会重启子进程。
-- **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层);**Ctrl-C 只中断**在跑的命令,不退出。
+- **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层);草稿中 **Ctrl-C 取消当前输入**,命令运行中则把 Ctrl-C 原样交给 PTY 产生中断,均不退出应用。
 - **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。
 - 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。
 

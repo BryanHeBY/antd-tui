@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { BaseRenderable, parseColor, ScrollBoxRenderable } from "@opentui/core"
 import { act, type ReactNode } from "react"
-import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
+import { KeyCodes, renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
 import { Anshell, cardTint, type AnshellProps } from "../src/index"
 
 let active: TuiTestSetup | null = null
@@ -15,6 +15,8 @@ async function mount(props: AnshellProps = {}, options?: { width?: number; heigh
   const t = await renderTui(<Anshell {...props} /> as ReactNode, {
     width: options?.width ?? 60,
     height: options?.height ?? 14,
+    // 生产 CLI 由 Anshell 接管 Ctrl-C；测试渲染器默认 true 会先销毁整个画面。
+    exitOnCtrlC: false,
   })
   active = t
   return t
@@ -114,6 +116,25 @@ describe("Anshell 流式布局", () => {
     expect(t.frame()).toContain("◆ echo forced-agent")
     // 新草稿不继承强制路由，空输入按自动规则回到 Agent。
     expect(t.frame()).toContain("◆ 输入 Agent 提示")
+  })
+
+  test("Ctrl+C 取消当前草稿，不执行也不进入历史", async () => {
+    const t = await mount()
+    await t.type("echo should-be-skipped")
+    expect(t.frame()).toContain("$ echo should-be-skipped")
+    await t.press("t", { ctrl: true })
+    expect(t.frame()).toContain("◆ echo should-be-skipped")
+
+    await t.press("c", { ctrl: true })
+    await t.waitUntil(() => t.frame().includes("◆ 输入 Agent 提示"))
+    expect(t.frame()).not.toContain("should-be-skipped")
+
+    // 取消后回到自动路由，且 ↑ 不会找回未执行的草稿。
+    await t.press(KeyCodes.ARROW_UP)
+    expect(t.frame()).toContain("◆ 输入 Agent 提示")
+    await t.type("echo next-command")
+    await t.enter()
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "next-command"))
   })
 
   test("Tab 完成目录并保留输入焦点", async () => {

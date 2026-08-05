@@ -27,7 +27,8 @@ import {
  * 可编辑头部（Shell 为 `<cwd> $ …`，Agent 为 `<cwd> ◆ …`）。Shell 命令提交后形成流内 PTY
  * 卡片，键盘直通子进程；退出后保留最终画面并恢复空草稿。PTY 进入 alternate screen 时
  * 同一会话自动提升为弹窗（Ctrl+O 切全屏），不依赖 bash/vim 等命令名特判；自然语言交给 agent。
- * 空草稿按 Ctrl-D 或输入 exit 退出应用，运行中的 Ctrl-C/Ctrl-D 则原样交给 PTY。
+ * 草稿中的 Ctrl-C 取消当前输入，空草稿按 Ctrl-D 或输入 exit 退出应用；运行中的
+ * Ctrl-C/Ctrl-D 则原样交给 PTY。
  */
 export function Anshell({
   cwd: initialCwd,
@@ -173,6 +174,14 @@ export function Anshell({
     setInput(value)
     setCompletions([])
     setDiagnostic(null)
+  }, [])
+
+  const cancelDraft = useCallback(() => {
+    setInput("")
+    setRouteOverride(null)
+    setCompletions([])
+    setDiagnostic(null)
+    historyPos.current = -1
   }, [])
 
   const completeInput = useCallback(
@@ -336,7 +345,12 @@ export function Anshell({
       if (input === "") quit()
       return
     }
-    if (key.ctrl && key.name === "c") return
+    if (key.ctrl && key.name === "c") {
+      key.preventDefault?.()
+      key.stopPropagation?.()
+      cancelDraft()
+      return
+    }
     if (key.name === "up") {
       const h = history.current
       if (h.length === 0) return
