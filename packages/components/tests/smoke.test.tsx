@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { BaseRenderable, ScrollBoxRenderable } from "@opentui/core"
+import { BaseRenderable, ScrollBoxRenderable, parseColor } from "@opentui/core"
+import { useState } from "react"
 import { renderTui } from "@antd-tui/test-utils"
 import { ConfigProvider } from "../src/theme"
 import { FocusScope } from "../src/focus"
@@ -180,6 +181,73 @@ describe("Input + FocusScope", () => {
 
     await t.enter()
     expect(submits).toBe(1)
+    t.destroy()
+  })
+
+  test("tuiHighlights 直接装饰原生输入缓冲", async () => {
+    const t = await renderTui(
+      wrap(
+        <Input
+          compact
+          value="echo --help"
+          tuiOnChange={() => {}}
+          tuiHighlights={[
+            { start: 0, end: 4, color: "#40a9ff", bold: true },
+            { start: 5, end: 11, color: "#faad14" },
+          ]}
+        />,
+      ),
+      { width: 40, height: 4 },
+    )
+
+    const line = t.raw.captureSpans().lines.find((item) => item.spans.some((span) => span.text.includes("echo")))!
+    const command = line.spans.find((span) => span.text.includes("echo"))!
+    const option = line.spans.find((span) => span.text.includes("--help"))!
+    expect(command.fg.toInts()).toEqual(parseColor("#40a9ff").toInts())
+    expect(option.fg.toInts()).toEqual(parseColor("#faad14").toInts())
+    t.destroy()
+  })
+
+  test("tuiOnTab 接管补全且不切走焦点", async () => {
+    function Demo() {
+      const [value, setValue] = useState("pw")
+      return (
+        <Input
+          compact
+          value={value}
+          tuiOnChange={setValue}
+          tuiOnTab={({ value: current }) => ({ value: `${current}d `, cursor: 4 })}
+        />
+      )
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 4 })
+    await t.tab()
+    expect(t.frame()).toContain("pwd ")
+    await t.type("x")
+    expect(t.frame()).toContain("pwd x")
+    t.destroy()
+  })
+
+  test("异步 Tab 结果不会覆盖随后输入的新文本", async () => {
+    let finish: ((edit: { value: string; cursor: number }) => void) | undefined
+    function Demo() {
+      const [value, setValue] = useState("pw")
+      return (
+        <Input
+          value={value}
+          tuiOnChange={setValue}
+          tuiOnTab={() => new Promise((resolve) => {
+            finish = resolve
+          })}
+        />
+      )
+    }
+    const t = await renderTui(wrap(<Demo />), { width: 40, height: 4 })
+    await t.tab()
+    await t.type("x")
+    finish?.({ value: "pwd ", cursor: 4 })
+    await t.waitUntil(() => t.frame().includes("pwx"))
+    expect(t.frame()).not.toContain("pwd ")
     t.destroy()
   })
 })

@@ -31,6 +31,8 @@ interface FocusableEntry {
   id: string
   kind: FocusableKind
   disabled: boolean
+  /** input 自己接管 Tab（如 Shell 补全）时，FocusScope 不执行焦点切换。 */
+  captureTab?: boolean
   activate?: () => void
   getRect?: () => FocusableRect | null
 }
@@ -192,6 +194,7 @@ export function FocusScope({ suspended = false, children }: FocusScopeProps) {
     // capture 类组件（内嵌终端）独占全部按键：Tab 要透传给子进程做 shell 补全
     if (focused && focused.kind === "capture") return
     if (key.name === "tab") {
+      if (focused?.captureTab) return
       move(key.shift ? -1 : 1)
       return
     }
@@ -249,12 +252,20 @@ export function useFocusScopeState() {
 export interface UseFocusableOptions {
   kind: FocusableKind
   disabled?: boolean
+  /** input 是否自行处理 Tab；为 true 时本作用域不把 Tab 当焦点导航。 */
+  captureTab?: boolean
   onActivate?: () => void
   /** 返回布局后的屏幕矩形；提供后参与 ↑↓←→ 空间导航 */
   getRect?: () => FocusableRect | null
 }
 
-export function useFocusable({ kind, disabled = false, onActivate, getRect }: UseFocusableOptions) {
+export function useFocusable({
+  kind,
+  disabled = false,
+  captureTab = false,
+  onActivate,
+  getRect,
+}: UseFocusableOptions) {
   const ctx = useContext(FocusContext)
   const id = useId()
   const activateRef = useRef(onActivate)
@@ -268,11 +279,12 @@ export function useFocusable({ kind, disabled = false, onActivate, getRect }: Us
       id,
       kind,
       disabled,
+      captureTab,
       activate: () => activateRef.current?.(),
       getRect: () => getRectRef.current?.() ?? null,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx?.register, id, kind, disabled])
+  }, [ctx?.register, id, kind, disabled, captureTab])
 
   return {
     focused: ctx?.focusedId === id,

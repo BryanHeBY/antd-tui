@@ -13,7 +13,14 @@ export { Typography, type TextProps, type TitleProps } from "./components/Typogr
 export { Link, type LinkProps } from "./components/Link"
 export { List, type ListProps, type ListItemProps, type ListLocale } from "./components/List"
 export { Button, type ButtonProps, type ButtonGroupProps } from "./components/Button"
-export { Input, type InputProps, type TextAreaProps } from "./components/Input"
+export {
+  Input,
+  type InputProps,
+  type InputHighlight,
+  type InputEdit,
+  type InputTabContext,
+  type TextAreaProps,
+} from "./components/Input"
 export { InputNumber, type InputNumberProps } from "./components/InputNumber"
 export { Slider, type SliderProps } from "./components/Slider"
 export { Select, type SelectProps, type SelectOption } from "./components/Select"

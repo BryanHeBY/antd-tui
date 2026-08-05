@@ -65,7 +65,17 @@ export const containerComponents: string[] = [
  */
 export const componentPropsWhitelist: Record<string, readonly string[]> = {
   FormItem: ["label", "required", "help", "validateStatus", "style"],
-  Input: ["placeholder", "disabled", "maxLength", "value", "style", "tuiOnChange", "tuiOnPressEnter"],
+  Input: [
+    "placeholder",
+    "disabled",
+    "maxLength",
+    "value",
+    "style",
+    "tuiOnChange",
+    "tuiOnPressEnter",
+    "tuiHighlights",
+    "tuiOnTab",
+  ],
   TextArea: ["placeholder", "disabled", "rows", "style", "value", "defaultValue", "tuiOnChange"],
   InputNumber: ["placeholder", "disabled", "value", "onChange", "style"],
   Slider: ["min", "max", "step", "disabled", "tuiShowValue", "style", "value", "onChange"],
