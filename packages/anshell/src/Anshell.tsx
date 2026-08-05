@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle, useToken } from "@antd-tui/components"
-import { Anterm, encodeKey, encodePaste, type AntermSession } from "@antd-tui/anterm"
+import { Anterm, type AntermSession } from "@antd-tui/anterm"
 import { AcpClient } from "@antd-tui/acp"
 import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "./triage"
 import { isBuiltin, runBuiltin } from "./builtins"
 import { useTranscript } from "./transcript"
 import { BlockView, DraftCard, type PromotedTerminal } from "./cards"
 import { cardTint } from "./theme"
+import { TerminalInputHandoff } from "./terminal-input"
 import type { AnshellProps, Overlay } from "./types"
 import {
   checkShellSyntax,
@@ -57,9 +58,7 @@ export function Anshell({
   const history = useRef<string[]>([])
   const historyPos = useRef<number>(-1)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
-  const terminalLaunchingRef = useRef(false)
-  const terminalSessionRef = useRef<AntermSession | null>(null)
-  const terminalInputQueueRef = useRef<string[]>([])
+  const terminalInput = useMemo(() => new TerminalInputHandoff(), [])
   const draftCursorVisibleRef = useRef(true)
   const cwdRef = useRef(cwd)
   cwdRef.current = cwd
@@ -152,10 +151,8 @@ export function Anshell({
   }, [input, inputMode, commandShell])
 
   const beginTerminalHandoff = useCallback(() => {
-    terminalLaunchingRef.current = true
-    terminalSessionRef.current = null
-    terminalInputQueueRef.current = []
-  }, [])
+    terminalInput.begin()
+  }, [terminalInput])
 
   const runShellCommand = useCallback((line: string) => {
     beginTerminalHandoff()
@@ -286,30 +283,23 @@ export function Anshell({
   )
 
   const handleTerminalPromotion = useCallback((terminal: PromotedTerminal | null) => {
-    if (terminal) terminalSessionRef.current = terminal.session
     setPromotedTerminal(terminal)
     if (terminal) setPromotedMode("popup")
   }, [])
 
   const handleTerminalSessionReady = useCallback((session: AntermSession) => {
-    terminalSessionRef.current = session
-    terminalLaunchingRef.current = false
-    for (const bytes of terminalInputQueueRef.current) session.write(bytes)
-    terminalInputQueueRef.current = []
+    terminalInput.attach(session)
     // 覆盖交接窗口内旧 DraftCard 可能产生的迟到 onChange。
     setInput("")
-  }, [])
+  }, [terminalInput])
 
   const handleTerminalSessionRelease = useCallback((session: AntermSession) => {
-    if (terminalSessionRef.current !== session) return
-    terminalSessionRef.current = null
-    terminalInputQueueRef.current = []
-    terminalLaunchingRef.current = false
-  }, [])
+    terminalInput.release(session)
+  }, [terminalInput])
 
   // 流内 PTY 的整个生命周期都由这里独占转发键盘，避免卡片重排时焦点状态失真。
   useKeyboard((key) => {
-    if (terminalLaunchingRef.current || terminalSessionRef.current) {
+    if (terminalInput.active) {
       key.preventDefault?.()
       key.stopPropagation?.()
       if (key.eventType === "release") return
@@ -317,13 +307,7 @@ export function Anshell({
         setPromotedMode((value) => value === "popup" ? "fullscreen" : "popup")
         return
       }
-      const session = terminalSessionRef.current
-      const bytes = encodeKey(key, {
-        applicationCursorKeys: session?.applicationCursorKeys ?? false,
-      })
-      if (bytes === null) return
-      if (session) session.write(bytes)
-      else terminalInputQueueRef.current.push(bytes)
+      terminalInput.writeKey(key)
       return
     }
     if (overlay || promotedTerminal || inlineRunning) return
@@ -370,10 +354,8 @@ export function Anshell({
   })
 
   usePaste((event) => {
-    const session = terminalSessionRef.current
     const text = new TextDecoder().decode(event.bytes)
-    if (session) session.write(encodePaste(text, session.bracketedPaste))
-    else if (terminalLaunchingRef.current) terminalInputQueueRef.current.push(text)
+    terminalInput.writePaste(text)
   })
 
   return (
