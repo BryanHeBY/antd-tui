@@ -130,8 +130,11 @@ export function FocusScope({ suspended = false, children }: FocusScopeProps) {
 
   const register = useCallback((entry: FocusableEntry) => {
     entriesRef.current.push(entry)
-    // 首个注册的元素自动获得焦点
-    setFocusedId((prev) => prev ?? entry.id)
+    // 首个未禁用元素自动获得焦点；焦点项变为 disabled 时也要转给可用项。
+    setFocusedId((prev) => {
+      const current = entriesRef.current.find((item) => item.id === prev)
+      return current && !current.disabled ? prev : (enabled()[0]?.id ?? null)
+    })
     return () => {
       entriesRef.current = entriesRef.current.filter((e) => e.id !== entry.id)
       setFocusedId((prev) => (prev === entry.id ? (enabled()[0]?.id ?? null) : prev))
