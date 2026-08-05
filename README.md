@@ -139,9 +139,9 @@ import { Anterm } from "@antd-tui/anterm"
 
 ## anshell:对话式 shell
 
-`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。**输入是 shell 行内式**——流尾一张「草稿卡片」,头行是可编辑的 `<cwd> ❯ …`;Enter 后就地冻结成命令卡片头、输出在**同一张卡片**下方延伸(所见即所得),跑完再现空草稿卡片。没有独立的底部输入框。输入经启发式分诊走几条路——
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡:识别为 Shell 时显示 `<cwd> $ …`,否则显示 `<cwd> ◆ …`;`Ctrl+T` 可覆盖当前草稿的路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
-- **命令**:首词能在 PATH 解析,或整行含 shell 元字符(`| > & ; $` …)→ 经 `sh -lc` 一次性跑,整条成一张**命令卡片**(`<cwd> ❯ 命令` 头 + 输出 + 退出码;输入/输出用不同颜色区分)。
+- **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 一次性运行,输入卡为 `<cwd> $ 命令`,stdout/stderr 与退出码进入紧邻的输出卡。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
 - **重型终端**:首词是 `bash`/`vim`/`htop`/`ssh` 等 → **弹窗浮层**跑(默认居中弹窗,`Ctrl+O` 切全屏、再切回,bash 会话不重启);程序结束后流里留一张结果卡片。
 - **内嵌交互**:`inlineCommands`(可配,默认空)里的命令 → 直接**内嵌成流内活终端卡片**(固定高度 anterm),`Ctrl+]` 交还焦点。
 - **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
@@ -150,17 +150,18 @@ import { Anterm } from "@antd-tui/anterm"
 # 需要真实 TTY
 bun run ansh
 bun run ansh --agent "<agent 启动命令>"
+bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL
 ```
 
 ```tsx
 import { Anshell } from "@antd-tui/anshell"
 
-<Anshell agentCmd={["qodercli", "--acp"]} inlineCommands={["fzf"]} />
+<Anshell shell="/usr/bin/zsh" agentCmd={["qodercli", "--acp"]} inlineCommands={["fzf"]} />
 ```
 
 要点:
 
-- **shell 行内输入(所见即所得)**。输入是流尾草稿卡片的可编辑头部,与提交后的输入卡同底色同 `<cwd> ❯ ` 格式;Enter 后原样冻结,输出以较暗底色的卡片紧贴其下,所有流项目之间不留空行。无独立底部输入框、无状态行,cwd 融进每张输入卡的提示符。
+- **感知式行内输入(所见即所得)**。自动路由以 `$`(Shell)/`◆`(Agent)实时反馈,`Ctrl+T` 显式切换当前草稿;Enter 后原样冻结,输出以较暗底色的卡片紧贴其下,所有流项目之间不留空行。无独立底部输入框、无状态行,cwd 融进每张输入卡的提示符。
 - **交互窗口三态**。重型终端走弹窗↔全屏浮层(同一 anterm 挂载点切 style,会话保留);部分原生交互命令内嵌流内活终端卡片。
 - **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层);**Ctrl-C 只中断**在跑的命令,不退出。
 - **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。

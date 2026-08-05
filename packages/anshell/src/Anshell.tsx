@@ -10,18 +10,28 @@ import { useTranscript } from "./transcript"
 import { BlockView, DraftCard } from "./cards"
 import { cardTint } from "./theme"
 import type { AnshellProps, Overlay } from "./types"
+import {
+  checkShellSyntax,
+  commonPrefix,
+  completeShellInput,
+  lexShell,
+  resolveShell,
+  type CompletionItem,
+  type SyntaxDiagnostic,
+} from "./shell"
 
 /**
  * anshell：agent 时代的对话式 shell（流式布局 + shell 行内输入）。
  *
  * 单条流式滚动：命令/终端/agent 各成卡片自上而下流动。输入是流尾「草稿卡片」的
- * 可编辑头部（`<cwd> ❯ …`），Enter 后就地冻结成输入卡，输出以不同底色的卡片
+ * 可编辑头部（Shell 为 `<cwd> $ …`，Agent 为 `<cwd> ◆ …`），Enter 后就地冻结成输入卡，输出以不同底色的卡片
  * 紧贴其下（所见即所得），命令跑完再现空草稿。启发式分诊：一次性命令成命令记录；
  * bash/vim/htop 等重型终端走弹窗浮层（Ctrl+O 切全屏）；inlineCommands 内嵌流内活
  * 终端卡片；自然语言交给 agent。退出用 Ctrl-D（空输入）或 exit；Ctrl-C 中断在跑命令。
  */
 export function Anshell({
   cwd: initialCwd,
+  shell,
   overlayCommands,
   inlineCommands,
   agentCmd,
@@ -33,7 +43,11 @@ export function Anshell({
   const [commandRunning, setCommandRunning] = useState(false)
   const [busy, setBusy] = useState(false)
   const [overlay, setOverlay] = useState<Overlay | null>(null)
+  const [routeOverride, setRouteOverride] = useState<"shell" | "agent" | null>(null)
+  const [diagnostic, setDiagnostic] = useState<SyntaxDiagnostic | null>(null)
+  const [completions, setCompletions] = useState<CompletionItem[]>([])
   const transcript = useTranscript()
+  const commandShell = useMemo(() => resolveShell(shell), [shell])
 
   const runningRef = useRef<RunningCommand | null>(null)
   const clientRef = useRef<AcpClient | null>(null)
@@ -48,6 +62,16 @@ export function Anshell({
     [overlayCommands],
   )
   const inlineSet = useMemo(() => new Set(inlineCommands ?? []), [inlineCommands])
+  const autoTriage = useMemo(
+    () => classifyInput(input, {
+      which: (command) => Bun.which(command) != null,
+      overlay: overlaySet,
+      inline: inlineSet,
+    }),
+    [input, inlineSet, overlaySet],
+  )
+  const inputMode: "shell" | "agent" = routeOverride ?? (autoTriage.kind === "agent" ? "agent" : "shell")
+  const shellLex = useMemo(() => lexShell(input), [input])
 
   const inlineRunning = transcript.blocks.some((b) => b.kind === "terminal" && b.state === "running")
 
@@ -90,6 +114,25 @@ export function Anshell({
     }
   }, [agentCmd])
 
+  // Shell 检查只负责诊断，不参与 shell/agent 分诊；输入期间防抖且丢弃过期结果。
+  useEffect(() => {
+    let cancelled = false
+    if (inputMode !== "shell" || input.trim() === "") {
+      return
+    }
+    const timer = setTimeout(() => {
+      void checkShellSyntax(input, commandShell, cwdRef.current).then((result) => {
+        if (!cancelled && result.kind !== "valid") setDiagnostic(result)
+      }).catch((error: unknown) => {
+        if (!cancelled) setDiagnostic({ kind: "invalid", message: `语法检查失败：${(error as Error).message}` })
+      })
+    }, 120)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [input, inputMode, commandShell])
+
   const runShellCommand = useCallback(
     (line: string) => {
       const id = transcript.openCommand(line, cwdRef.current)
@@ -97,6 +140,7 @@ export function Anshell({
       const cmd = runCommand({
         line,
         cwd: cwdRef.current,
+        shell: commandShell,
         onLine: (text, stream) => latest.current.transcript.appendOutput(id, text, stream),
       })
       runningRef.current = cmd
@@ -106,15 +150,65 @@ export function Anshell({
         latest.current.transcript.closeCommand(id, code)
       })
     },
-    [transcript],
+    [commandShell, transcript],
+  )
+
+  const changeInput = useCallback((value: string) => {
+    setInput(value)
+    setCompletions([])
+    setDiagnostic(null)
+  }, [])
+
+  const completeInput = useCallback(
+    async ({ value, cursor }: { value: string; cursor: number }) => {
+      // 自动模式下允许对尚未完整解析出的命令前缀补全（如 `pw<Tab>`）；
+      // 只有用户显式强制到 Agent 时才彻底关闭 Shell 补全。
+      if (inputMode !== "shell" && routeOverride === "agent") return
+      const result = await completeShellInput(value, cursor, cwdRef.current)
+      if (result.items.length === 0) {
+        setCompletions([])
+        return
+      }
+      const chars = Array.from(value)
+      const current = chars.slice(result.start, result.end).join("")
+      let replacement = ""
+      if (result.items.length === 1) {
+        const only = result.items[0]!
+        replacement = `${only.value}${only.kind === "directory" ? "" : " "}`
+      } else {
+        const prefix = commonPrefix(result.items.map((item) => item.value))
+        if (prefix.length > current.length) replacement = prefix
+      }
+      if (replacement !== "") {
+        setCompletions([])
+        return {
+          value: [...chars.slice(0, result.start), replacement, ...chars.slice(result.end)].join(""),
+          cursor: result.start + Array.from(replacement).length,
+        }
+      }
+      setCompletions(result.items.slice(0, 50))
+    },
+    [inputMode, routeOverride],
   )
 
   const submitLine = useCallback(() => {
     const line = input.trim()
+    const mode = inputMode
     setInput("")
+    setRouteOverride(null)
+    setCompletions([])
+    setDiagnostic(null)
     historyPos.current = -1
     if (line === "") return
     history.current.push(line)
+
+    if (mode === "agent") {
+      transcript.addPrompt(line, cwdRef.current)
+      const client = clientRef.current
+      if (client) client.prompt(line)
+      else transcript.addNote("system", "未配置 agent（用 ansh --agent \"<命令>\" 接入）")
+      return
+    }
 
     const argv = line.split(/\s+/).filter(Boolean)
     if (isBuiltin(argv[0] ?? "")) {
@@ -126,22 +220,17 @@ export function Anshell({
       return
     }
 
-    const triage = classifyInput(line, {
-      which: (c) => Bun.which(c) != null,
-      overlay: overlaySet,
-      inline: inlineSet,
-    })
+    const triage = autoTriage
     if (triage.kind === "interactive") {
       if (triage.surface === "inline") transcript.addTerminal(triage.command, triage.args)
       else setOverlay({ command: triage.command, args: triage.args, mode: "popup" })
     } else if (triage.kind === "command") {
       runShellCommand(line)
     } else {
-      const client = clientRef.current
-      if (client) client.prompt(line)
-      else transcript.addNote("system", "未配置 agent（用 ansh --agent \"<命令>\" 接入）")
+      // 显式切到 Shell 后，即使命令当前无法解析，也交给 Shell 给出真实错误。
+      runShellCommand(line)
     }
-  }, [input, inlineSet, overlaySet, quit, runShellCommand, transcript])
+  }, [input, inputMode, autoTriage, quit, runShellCommand, transcript])
 
   const cycleOverlayMode = useCallback(() => {
     setOverlay((o) => (o ? { ...o, mode: o.mode === "popup" ? "fullscreen" : "popup" } : o))
@@ -159,6 +248,14 @@ export function Anshell({
   // 全局键盘：仅在「对话且无浮层/无内嵌终端运行」时处理；否则把键留给终端/浮层透传
   useKeyboard((key) => {
     if (overlay || inlineRunning) return
+    if (key.ctrl && key.name === "t") {
+      key.preventDefault?.()
+      key.stopPropagation?.()
+      setRouteOverride(inputMode === "shell" ? "agent" : "shell")
+      setCompletions([])
+      setDiagnostic(null)
+      return
+    }
     if (key.ctrl && key.name === "d") {
       if (input === "") quit()
       return
@@ -174,16 +271,16 @@ export function Anshell({
       const h = history.current
       if (h.length === 0) return
       historyPos.current = historyPos.current < 0 ? h.length - 1 : Math.max(0, historyPos.current - 1)
-      setInput(h[historyPos.current] ?? "")
+      changeInput(h[historyPos.current] ?? "")
     } else if (key.name === "down") {
       const h = history.current
       if (historyPos.current < 0) return
       historyPos.current += 1
       if (historyPos.current >= h.length) {
         historyPos.current = -1
-        setInput("")
+        changeInput("")
       } else {
-        setInput(h[historyPos.current] ?? "")
+        changeInput(h[historyPos.current] ?? "")
       }
     }
   })
@@ -212,7 +309,17 @@ export function Anshell({
               ))}
               {/* 流尾草稿卡片：命令运行中不归位 prompt；浮层打开时键盘归浮层 */}
               {!commandRunning && !overlay ? (
-                <DraftCard value={input} onChange={setInput} onSubmit={submitLine} cwd={cwd} />
+                <DraftCard
+                  value={input}
+                  onChange={changeInput}
+                  onSubmit={submitLine}
+                  cwd={cwd}
+                  mode={inputMode}
+                  shellTokens={shellLex.tokens}
+                  diagnostic={diagnostic}
+                  completions={completions}
+                  onTab={completeInput}
+                />
               ) : null}
             </scrollbox>
           </box>

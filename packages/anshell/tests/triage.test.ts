@@ -37,6 +37,7 @@ describe("classifyInput", () => {
     expect(triage("ls").kind).toBe("command")
     expect(triage("ls -la").kind).toBe("command")
     expect(triage("git status").kind).toBe("command")
+    expect(triage("\"echo\" ok").kind).toBe("command")
   })
 
   test("含 shell 元字符 → command（即便首词不在 PATH）", () => {
@@ -44,6 +45,8 @@ describe("classifyInput", () => {
     expect(triage("echo hi > /tmp/x").kind).toBe("command")
     expect(triage("foo=bar; echo $foo").kind).toBe("command")
     expect(triage("cat *.txt").kind).toBe("command")
+    expect(triage("unknown *.txt").kind).toBe("command")
+    expect(triage("echo \"unfinished").kind).toBe("command")
   })
 
   test("无法解析且无元字符 → agent", () => {

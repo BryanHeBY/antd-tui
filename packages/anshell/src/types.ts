@@ -10,7 +10,7 @@ export interface Triage {
   kind: InputKind
   /** 首词（argv0） */
   command: string
-  /** 首词之后的参数（interactive 用得上；command 交给 sh -lc 跑整行） */
+  /** 首词之后的参数（interactive 用得上；command 交给配置的 Shell 跑整行） */
   args: string[]
   /** 原始整行 */
   raw: string
@@ -37,6 +37,7 @@ export type Block =
       state: "running" | "exited"
       exitCode?: number
     }
+  | { id: number; kind: "prompt"; text: string; cwd: string }
   | { id: number; kind: "agent"; text: string }
   | { id: number; kind: "note"; level: "system" | "error"; text: string }
 
@@ -50,6 +51,8 @@ export interface Overlay {
 export interface AnshellProps {
   /** 起始工作目录，默认 process.cwd() */
   cwd?: string
+  /** 执行与语法检查使用的 Shell；默认 $SHELL，缺省时回退 /bin/sh。 */
+  shell?: string
   /** 浮层呈现的交互式程序集合（首词命中 → 弹窗/全屏）。默认见 triage.DEFAULT_OVERLAY_COMMANDS */
   overlayCommands?: readonly string[]
   /** 内嵌流内活终端卡片的交互命令集合（首词命中 → inline 卡片）。默认空，按需配置（如 ["fzf"]） */

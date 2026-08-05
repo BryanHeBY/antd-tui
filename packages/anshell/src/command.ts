@@ -1,4 +1,4 @@
-/** 一次性命令执行：经 sh -lc 跑整行，流式把 stdout/stderr 按行喂回。 */
+/** 一次性命令执行：经配置的 Shell 跑整行，流式把 stdout/stderr 按行喂回。 */
 export interface RunningCommand {
   kill(signal?: number | NodeJS.Signals): void
   readonly exited: Promise<number>
@@ -7,6 +7,8 @@ export interface RunningCommand {
 export interface RunCommandOptions {
   line: string
   cwd: string
+  /** 与语法检查一致的 Shell 可执行文件；默认 /bin/sh。 */
+  shell?: string
   env?: Record<string, string>
   onLine: (text: string, stream: "out" | "err") => void
 }
@@ -48,18 +50,18 @@ async function pump(
 }
 
 /**
- * 单独执行的 shell 命令也必须有自己的进程组：`sh -lc` 之下经常还有管道、
+ * 单独执行的 shell 命令也必须有自己的进程组：Shell 之下经常还有管道、
  * 重定向程序或后台作业。只杀 shell 会把这些子进程遗留在宿主上。
  *
  * Linux 的 util-linux `setsid` 是最小依赖的实现；没有它的平台保持原有的
  * 单进程降级行为，避免假设 Bun 在所有平台都支持 detached process group。
  */
-function resolveLaunch(line: string): CommandLaunch {
+function resolveLaunch(line: string, shell: string): CommandLaunch {
   if (process.platform === "linux") {
     const setsid = Bun.which("setsid")
-    if (setsid) return { cmd: [setsid, "sh", "-lc", line], isolatedProcessGroup: true }
+    if (setsid) return { cmd: [setsid, shell, "-lc", line], isolatedProcessGroup: true }
   }
-  return { cmd: ["sh", "-lc", line], isolatedProcessGroup: false }
+  return { cmd: [shell, "-lc", line], isolatedProcessGroup: false }
 }
 
 function killCommandProcess(
@@ -85,7 +87,7 @@ function killCommandProcess(
  * resolve 退出码。宿主可 kill 来中断（对话层 Ctrl-C）。
  */
 export function runCommand(opts: RunCommandOptions): RunningCommand {
-  const launch = resolveLaunch(opts.line)
+  const launch = resolveLaunch(opts.line, opts.shell ?? "/bin/sh")
   const proc = Bun.spawn(launch.cmd, {
     cwd: opts.cwd,
     env: opts.env ? { ...process.env, ...opts.env } : process.env,

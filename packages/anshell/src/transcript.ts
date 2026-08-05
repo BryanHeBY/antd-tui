@@ -13,6 +13,8 @@ export interface TranscriptApi {
   closeCommand: (id: number, exitCode: number) => void
   /** 开一张内嵌活终端卡片，返回其 id */
   addTerminal: (command: string, args: string[]) => number
+  /** 记录一条交给 agent 的用户输入。 */
+  addPrompt: (text: string, cwd: string) => void
   /** 内嵌终端结束：转为已退出摘要 */
   closeTerminal: (id: number, exitCode: number) => void
   /** 往当前 agent 卡片聚合流式片段（自动开卡片） */
@@ -76,6 +78,14 @@ export function useTranscript(): TranscriptApi {
     [push],
   )
 
+  const addPrompt = useCallback(
+    (text: string, cwd: string) => {
+      agentId.current = null
+      push({ id: nextId.current++, kind: "prompt", text, cwd })
+    },
+    [push],
+  )
+
   const closeTerminal = useCallback(
     (id: number, exitCode: number) => {
       patch(id, (b) => (b.kind === "terminal" ? { ...b, state: "exited", exitCode } : b))
@@ -119,6 +129,7 @@ export function useTranscript(): TranscriptApi {
     appendOutput,
     closeCommand,
     addTerminal,
+    addPrompt,
     closeTerminal,
     appendAgentChunk,
     flushAgent,

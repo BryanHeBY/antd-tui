@@ -7,16 +7,18 @@ if (!process.stdout.isTTY || !process.stdin.isTTY) {
   process.exit(3)
 }
 
-// --agent "<cmd...>"：可选接入 ACP agent，自然语言输入走它
-function parseAgentCmd(argv: string[]): string[] | undefined {
-  const i = argv.indexOf("--agent")
+function optionValue(argv: string[], name: string): string | undefined {
+  const i = argv.indexOf(name)
   if (i < 0) return undefined
-  const raw = argv[i + 1]
-  if (!raw) return undefined
-  return raw.split(/\s+/).filter(Boolean)
+  return argv[i + 1] || undefined
 }
 
-const agentCmd = parseAgentCmd(process.argv.slice(2))
+const argv = process.argv.slice(2)
+// --agent "<cmd...>"：可选接入 ACP agent，自然语言输入走它
+const agentRaw = optionValue(argv, "--agent")
+const agentCmd = agentRaw?.split(/\s+/).filter(Boolean)
+// --shell /path/to/bash：统一执行、语法检查与补全语义；默认 $SHELL
+const shell = optionValue(argv, "--shell")
 
 // Ctrl-C 由 Anshell 接管（中断在跑的命令）；退出走 Ctrl-D / exit
 const renderer = await createCliRenderer({ exitOnCtrlC: false, autoFocus: false })
@@ -44,4 +46,4 @@ process.on("uncaughtException", (err) => {
   process.exit(1)
 })
 
-createRoot(renderer).render(<Anshell agentCmd={agentCmd} onQuit={() => shutdown(0)} />)
+createRoot(renderer).render(<Anshell agentCmd={agentCmd} shell={shell} onQuit={() => shutdown(0)} />)

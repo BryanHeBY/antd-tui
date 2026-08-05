@@ -21,30 +21,29 @@ async function mount(props: AnshellProps = {}, options?: { width?: number; heigh
 }
 
 describe("Anshell 流式布局", () => {
-  test("初始就有草稿提示符（shell 行内输入，无独立底部框）", async () => {
+  test("初始草稿为 Agent 提示符（无独立底部框）", async () => {
     const t = await mount()
-    // 未输入时流尾草稿卡片已显示 ❯ 提示符
-    await t.waitUntil(() => t.frame().includes("❯"))
-    expect(t.frame()).toContain("❯")
+    await t.waitUntil(() => t.frame().includes("◆"))
+    expect(t.frame()).toContain("◆")
   })
 
-  test("命令头是 shell 风格 <cwd> ❯ command（所见即所得）", async () => {
+  test("识别到命令后切为 shell 风格 <cwd> $ command（所见即所得）", async () => {
     const t = await mount()
     await t.type("echo header-test")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("❯ echo header-test"))
+    await t.waitUntil(() => t.frame().includes("$ echo header-test"))
     // 命令头原样带提示符与命令（与草稿所打一致）
-    expect(t.frame()).toContain("❯ echo header-test")
+    expect(t.frame()).toContain("$ echo header-test")
   })
 
-  test("一次性命令渲染成卡片（❯ 头 + 输出）", async () => {
+  test("一次性命令渲染成卡片（$ 头 + 输出）", async () => {
     const t = await mount()
     await t.type("echo hello-shell")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("hello-shell"))
     const frame = t.frame()
     expect(frame).toContain("hello-shell")
-    expect(frame).toContain("❯")
+    expect(frame).toContain("$")
   })
 
   test("输入与输出使用不同底色并连续相邻", async () => {
@@ -52,12 +51,12 @@ describe("Anshell 流式布局", () => {
     await t.type("echo $((6*7))")
     await t.enter()
     await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"))
-    await t.waitUntil(() => t.frame().includes("输入命令或对话"))
+    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"))
 
     const textLines = t.frame().split("\n")
-    const inputRow = textLines.findIndex((line) => line.includes("❯ echo $((6*7))"))
+    const inputRow = textLines.findIndex((line) => line.includes("$ echo $((6*7))"))
     const outputRow = textLines.findIndex((line) => line.trim() === "42")
-    const draftRow = textLines.findIndex((line) => line.includes("❯ 输入命令或对话"))
+    const draftRow = textLines.findIndex((line) => line.includes("◆ 输入 Agent 提示"))
     expect(outputRow).toBe(inputRow + 1)
     expect(draftRow).toBe(outputRow + 1)
 
@@ -83,6 +82,30 @@ describe("Anshell 流式布局", () => {
     await t.enter()
     await t.waitUntil(() => t.frame().includes("未配置 agent"))
     expect(t.frame()).toContain("未配置 agent")
+    expect(t.frame()).toContain("◆ 帮我写个函数")
+  })
+
+  test("Ctrl+T 显式切换当前草稿路由，提交后恢复自动识别", async () => {
+    const t = await mount()
+    await t.type("echo forced-agent")
+    expect(t.frame()).toContain("$ echo forced-agent")
+    await t.press("t", { ctrl: true })
+    expect(t.frame()).toContain("◆ echo forced-agent")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("未配置 agent"))
+    expect(t.frame()).toContain("◆ echo forced-agent")
+    // 新草稿不继承强制路由，空输入按自动规则回到 Agent。
+    expect(t.frame()).toContain("◆ 输入 Agent 提示")
+  })
+
+  test("Tab 完成目录并保留输入焦点", async () => {
+    const t = await mount({ cwd: "/" })
+    await t.type("cd /hom")
+    await t.tab()
+    await t.waitUntil(() => t.frame().includes("cd /home/"))
+    expect(t.frame()).toContain("$ cd /home/")
+    await t.type("x")
+    expect(t.frame()).toContain("cd /home/x")
   })
 
   test("重型终端打开弹窗浮层", async () => {
