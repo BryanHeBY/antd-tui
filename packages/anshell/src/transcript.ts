@@ -1,72 +1,128 @@
 import { useCallback, useRef, useState } from "react"
-import type { ConversationEntry, ConversationKind } from "./types"
+import type { Block } from "./types"
 
-const LOG_LIMIT = 500
+const BLOCK_LIMIT = 200
 
 export interface TranscriptApi {
-  entries: ConversationEntry[]
-  /** 流式未完行：chunk 拼接缓冲，遇 \n 才沉淀成正式行 */
-  partial: ConversationEntry | null
-  /** 流式片段：只拼接，完整行（含 \n）才入 transcript */
-  appendChunk: (text: string, kind?: ConversationKind) => void
-  /** 整条非流式消息：先冲刷未完的流式行，保证时间顺序 */
-  appendMessage: (kind: ConversationKind, text: string) => void
-  /** 冲刷未完行成正式行（轮次结束时调） */
-  flush: () => void
-  /** 清空（clear 内建） */
+  blocks: Block[]
+  /** 开一张命令卡片，返回其 id */
+  openCommand: (command: string, cwd: string) => number
+  /** 往命令卡片追加一行输出 */
+  appendOutput: (id: number, text: string, stream: "out" | "err") => void
+  /** 关闭命令卡片，记录退出码 */
+  closeCommand: (id: number, exitCode: number) => void
+  /** 开一张内嵌活终端卡片，返回其 id */
+  addTerminal: (command: string, args: string[]) => number
+  /** 内嵌终端结束：转为已退出摘要 */
+  closeTerminal: (id: number, exitCode: number) => void
+  /** 往当前 agent 卡片聚合流式片段（自动开卡片） */
+  appendAgentChunk: (text: string) => void
+  /** 结束当前 agent 卡片（下一轮另起） */
+  flushAgent: () => void
+  /** 追加一条纯行提示 */
+  addNote: (level: "system" | "error", text: string) => void
   clear: () => void
 }
 
 /**
- * 对话 transcript 状态机（移植自 vibe-tui/VibeApp 的 pushLines/appendChunk/
- * flushPartial/appendMessage）。命令输出与 agent 流式回复都经 appendChunk 逐行沉淀。
+ * 流式历史的块级状态机。命令/终端/agent 各自成块（渲染为卡片），note 为纯行。
+ * 块以自增 id 定位更新；数组封顶避免无限增长。
  */
 export function useTranscript(): TranscriptApi {
-  const [entries, setEntries] = useState<ConversationEntry[]>([])
-  const [partial, setPartial] = useState<ConversationEntry | null>(null)
-  const partialRef = useRef<ConversationEntry | null>(null)
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const nextId = useRef(0)
+  // 当前正在聚合的 agent 块 id；null 表示无未完 agent 轮次
+  const agentId = useRef<number | null>(null)
 
-  const pushLines = useCallback((kind: ConversationKind, lines: string[]) => {
-    // 命令输出可能含空行（如 ls 的空目录），保留；仅丢尾随的纯空白噪声由调用方决定
-    if (lines.length > 0) {
-      setEntries((prev) => [...prev, ...lines.map((text) => ({ kind, text }))].slice(-LOG_LIMIT))
-    }
+  const push = useCallback((block: Block) => {
+    setBlocks((prev) => [...prev, block].slice(-BLOCK_LIMIT))
   }, [])
 
-  const flush = useCallback(() => {
-    const entry = partialRef.current
-    partialRef.current = null
-    setPartial(null)
-    if (entry && entry.text.trim() !== "") pushLines(entry.kind, [entry.text])
-  }, [pushLines])
+  const patch = useCallback((id: number, fn: (b: Block) => Block) => {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? fn(b) : b)))
+  }, [])
 
-  const appendChunk = useCallback(
-    (text: string, kind: ConversationKind = "agent") => {
-      // 不同来源不能混进同一未完行（如系统提示插在 agent 流式回复中间）
-      if (partialRef.current && partialRef.current.kind !== kind) flush()
-      const merged = (partialRef.current?.text ?? "") + text
-      const parts = merged.split("\n")
-      const rest = parts.pop() ?? ""
-      partialRef.current = rest === "" ? null : { kind, text: rest }
-      setPartial(partialRef.current)
-      pushLines(kind, parts)
+  const openCommand = useCallback(
+    (command: string, cwd: string) => {
+      agentId.current = null
+      const id = nextId.current++
+      push({ id, kind: "command", command, cwd, lines: [], exitCode: null, running: true })
+      return id
     },
-    [flush, pushLines],
+    [push],
   )
 
-  const appendMessage = useCallback(
-    (kind: ConversationKind, text: string) => {
-      flush()
-      pushLines(kind, [text])
+  const appendOutput = useCallback(
+    (id: number, text: string, stream: "out" | "err") => {
+      patch(id, (b) => (b.kind === "command" ? { ...b, lines: [...b.lines, { text, stream }] } : b))
     },
-    [flush, pushLines],
+    [patch],
+  )
+
+  const closeCommand = useCallback(
+    (id: number, exitCode: number) => {
+      patch(id, (b) => (b.kind === "command" ? { ...b, running: false, exitCode } : b))
+    },
+    [patch],
+  )
+
+  const addTerminal = useCallback(
+    (command: string, args: string[]) => {
+      agentId.current = null
+      const id = nextId.current++
+      push({ id, kind: "terminal", command, args, state: "running" })
+      return id
+    },
+    [push],
+  )
+
+  const closeTerminal = useCallback(
+    (id: number, exitCode: number) => {
+      patch(id, (b) => (b.kind === "terminal" ? { ...b, state: "exited", exitCode } : b))
+    },
+    [patch],
+  )
+
+  const appendAgentChunk = useCallback(
+    (text: string) => {
+      if (agentId.current === null) {
+        const id = nextId.current++
+        agentId.current = id
+        push({ id, kind: "agent", text })
+        return
+      }
+      patch(agentId.current, (b) => (b.kind === "agent" ? { ...b, text: b.text + text } : b))
+    },
+    [patch, push],
+  )
+
+  const flushAgent = useCallback(() => {
+    agentId.current = null
+  }, [])
+
+  const addNote = useCallback(
+    (level: "system" | "error", text: string) => {
+      agentId.current = null
+      push({ id: nextId.current++, kind: "note", level, text })
+    },
+    [push],
   )
 
   const clear = useCallback(() => {
-    partialRef.current = null
-    setPartial(null)
-    setEntries([])
+    agentId.current = null
+    setBlocks([])
   }, [])
 
-  return { entries, partial, appendChunk, appendMessage, flush, clear }
+  return {
+    blocks,
+    openCommand,
+    appendOutput,
+    closeCommand,
+    addTerminal,
+    closeTerminal,
+    appendAgentChunk,
+    flushAgent,
+    addNote,
+    clear,
+  }
 }

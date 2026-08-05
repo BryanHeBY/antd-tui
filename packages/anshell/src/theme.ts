@@ -1,0 +1,16 @@
+/**
+ * 卡片底色常量。主题 token 里没有 fill 色阶（colorBgContainer 是 transparent），
+ * 沿用 antop 的做法：直接定义贴合黑底的一小组底色。越靠近交互焦点越亮。
+ */
+export const cardTint = {
+  /** 命令卡片 */
+  command: "#171717",
+  /** agent 回复卡片 */
+  agent: "#1a1a1a",
+  /** 内嵌活终端卡片 */
+  terminal: "#141414",
+  /** 底部输入卡片（最亮，聚焦区） */
+  input: "#1f1f1f",
+  /** 浮层窗口背景 */
+  overlay: "#141414",
+} as const

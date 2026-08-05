@@ -1,55 +1,61 @@
 import { describe, expect, test } from "bun:test"
-import { classifyInput, DEFAULT_INTERACTIVE_COMMANDS } from "../src/index"
+import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "../src/index"
 
-const interactive = new Set(DEFAULT_INTERACTIVE_COMMANDS)
+const overlay = new Set(DEFAULT_OVERLAY_COMMANDS)
+const inline = new Set(["fzf", "gitui"])
 
-/** 传桩 which：只认 ls/git/echo/cat 这几个「存在的可执行」。 */
+/** 传桩 which：只认这几个「存在的可执行」。 */
 const which = (cmd: string) => ["ls", "git", "echo", "cat", "grep", "npm"].includes(cmd)
 
-function kind(line: string) {
-  return classifyInput(line, { which, interactive }).kind
+function triage(line: string) {
+  return classifyInput(line, { which, overlay, inline })
 }
 
 describe("classifyInput", () => {
-  test("交互式程序 → interactive", () => {
-    expect(kind("bash")).toBe("interactive")
-    expect(kind("vim foo.txt")).toBe("interactive")
-    expect(kind("htop")).toBe("interactive")
-    expect(kind("python3")).toBe("interactive")
-    expect(kind("ssh host")).toBe("interactive")
+  test("overlay 集合 → interactive/overlay", () => {
+    expect(triage("bash")).toMatchObject({ kind: "interactive", surface: "overlay" })
+    expect(triage("vim foo.txt")).toMatchObject({ kind: "interactive", surface: "overlay" })
+    expect(triage("htop")).toMatchObject({ kind: "interactive", surface: "overlay" })
+    expect(triage("ssh host")).toMatchObject({ kind: "interactive", surface: "overlay" })
+  })
+
+  test("inline 集合 → interactive/inline", () => {
+    expect(triage("fzf")).toMatchObject({ kind: "interactive", surface: "inline" })
+    expect(triage("gitui")).toMatchObject({ kind: "interactive", surface: "inline" })
+  })
+
+  test("inline 优先于 overlay（同名时取 inline）", () => {
+    const t = classifyInput("bash", {
+      which,
+      overlay: new Set(["bash"]),
+      inline: new Set(["bash"]),
+    })
+    expect(t.surface).toBe("inline")
   })
 
   test("PATH 中可解析的命令 → command", () => {
-    expect(kind("ls")).toBe("command")
-    expect(kind("ls -la")).toBe("command")
-    expect(kind("git status")).toBe("command")
+    expect(triage("ls").kind).toBe("command")
+    expect(triage("ls -la").kind).toBe("command")
+    expect(triage("git status").kind).toBe("command")
   })
 
   test("含 shell 元字符 → command（即便首词不在 PATH）", () => {
-    expect(kind("ls | grep foo")).toBe("command")
-    expect(kind("echo hi > /tmp/x")).toBe("command")
-    expect(kind("foo=bar; echo $foo")).toBe("command")
-    expect(kind("cat *.txt")).toBe("command")
+    expect(triage("ls | grep foo").kind).toBe("command")
+    expect(triage("echo hi > /tmp/x").kind).toBe("command")
+    expect(triage("foo=bar; echo $foo").kind).toBe("command")
+    expect(triage("cat *.txt").kind).toBe("command")
   })
 
   test("无法解析且无元字符 → agent", () => {
-    expect(kind("帮我看看这段代码")).toBe("agent")
-    expect(kind("what is the weather")).toBe("agent")
-    expect(kind("summarize the readme")).toBe("agent")
-  })
-
-  test("交互式优先于 PATH（bash 既在 PATH 也在交互集）", () => {
-    expect(classifyInput("bash -i", { which: () => true, interactive }).kind).toBe("interactive")
+    expect(triage("帮我看看这段代码").kind).toBe("agent")
+    expect(triage("what is the weather").kind).toBe("agent")
+    expect(triage("   ").kind).toBe("agent")
   })
 
   test("拆出首词与参数", () => {
-    const t = classifyInput("vim a.txt b.txt", { which, interactive })
+    const t = triage("vim a.txt b.txt")
     expect(t.command).toBe("vim")
     expect(t.args).toEqual(["a.txt", "b.txt"])
     expect(t.raw).toBe("vim a.txt b.txt")
-  })
-
-  test("空行 → agent（无首词、无元字符）", () => {
-    expect(kind("   ")).toBe("agent")
   })
 })

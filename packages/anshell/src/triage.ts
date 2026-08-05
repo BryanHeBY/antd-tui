@@ -1,10 +1,9 @@
 import type { Triage } from "./types"
 
 /**
- * 默认交互式程序集合：首词命中即嵌入 anterm 全屏接管，而非一次性回显。
- * 这些程序要么是 shell/REPL，要么是全屏 TUI，piped stdout 会失去意义。
+ * 默认走浮层（弹窗/全屏）的交互式程序：shell/REPL 或全屏 TUI，piped stdout 无意义。
  */
-export const DEFAULT_INTERACTIVE_COMMANDS: readonly string[] = [
+export const DEFAULT_OVERLAY_COMMANDS: readonly string[] = [
   "bash",
   "zsh",
   "sh",
@@ -33,7 +32,6 @@ export const DEFAULT_INTERACTIVE_COMMANDS: readonly string[] = [
   "ssh",
   "tmux",
   "screen",
-  "watch",
   "ranger",
   "lazygit",
   "gitui",
@@ -51,15 +49,18 @@ function tokenize(line: string): string[] {
 export interface ClassifyOptions {
   /** 判断某命令是否可在 PATH 中解析（通常注入 Bun.which） */
   which: (cmd: string) => boolean
-  /** 交互式程序集合 */
-  interactive: ReadonlySet<string>
+  /** 浮层交互式程序集合（弹窗/全屏） */
+  overlay: ReadonlySet<string>
+  /** 内嵌活终端卡片的交互命令集合（流内） */
+  inline: ReadonlySet<string>
 }
 
 /**
  * 启发式分诊（无前缀）：
- *   1. 首词属于交互式集合 → interactive（嵌入终端接管）
- *   2. 含 shell 元字符，或首词能在 PATH 解析 → command（sh -lc 跑整行）
- *   3. 否则 → agent（自然语言，交给 agent）
+ *   1. 首词属于 inline 集合 → interactive/inline（流内活终端卡片）
+ *   2. 首词属于 overlay 集合 → interactive/overlay（弹窗/全屏）
+ *   3. 含 shell 元字符，或首词能在 PATH 解析 → command（sh -lc 跑整行）
+ *   4. 否则 → agent（自然语言，交给 agent）
  */
 export function classifyInput(line: string, opts: ClassifyOptions): Triage {
   const raw = line
@@ -67,8 +68,11 @@ export function classifyInput(line: string, opts: ClassifyOptions): Triage {
   const command = tokens[0] ?? ""
   const args = tokens.slice(1)
 
-  if (command && opts.interactive.has(command)) {
-    return { kind: "interactive", command, args, raw }
+  if (command && opts.inline.has(command)) {
+    return { kind: "interactive", command, args, raw, surface: "inline" }
+  }
+  if (command && opts.overlay.has(command)) {
+    return { kind: "interactive", command, args, raw, surface: "overlay" }
   }
   if (SHELL_METACHAR.test(line) || (command && opts.which(command))) {
     return { kind: "command", command, args, raw }
