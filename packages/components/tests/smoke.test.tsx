@@ -208,6 +208,18 @@ describe("Input + FocusScope", () => {
     t.destroy()
   })
 
+  test("tuiShowCursor 隐藏光标但不撤销输入焦点", async () => {
+    let value = ""
+    const t = await renderTui(
+      wrap(<Input value={value} tuiShowCursor={false} tuiOnChange={(next) => (value = next)} />),
+      { width: 40, height: 4 },
+    )
+    expect(t.raw.renderer.getCursorState().visible).toBe(false)
+    await t.type("x")
+    expect(value).toBe("x")
+    t.destroy()
+  })
+
   test("tuiOnTab 接管补全且不切走焦点", async () => {
     function Demo() {
       const [value, setValue] = useState("pw")

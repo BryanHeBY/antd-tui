@@ -54,6 +54,8 @@ export interface InputProps {
   compact?: boolean
   /** TUI 扩展：原生输入缓冲上的语义高亮范围。 */
   tuiHighlights?: InputHighlight[]
+  /** TUI 扩展：是否绘制终端原生光标；隐藏时仍保留输入焦点。 */
+  tuiShowCursor?: boolean
   /**
    * TUI 扩展：接管 Tab（如补全）。返回 edit 时 Input 在受控值更新后恢复光标位置；
    * 返回 void 只消费按键，适合展示候选列表。
@@ -82,6 +84,7 @@ export function InputBase({
   tuiOnPressEnter,
   compact = false,
   tuiHighlights = [],
+  tuiShowCursor = true,
   tuiOnTab,
 }: InputProps) {
   const token = useToken()
@@ -177,6 +180,7 @@ export function InputBase({
       maxLength={maxLength}
       placeholder={placeholder ?? ""}
       focused={focused && !disabled}
+      showCursor={tuiShowCursor}
       onInput={(v: string) => tuiOnChange?.(v)}
       onSubmit={() => {
         if (tuiOnPressEnter) tuiOnPressEnter()

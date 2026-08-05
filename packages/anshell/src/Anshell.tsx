@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle, useToken } from "@antd-tui/components"
 import { Anterm } from "@antd-tui/anterm"
@@ -46,6 +47,7 @@ export function Anshell({
   const [routeOverride, setRouteOverride] = useState<"shell" | "agent" | null>(null)
   const [diagnostic, setDiagnostic] = useState<SyntaxDiagnostic | null>(null)
   const [completions, setCompletions] = useState<CompletionItem[]>([])
+  const [draftCursorVisible, setDraftCursorVisible] = useState(true)
   const transcript = useTranscript()
   const commandShell = useMemo(() => resolveShell(shell), [shell])
 
@@ -54,6 +56,8 @@ export function Anshell({
   const quittingRef = useRef(false)
   const history = useRef<string[]>([])
   const historyPos = useRef<number>(-1)
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const draftCursorVisibleRef = useRef(true)
   const cwdRef = useRef(cwd)
   cwdRef.current = cwd
 
@@ -74,6 +78,18 @@ export function Anshell({
   const shellLex = useMemo(() => lexShell(input), [input])
 
   const inlineRunning = transcript.blocks.some((b) => b.kind === "terminal" && b.state === "running")
+
+  // OpenTUI 的原生输入光标不会被 scrollbox 的 viewport 裁剪。草稿位于内容末尾，
+  // 因此只要离开底部它就已滚出视口；此时保留焦点但隐藏光标，回到底部再恢复。
+  const syncDraftCursorVisibility = useCallback(() => {
+    const scroll = scrollRef.current
+    if (!scroll) return
+    const maxScrollTop = Math.max(0, scroll.scrollHeight - scroll.viewport.height)
+    const visible = scroll.scrollTop >= maxScrollTop
+    if (draftCursorVisibleRef.current === visible) return
+    draftCursorVisibleRef.current = visible
+    queueMicrotask(() => setDraftCursorVisible(visible))
+  }, [])
 
   const latest = useRef({ transcript })
   latest.current = { transcript }
@@ -292,7 +308,9 @@ export function Anshell({
         <FocusScope suspended={!!overlay}>
           <box style={{ flexDirection: "column", width: "100%", height: "100%", ...toBoxStyle(style) }}>
             <scrollbox
+              ref={scrollRef}
               style={{ flexGrow: 1 }}
+              renderAfter={syncDraftCursorVisibility}
               scrollY
               scrollX={false}
               stickyScroll
@@ -319,6 +337,7 @@ export function Anshell({
                   diagnostic={diagnostic}
                   completions={completions}
                   onTab={completeInput}
+                  cursorVisible={draftCursorVisible}
                 />
               ) : null}
             </scrollbox>

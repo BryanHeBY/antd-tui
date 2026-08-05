@@ -109,6 +109,7 @@ export function DraftCard({
   diagnostic,
   completions,
   onTab,
+  cursorVisible,
 }: {
   value: string
   onChange: (v: string) => void
@@ -119,6 +120,7 @@ export function DraftCard({
   diagnostic: SyntaxDiagnostic | null
   completions: CompletionItem[]
   onTab: (context: InputTabContext) => InputEdit | void | Promise<InputEdit | void>
+  cursorVisible: boolean
 }) {
   const token = useToken()
   const command = shellTokens.find((item) => item.kind === "command")
@@ -180,6 +182,7 @@ export function DraftCard({
           placeholder={mode === "shell" ? "输入 Shell 命令 · Ctrl+T 切换" : "输入 Agent 提示 · Ctrl+T 切换"}
           compact
           tuiHighlights={highlights}
+          tuiShowCursor={cursorVisible}
           tuiOnTab={onTab}
           tuiOnChange={onChange}
           tuiOnPressEnter={onSubmit}

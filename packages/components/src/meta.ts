@@ -74,6 +74,7 @@ export const componentPropsWhitelist: Record<string, readonly string[]> = {
     "tuiOnChange",
     "tuiOnPressEnter",
     "tuiHighlights",
+    "tuiShowCursor",
     "tuiOnTab",
   ],
   TextArea: ["placeholder", "disabled", "rows", "style", "value", "defaultValue", "tuiOnChange"],

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { parseColor } from "@opentui/core"
+import { BaseRenderable, parseColor, ScrollBoxRenderable } from "@opentui/core"
 import type { ReactNode } from "react"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
 import { Anshell, cardTint, type AnshellProps } from "../src/index"
@@ -18,6 +18,15 @@ async function mount(props: AnshellProps = {}, options?: { width?: number; heigh
   })
   active = t
   return t
+}
+
+function findScrollbox(node: BaseRenderable): ScrollBoxRenderable | undefined {
+  if (node instanceof ScrollBoxRenderable) return node
+  for (const child of node.getChildren()) {
+    const match = findScrollbox(child)
+    if (match) return match
+  }
+  return undefined
 }
 
 describe("Anshell 流式布局", () => {
@@ -106,6 +115,25 @@ describe("Anshell 流式布局", () => {
     expect(t.frame()).toContain("$ cd /home/")
     await t.type("x")
     expect(t.frame()).toContain("cd /home/x")
+  })
+
+  test("上滚离开草稿时隐藏光标，回到底部后恢复", async () => {
+    const t = await mount({}, { width: 60, height: 8 })
+    await t.type("seq 1 20")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"))
+    expect(t.raw.renderer.getCursorState().visible).toBe(true)
+
+    const scrollbox = findScrollbox(t.raw.renderer.root)!
+    const bottom = Math.max(0, scrollbox.scrollHeight - scrollbox.viewport.height)
+    scrollbox.scrollBy(-2)
+    await t.settle()
+    expect(scrollbox.scrollTop).toBeLessThan(bottom)
+    expect(t.raw.renderer.getCursorState().visible).toBe(false)
+
+    scrollbox.scrollTo(bottom)
+    await t.settle()
+    expect(t.raw.renderer.getCursorState().visible).toBe(true)
   })
 
   test("重型终端打开弹窗浮层", async () => {
