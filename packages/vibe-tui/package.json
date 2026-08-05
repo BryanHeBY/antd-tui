@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.3.0",
+    "@antd-tui/acp": "workspace:*",
     "@antd-tui/components": "workspace:*",
     "@antd-tui/live": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",

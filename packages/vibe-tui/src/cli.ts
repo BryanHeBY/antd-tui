@@ -13,7 +13,7 @@ import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import React from "react"
 import { VibeApp } from "./VibeApp"
-import { listAgentSessions } from "./acp"
+import { listAgentSessions } from "@antd-tui/acp"
 
 interface CliArgs {
   agentCmd: string[] | null

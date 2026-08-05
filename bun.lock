@@ -16,6 +16,28 @@
         "typescript": "^5.7.0",
       },
     },
+    "packages/acp": {
+      "name": "@antd-tui/acp",
+      "version": "0.1.0",
+      "dependencies": {
+        "@agentclientprotocol/sdk": "^1.3.0",
+      },
+    },
+    "packages/anshell": {
+      "name": "@antd-tui/anshell",
+      "version": "0.1.0",
+      "dependencies": {
+        "@antd-tui/acp": "workspace:*",
+        "@antd-tui/anterm": "workspace:*",
+        "@antd-tui/components": "workspace:*",
+        "@opentui/core": "latest",
+        "@opentui/react": "latest",
+        "react": "^19.0.0",
+      },
+      "devDependencies": {
+        "@antd-tui/test-utils": "workspace:*",
+      },
+    },
     "packages/anterm": {
       "name": "@antd-tui/anterm",
       "version": "0.1.0",
@@ -118,6 +140,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@agentclientprotocol/sdk": "^1.3.0",
+        "@antd-tui/acp": "workspace:*",
         "@antd-tui/components": "workspace:*",
         "@antd-tui/live": "workspace:*",
         "@modelcontextprotocol/sdk": "^1.30.0",
@@ -137,6 +160,10 @@
   },
   "packages": {
     "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@1.3.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-i3h/efaeuMUFAO1HSfo97QZQnnvMd7wWBYtBsdL6UMZg3a78sk3Ffya5Xu7C7tYsXomXoDXJBAzQF2PcFKAhIQ=="],
+
+    "@antd-tui/acp": ["@antd-tui/acp@workspace:packages/acp"],
+
+    "@antd-tui/anshell": ["@antd-tui/anshell@workspace:packages/anshell"],
 
     "@antd-tui/anterm": ["@antd-tui/anterm@workspace:packages/anterm"],
 

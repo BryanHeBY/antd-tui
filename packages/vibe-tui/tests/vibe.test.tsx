@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { renderTui } from "@antd-tui/test-utils"
 import { displayWidth } from "@antd-tui/components"
 import { VibeApp } from "../src/VibeApp"
-import { AcpClient } from "../src/acp"
+import { AcpClient } from "@antd-tui/acp"
 
 /**
  * vibe-tui × mock agent 的闭环 E2E：

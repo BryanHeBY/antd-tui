@@ -5,4 +5,4 @@ export {
   type AcpClientHandlers,
   type AcpClientOptions,
   type AgentSessionInfo,
-} from "./acp"
+} from "@antd-tui/acp"

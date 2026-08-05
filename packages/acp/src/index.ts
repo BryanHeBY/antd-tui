@@ -1,11 +1,10 @@
 /**
  * ACP 客户端桥：基于官方 @agentclientprotocol/sdk（不自研 JSON-RPC）。
  *
- * vibe-tui 是 client，agent 是子进程（NDJSON stdio）：
+ * 宿主是 client，agent 是子进程（NDJSON stdio）：
  *   client → agent：initialize / session/new 或 session/load（复用会话，历史回放）
  *                    / session/prompt（人类输入与页面事件都走 prompt）
- *   agent → client 通知：session/update（流式文本，喂状态行；load 的历史回放同通道）
- * 画布由 agent 经注入的 MCP 工具（vibetui_eval 操作 $ui 活对象树）驱动，不走 ACP 扩展。
+ *   agent → client 通知：session/update（流式文本；load 的历史回放同通道）
  */
 import { client, ndJsonStream, type ClientContext } from "@agentclientprotocol/sdk"
 
@@ -132,14 +131,14 @@ export class AcpClient {
       // 统一的 update 通道：新会话的流式输出与 session/load 的历史回放走同一处理
       .onNotification("session/update", (cx) => {
         // React 宿主已经卸载时，stdio 连接可能仍在收尾并送达最后几个 chunk。
-        // 这些消息不能再回写已销毁的 VibeApp。
+        // 这些消息不能再回写已销毁的宿主。
         if (this.stopped) return
         const params = cx.params as SessionUpdateParams
         if (this.sessionId && params.sessionId !== this.sessionId) return
         const text = params.update?.content?.text
         if (text) this.handlers.onUpdate(text)
       })
-      // 工具权限自动放行：vibe-tui 是 agent 自治画布，交互式确认会卡死无人值守闭环。
+      // 工具权限自动放行：宿主是 agent 自治界面，交互式确认会卡死无人值守闭环。
       // 优先选 allow_always 减少重复请求；日志里留痕保证透明。
       .onRequest(
         "session/request_permission",
