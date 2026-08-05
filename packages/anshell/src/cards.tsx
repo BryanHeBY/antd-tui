@@ -10,7 +10,7 @@ import {
 } from "@antd-tui/components"
 import { Anterm, createAntermSession, type AntermSession } from "@antd-tui/anterm"
 import { cardTint } from "./theme"
-import type { Block } from "./types"
+import type { Block, PromotedTerminal } from "./types"
 import {
   SHELL_BUILTINS,
   toCodePointOffset,
@@ -285,15 +285,6 @@ export function TerminalCard({
       ) : null}
     </box>
   )
-}
-
-export interface PromotedTerminal {
-  id: number
-  label: string
-  command: string
-  args: string[]
-  cwd: string
-  session: AntermSession
 }
 
 /** agent 回复卡片：◆ 前缀 + 多行文本。 */

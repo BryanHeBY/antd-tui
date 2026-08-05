@@ -1,4 +1,5 @@
 import type { CssLikeStyle } from "@antd-tui/components"
+import type { AntermSession } from "@antd-tui/anterm"
 
 /** 分诊结果：一行输入被判定成哪种执行路径。 */
 export type InputKind = "command" | "interactive" | "agent"
@@ -42,6 +43,16 @@ export interface Overlay {
   command: string
   args: string[]
   mode: "popup" | "fullscreen"
+}
+
+/** 流内 PTY 进入 alternate screen 后，浮层视图接管的同一终端会话。 */
+export interface PromotedTerminal {
+  id: number
+  label: string
+  command: string
+  args: string[]
+  cwd: string
+  session: AntermSession
 }
 
 export interface AnshellProps {

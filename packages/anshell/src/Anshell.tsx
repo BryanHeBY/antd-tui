@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react"
-import { ConfigProvider, FocusScope, toBoxStyle, useToken } from "@antd-tui/components"
-import { Anterm, type AntermSession } from "@antd-tui/anterm"
+import { useKeyboard, usePaste } from "@opentui/react"
+import { ConfigProvider, FocusScope, toBoxStyle } from "@antd-tui/components"
+import type { AntermSession } from "@antd-tui/anterm"
 import { AcpClient } from "@antd-tui/acp"
 import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "./triage"
 import { isBuiltin, runBuiltin } from "./builtins"
 import { useTranscript } from "./transcript"
-import { BlockView, DraftCard, type PromotedTerminal } from "./cards"
-import { cardTint } from "./theme"
+import { BlockView, DraftCard } from "./cards"
 import { TerminalInputHandoff } from "./terminal-input"
 import { draftReducer, initialDraftState } from "./draft-state"
-import type { AnshellProps, Overlay } from "./types"
+import { OverlayWindow, PromotedTerminalWindow } from "./overlays"
+import type { AnshellProps, Overlay, PromotedTerminal } from "./types"
 import {
   checkShellSyntax,
   commonPrefix,
@@ -398,117 +398,5 @@ export function Anshell({
         ) : null}
       </FocusScope>
     </ConfigProvider>
-  )
-}
-
-/** 全屏行为视图：只搬动 Anterm 视图，PTY 会话仍由对应的流内卡片持有。 */
-function PromotedTerminalWindow({
-  terminal,
-  mode,
-}: {
-  terminal: PromotedTerminal
-  mode: "popup" | "fullscreen"
-}) {
-  const token = useToken()
-  const dims = useTerminalDimensions()
-  const fullscreen = mode === "fullscreen"
-  const width = fullscreen ? dims.width : Math.max(40, Math.floor(dims.width * 0.85))
-  const height = fullscreen ? dims.height : Math.max(6, Math.floor(dims.height * 0.8))
-  const left = fullscreen ? 0 : Math.max(0, Math.floor((dims.width - width) / 2))
-  const top = fullscreen ? 0 : Math.max(0, Math.floor((dims.height - height) / 2))
-
-  return (
-    <FocusScope>
-      <box
-        style={{
-          position: "absolute",
-          top,
-          left,
-          width,
-          height,
-          zIndex: 100,
-          backgroundColor: cardTint.overlay,
-          borderColor: token.colorBorder,
-          borderStyle: token.borderStyle,
-          flexDirection: "column",
-        }}
-        border={!fullscreen}
-        title={fullscreen ? undefined : terminal.label}
-      >
-        <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
-          {`alternate screen · Ctrl+O ${fullscreen ? "弹窗" : "全屏"}`}
-        </text>
-        <Anterm
-          command={terminal.command}
-          args={terminal.args}
-          cwd={terminal.cwd}
-          autoFocus
-          tuiSession={terminal.session}
-          tuiResizeSession
-          tuiKeyboardDisabled
-          style={{ flexGrow: 1 }}
-        />
-      </box>
-    </FocusScope>
-  )
-}
-
-/**
- * 用户显式打开的浮层终端：popup（居中描边）↔ fullscreen（铺满）。同一个 Anterm 固定挂载，
- * 切换只改外层 wrapper 的 style/border，因此会话保持不变。
- */
-function OverlayWindow({
-  overlay,
-  cwd,
-  onCycle,
-  onExit,
-}: {
-  overlay: Overlay
-  cwd: string
-  onCycle: () => void
-  onExit: (code: number) => void
-}) {
-  const token = useToken()
-  const dims = useTerminalDimensions()
-  const label = overlay.label
-
-  const fullscreen = overlay.mode === "fullscreen"
-  const width = fullscreen ? dims.width : Math.max(40, Math.floor(dims.width * 0.85))
-  const height = fullscreen ? dims.height : Math.max(6, Math.floor(dims.height * 0.8))
-  const left = fullscreen ? 0 : Math.max(0, Math.floor((dims.width - width) / 2))
-  const top = fullscreen ? 0 : Math.max(0, Math.floor((dims.height - height) / 2))
-
-  return (
-    <FocusScope>
-      <box
-        style={{
-          position: "absolute",
-          top,
-          left,
-          width,
-          height,
-          zIndex: 100,
-          backgroundColor: cardTint.overlay,
-          borderColor: token.colorBorder,
-          borderStyle: token.borderStyle,
-          flexDirection: "column",
-        }}
-        border={!fullscreen}
-        title={fullscreen ? undefined : label}
-      >
-        <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
-          {`Ctrl+O ${fullscreen ? "弹窗" : "全屏"} · Ctrl-D/exit 退出`}
-        </text>
-        <Anterm
-          command={overlay.command}
-          args={overlay.args}
-          cwd={cwd}
-          autoFocus
-          tuiHotkeys={{ "ctrl+o": onCycle }}
-          onExit={onExit}
-          style={{ flexGrow: 1 }}
-        />
-      </box>
-    </FocusScope>
   )
 }
