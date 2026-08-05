@@ -1,0 +1,20 @@
+{
+  "name": "@antd-tui/anterm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.tsx"
+  },
+  "dependencies": {
+    "@antd-tui/components": "workspace:*",
+    "@opentui/core": "latest",
+    "@opentui/react": "latest",
+    "@xterm/headless": "^6.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@antd-tui/test-utils": "workspace:*"
+  }
+}

@@ -1,0 +1,210 @@
+import { Terminal } from "@xterm/headless"
+import { SGR_SCAN_TAIL, scanSgrMouseMode } from "./mouse"
+import type {
+  AntermCell,
+  AntermScreen,
+  AntermSession,
+  AntermSessionOptions,
+  MouseTrackingMode,
+} from "./types"
+
+/** pty 的 data 回调频率远高于终端帧率，逐块通知会打爆 React 的提交次数。 */
+const FRAME_INTERVAL_MS = 16
+
+function createScreen(vt: Terminal): AntermScreen {
+  const cell: AntermCell = {
+    chars: " ",
+    width: 1,
+    fg: 0,
+    bg: 0,
+    fgMode: "default",
+    bgMode: "default",
+    bold: false,
+    dim: false,
+    italic: false,
+    underline: false,
+    blink: false,
+    inverse: false,
+    strikethrough: false,
+  }
+
+  return {
+    get cols() {
+      return vt.cols
+    },
+    get rows() {
+      return vt.rows
+    },
+    get cursorX() {
+      return vt.buffer.active.cursorX
+    },
+    get cursorY() {
+      return vt.buffer.active.cursorY
+    },
+    get viewportY() {
+      return vt.buffer.active.viewportY
+    },
+    // 复用同一个 cell 对象：调用方逐格读取后立即消费，不持有引用
+    getCell(absoluteY, x) {
+      const line = vt.buffer.active.getLine(absoluteY)
+      if (!line) return null
+      const raw = line.getCell(x)
+      if (!raw) return null
+      cell.chars = raw.getChars()
+      cell.width = raw.getWidth()
+      cell.fg = raw.getFgColor()
+      cell.bg = raw.getBgColor()
+      cell.fgMode = raw.isFgRGB() ? "rgb" : raw.isFgPalette() ? "palette" : "default"
+      cell.bgMode = raw.isBgRGB() ? "rgb" : raw.isBgPalette() ? "palette" : "default"
+      cell.bold = !!raw.isBold()
+      cell.dim = !!raw.isDim()
+      cell.italic = !!raw.isItalic()
+      cell.underline = !!raw.isUnderline()
+      cell.blink = !!raw.isBlink()
+      cell.inverse = !!raw.isInverse()
+      cell.strikethrough = !!raw.isStrikethrough()
+      return cell
+    },
+  }
+}
+
+/**
+ * Bun 的 `spawn({ terminal })` 不会给子进程建立控制终端（`ps` 里 TT 为 `?`），
+ * 于是 pty 的 ISIG 找不到前台进程组：Ctrl-C 只会回显 `^C`，不产生 SIGINT，
+ * 作业控制也不工作。util-linux 的 `setsid --ctty` 会先 setsid 再把 fd 0 设为
+ * 控制终端，正好补上这一步。
+ *
+ * 其他平台没有等价的现成命令，按仓库惯例降级为直接运行：显示与输入照常，
+ * 只是 Ctrl-C 等信号键失效。
+ */
+function resolveLaunch(command: string, args: string[]): string[] {
+  if (process.platform === "linux") {
+    const setsid = Bun.which("setsid")
+    if (setsid) return [setsid, "--ctty", command, ...args]
+  }
+  return [command, ...args]
+}
+
+export function createAntermSession(opts: AntermSessionOptions): AntermSession {
+  const vt = new Terminal({
+    cols: opts.cols,
+    rows: opts.rows,
+    scrollback: opts.scrollback ?? 1000,
+    allowProposedApi: true,
+  })
+  const screen = createScreen(vt)
+
+  const listeners = new Set<() => void>()
+  let frameTimer: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
+  let exited = false
+  let sgrMouse = false
+
+  const flush = () => {
+    frameTimer = undefined
+    if (disposed) return
+    for (const listener of listeners) listener()
+  }
+  const markDirty = () => {
+    if (disposed || frameTimer !== undefined) return
+    frameTimer = setTimeout(flush, FRAME_INTERVAL_MS)
+  }
+
+  const decoder = new TextDecoder()
+  // 转义序列可能被 pty 的读缓冲切断，扫描时带上一块的尾巴
+  let scanTail = ""
+
+  const pty = new Bun.Terminal({
+    cols: opts.cols,
+    rows: opts.rows,
+    name: "xterm-256color",
+    data(_term, chunk) {
+      if (disposed) return
+      const text = decoder.decode(chunk, { stream: true })
+      // vt.modes 只暴露追踪级别，不区分 1006/1015 编码，只能自己盯原始字节
+      const scan = scanTail + text
+      sgrMouse = scanSgrMouseMode(scan, sgrMouse)
+      scanTail = scan.slice(-SGR_SCAN_TAIL)
+      vt.write(text)
+      markDirty()
+    },
+  })
+
+  const proc = Bun.spawn({
+    cmd: resolveLaunch(opts.command, opts.args ?? []),
+    cwd: opts.cwd,
+    env: {
+      ...process.env,
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      ...opts.env,
+    },
+    terminal: pty,
+  })
+
+  // xterm 生成的设备回复（CPR / DA / 焦点上报）必须回写子进程，否则等应答的程序会卡住
+  const dataSub = vt.onData((data) => {
+    if (!disposed && !exited) pty.write(data)
+  })
+  const titleSub = vt.onTitleChange((title) => opts.onTitleChange?.(title))
+
+  void proc.exited.then((code) => {
+    exited = true
+    markDirty()
+    opts.onExit?.(code)
+  })
+
+  return {
+    screen,
+    write(data) {
+      if (!disposed && !exited) pty.write(data)
+    },
+    resize(cols, rows) {
+      if (disposed) return
+      if (cols === vt.cols && rows === vt.rows) return
+      vt.resize(cols, rows)
+      pty.resize(cols, rows)
+      markDirty()
+    },
+    kill() {
+      if (disposed) return
+      disposed = true
+      if (frameTimer !== undefined) clearTimeout(frameTimer)
+      listeners.clear()
+      dataSub.dispose()
+      titleSub.dispose()
+      if (!exited) proc.kill()
+      pty.close()
+      vt.dispose()
+    },
+    onFrame(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    scrollLines(delta) {
+      if (disposed) return
+      vt.scrollLines(delta)
+      markDirty()
+    },
+    scrollToBottom() {
+      if (disposed) return
+      vt.scrollToBottom()
+      markDirty()
+    },
+    get exited() {
+      return exited
+    },
+    get sgrMouse() {
+      return sgrMouse
+    },
+    get mouseTracking(): MouseTrackingMode {
+      return vt.modes.mouseTrackingMode
+    },
+    get applicationCursorKeys() {
+      return vt.modes.applicationCursorKeysMode
+    },
+    get bracketedPaste() {
+      return vt.modes.bracketedPasteMode
+    },
+  }
+}
