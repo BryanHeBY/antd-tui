@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ScrollBoxRenderable } from "@opentui/core"
-import { useKeyboard, useTerminalDimensions } from "@opentui/react"
+import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle, useToken } from "@antd-tui/components"
-import { Anterm } from "@antd-tui/anterm"
+import { Anterm, encodeKey, encodePaste, type AntermSession } from "@antd-tui/anterm"
 import { AcpClient } from "@antd-tui/acp"
 import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "./triage"
-import { runCommand, type RunningCommand } from "./command"
 import { isBuiltin, runBuiltin } from "./builtins"
 import { useTranscript } from "./transcript"
-import { BlockView, DraftCard } from "./cards"
+import { BlockView, DraftCard, type PromotedTerminal } from "./cards"
 import { cardTint } from "./theme"
 import type { AnshellProps, Overlay } from "./types"
 import {
@@ -25,10 +24,10 @@ import {
  * anshell：agent 时代的对话式 shell（流式布局 + shell 行内输入）。
  *
  * 单条流式滚动：命令/终端/agent 各成卡片自上而下流动。输入是流尾「草稿卡片」的
- * 可编辑头部（Shell 为 `<cwd> $ …`，Agent 为 `<cwd> ◆ …`），Enter 后就地冻结成输入卡，输出以不同底色的卡片
- * 紧贴其下（所见即所得），命令跑完再现空草稿。启发式分诊：一次性命令成命令记录；
- * bash/vim/htop 等重型终端走弹窗浮层（Ctrl+O 切全屏）；inlineCommands 内嵌流内活
- * 终端卡片；自然语言交给 agent。退出用 Ctrl-D（空输入）或 exit；Ctrl-C 中断在跑命令。
+ * 可编辑头部（Shell 为 `<cwd> $ …`，Agent 为 `<cwd> ◆ …`）。Shell 命令提交后形成流内 PTY
+ * 卡片，键盘直通子进程；退出后保留最终画面并恢复空草稿。PTY 进入 alternate screen 时
+ * 同一会话自动提升为弹窗（Ctrl+O 切全屏），不依赖 bash/vim 等命令名特判；自然语言交给 agent。
+ * 空草稿按 Ctrl-D 或输入 exit 退出应用，运行中的 Ctrl-C/Ctrl-D 则原样交给 PTY。
  */
 export function Anshell({
   cwd: initialCwd,
@@ -41,9 +40,10 @@ export function Anshell({
 }: AnshellProps) {
   const [cwd, setCwd] = useState(initialCwd ?? process.cwd())
   const [input, setInput] = useState("")
-  const [commandRunning, setCommandRunning] = useState(false)
   const [busy, setBusy] = useState(false)
   const [overlay, setOverlay] = useState<Overlay | null>(null)
+  const [promotedTerminal, setPromotedTerminal] = useState<PromotedTerminal | null>(null)
+  const [promotedMode, setPromotedMode] = useState<"popup" | "fullscreen">("popup")
   const [routeOverride, setRouteOverride] = useState<"shell" | "agent" | null>(null)
   const [diagnostic, setDiagnostic] = useState<SyntaxDiagnostic | null>(null)
   const [completions, setCompletions] = useState<CompletionItem[]>([])
@@ -51,12 +51,14 @@ export function Anshell({
   const transcript = useTranscript()
   const commandShell = useMemo(() => resolveShell(shell), [shell])
 
-  const runningRef = useRef<RunningCommand | null>(null)
   const clientRef = useRef<AcpClient | null>(null)
   const quittingRef = useRef(false)
   const history = useRef<string[]>([])
   const historyPos = useRef<number>(-1)
   const scrollRef = useRef<ScrollBoxRenderable | null>(null)
+  const terminalLaunchingRef = useRef(false)
+  const terminalSessionRef = useRef<AntermSession | null>(null)
+  const terminalInputQueueRef = useRef<string[]>([])
   const draftCursorVisibleRef = useRef(true)
   const cwdRef = useRef(cwd)
   cwdRef.current = cwd
@@ -97,7 +99,6 @@ export function Anshell({
   const quit = useCallback(() => {
     if (quittingRef.current) return
     quittingRef.current = true
-    runningRef.current?.kill("SIGKILL")
     const done = onQuit ?? (() => process.exit(0))
     const client = clientRef.current
     if (client) void client.stop().finally(done)
@@ -149,25 +150,24 @@ export function Anshell({
     }
   }, [input, inputMode, commandShell])
 
-  const runShellCommand = useCallback(
-    (line: string) => {
-      const id = transcript.openCommand(line, cwdRef.current)
-      setCommandRunning(true)
-      const cmd = runCommand({
-        line,
-        cwd: cwdRef.current,
-        shell: commandShell,
-        onLine: (text, stream) => latest.current.transcript.appendOutput(id, text, stream),
-      })
-      runningRef.current = cmd
-      void cmd.exited.then((code) => {
-        runningRef.current = null
-        setCommandRunning(false)
-        latest.current.transcript.closeCommand(id, code)
-      })
-    },
-    [commandShell, transcript],
-  )
+  const beginTerminalHandoff = useCallback(() => {
+    terminalLaunchingRef.current = true
+    terminalSessionRef.current = null
+    terminalInputQueueRef.current = []
+  }, [])
+
+  const runShellCommand = useCallback((line: string) => {
+    beginTerminalHandoff()
+    transcript.addTerminal(commandShell, ["-lc", line], cwdRef.current, {
+      label: line,
+      prompt: "shell",
+    })
+  }, [beginTerminalHandoff, commandShell, transcript])
+
+  const openInteractiveLine = useCallback((line: string) => {
+    // 经同一个 Shell 解释原始整行，保留引号、变量、管道和 builtin；Anterm 为它提供真 PTY。
+    setOverlay({ label: line, command: commandShell, args: ["-lc", line], mode: "popup" })
+  }, [commandShell])
 
   const changeInput = useCallback((value: string) => {
     setInput(value)
@@ -238,15 +238,30 @@ export function Anshell({
 
     const triage = autoTriage
     if (triage.kind === "interactive") {
-      if (triage.surface === "inline") transcript.addTerminal(triage.command, triage.args)
-      else setOverlay({ command: triage.command, args: triage.args, mode: "popup" })
+      if (triage.surface === "inline") {
+        beginTerminalHandoff()
+        transcript.addTerminal(triage.command, triage.args, cwdRef.current)
+      }
+      else openInteractiveLine(line)
     } else if (triage.kind === "command") {
       runShellCommand(line)
     } else {
       // 显式切到 Shell 后，即使命令当前无法解析，也交给 Shell 给出真实错误。
       runShellCommand(line)
     }
-  }, [input, inputMode, autoTriage, quit, runShellCommand, transcript])
+  }, [input, inputMode, autoTriage, beginTerminalHandoff, openInteractiveLine, quit, runShellCommand, transcript])
+
+  const submitInteractiveLine = useCallback(() => {
+    const line = input.trim()
+    if (line === "") return
+    setInput("")
+    setRouteOverride(null)
+    setCompletions([])
+    setDiagnostic(null)
+    historyPos.current = -1
+    history.current.push(line)
+    openInteractiveLine(line)
+  }, [input, openInteractiveLine])
 
   const cycleOverlayMode = useCallback(() => {
     setOverlay((o) => (o ? { ...o, mode: o.mode === "popup" ? "fullscreen" : "popup" } : o))
@@ -256,14 +271,59 @@ export function Anshell({
     (code: number) => {
       const o = overlay
       setOverlay(null)
-      if (o) transcript.addNote("system", `▶ ${o.command} (exit ${code})`)
+      if (o) transcript.addNote("system", `▶ ${o.label} (exit ${code})`)
     },
     [overlay, transcript],
   )
 
-  // 全局键盘：仅在「对话且无浮层/无内嵌终端运行」时处理；否则把键留给终端/浮层透传
+  const handleTerminalPromotion = useCallback((terminal: PromotedTerminal | null) => {
+    if (terminal) terminalSessionRef.current = terminal.session
+    setPromotedTerminal(terminal)
+    if (terminal) setPromotedMode("popup")
+  }, [])
+
+  const handleTerminalSessionReady = useCallback((session: AntermSession) => {
+    terminalSessionRef.current = session
+    terminalLaunchingRef.current = false
+    for (const bytes of terminalInputQueueRef.current) session.write(bytes)
+    terminalInputQueueRef.current = []
+    // 覆盖交接窗口内旧 DraftCard 可能产生的迟到 onChange。
+    setInput("")
+  }, [])
+
+  const handleTerminalSessionRelease = useCallback((session: AntermSession) => {
+    if (terminalSessionRef.current !== session) return
+    terminalSessionRef.current = null
+    terminalInputQueueRef.current = []
+    terminalLaunchingRef.current = false
+  }, [])
+
+  // 流内 PTY 的整个生命周期都由这里独占转发键盘，避免卡片重排时焦点状态失真。
   useKeyboard((key) => {
-    if (overlay || inlineRunning) return
+    if (terminalLaunchingRef.current || terminalSessionRef.current) {
+      key.preventDefault?.()
+      key.stopPropagation?.()
+      if (key.eventType === "release") return
+      if (promotedTerminal && key.ctrl && key.name === "o") {
+        setPromotedMode((value) => value === "popup" ? "fullscreen" : "popup")
+        return
+      }
+      const session = terminalSessionRef.current
+      const bytes = encodeKey(key, {
+        applicationCursorKeys: session?.applicationCursorKeys ?? false,
+      })
+      if (bytes === null) return
+      if (session) session.write(bytes)
+      else terminalInputQueueRef.current.push(bytes)
+      return
+    }
+    if (overlay || promotedTerminal || inlineRunning) return
+    if (key.ctrl && key.name === "o") {
+      key.preventDefault?.()
+      key.stopPropagation?.()
+      submitInteractiveLine()
+      return
+    }
     if (key.ctrl && key.name === "t") {
       key.preventDefault?.()
       key.stopPropagation?.()
@@ -276,13 +336,7 @@ export function Anshell({
       if (input === "") quit()
       return
     }
-    if (key.ctrl && key.name === "c") {
-      if (runningRef.current) {
-        runningRef.current.kill("SIGINT")
-        transcript.addNote("system", "^C")
-      }
-      return
-    }
+    if (key.ctrl && key.name === "c") return
     if (key.name === "up") {
       const h = history.current
       if (h.length === 0) return
@@ -301,11 +355,18 @@ export function Anshell({
     }
   })
 
+  usePaste((event) => {
+    const session = terminalSessionRef.current
+    const text = new TextDecoder().decode(event.bytes)
+    if (session) session.write(encodePaste(text, session.bracketedPaste))
+    else if (terminalLaunchingRef.current) terminalInputQueueRef.current.push(text)
+  })
+
   return (
     <ConfigProvider>
       <FocusScope>
         {/* 主作用域：浮层打开时挂起（输入框/内嵌终端全部失焦，键盘归浮层） */}
-        <FocusScope suspended={!!overlay}>
+        <FocusScope suspended={!!overlay || !!promotedTerminal}>
           <box style={{ flexDirection: "column", width: "100%", height: "100%", ...toBoxStyle(style) }}>
             <scrollbox
               ref={scrollRef}
@@ -321,12 +382,14 @@ export function Anshell({
                 <BlockView
                   key={block.id}
                   block={block}
-                  cwd={cwd}
                   onTerminalExit={(id, code) => transcript.closeTerminal(id, code)}
+                  onTerminalPromotion={handleTerminalPromotion}
+                  onTerminalSessionReady={handleTerminalSessionReady}
+                  onTerminalSessionRelease={handleTerminalSessionRelease}
                 />
               ))}
-              {/* 流尾草稿卡片：命令运行中不归位 prompt；浮层打开时键盘归浮层 */}
-              {!commandRunning && !overlay ? (
+              {/* PTY 退出后恢复下一条草稿；运行中键盘完全归 PTY。 */}
+              {!inlineRunning && !overlay ? (
                 <DraftCard
                   value={input}
                   onChange={changeInput}
@@ -346,15 +409,72 @@ export function Anshell({
 
         {overlay ? (
           <OverlayWindow overlay={overlay} cwd={cwd} onCycle={cycleOverlayMode} onExit={closeOverlay} />
+        ) : promotedTerminal ? (
+          <PromotedTerminalWindow
+            terminal={promotedTerminal}
+            mode={promotedMode}
+          />
         ) : null}
       </FocusScope>
     </ConfigProvider>
   )
 }
 
+/** 全屏行为视图：只搬动 Anterm 视图，PTY 会话仍由对应的流内卡片持有。 */
+function PromotedTerminalWindow({
+  terminal,
+  mode,
+}: {
+  terminal: PromotedTerminal
+  mode: "popup" | "fullscreen"
+}) {
+  const token = useToken()
+  const dims = useTerminalDimensions()
+  const fullscreen = mode === "fullscreen"
+  const width = fullscreen ? dims.width : Math.max(40, Math.floor(dims.width * 0.85))
+  const height = fullscreen ? dims.height : Math.max(6, Math.floor(dims.height * 0.8))
+  const left = fullscreen ? 0 : Math.max(0, Math.floor((dims.width - width) / 2))
+  const top = fullscreen ? 0 : Math.max(0, Math.floor((dims.height - height) / 2))
+
+  return (
+    <FocusScope>
+      <box
+        style={{
+          position: "absolute",
+          top,
+          left,
+          width,
+          height,
+          zIndex: 100,
+          backgroundColor: cardTint.overlay,
+          borderColor: token.colorBorder,
+          borderStyle: token.borderStyle,
+          flexDirection: "column",
+        }}
+        border={!fullscreen}
+        title={fullscreen ? undefined : terminal.label}
+      >
+        <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
+          {`alternate screen · Ctrl+O ${fullscreen ? "弹窗" : "全屏"}`}
+        </text>
+        <Anterm
+          command={terminal.command}
+          args={terminal.args}
+          cwd={terminal.cwd}
+          autoFocus
+          tuiSession={terminal.session}
+          tuiResizeSession
+          tuiKeyboardDisabled
+          style={{ flexGrow: 1 }}
+        />
+      </box>
+    </FocusScope>
+  )
+}
+
 /**
- * 浮层终端窗口：popup（居中描边）↔ fullscreen（铺满）。同一个 Anterm 固定挂载，
- * 切换只改外层 wrapper 的 style/border → 不 remount → bash 会话保留。
+ * 用户显式打开的浮层终端：popup（居中描边）↔ fullscreen（铺满）。同一个 Anterm 固定挂载，
+ * 切换只改外层 wrapper 的 style/border，因此会话保持不变。
  */
 function OverlayWindow({
   overlay,
@@ -369,7 +489,7 @@ function OverlayWindow({
 }) {
   const token = useToken()
   const dims = useTerminalDimensions()
-  const label = [overlay.command, ...overlay.args].join(" ")
+  const label = overlay.label
 
   const fullscreen = overlay.mode === "fullscreen"
   const width = fullscreen ? dims.width : Math.max(40, Math.floor(dims.width * 0.85))

@@ -34,6 +34,9 @@ export type Block =
       kind: "terminal"
       command: string
       args: string[]
+      label: string
+      cwd: string
+      prompt: "shell" | "terminal"
       state: "running" | "exited"
       exitCode?: number
     }
@@ -41,8 +44,10 @@ export type Block =
   | { id: number; kind: "agent"; text: string }
   | { id: number; kind: "note"; level: "system" | "error"; text: string }
 
-/** 交互程序的浮层呈现状态（bash/vim/htop 等重型终端）。 */
+/** 用户显式要求浮层运行的终端状态（Ctrl+O 或 overlayCommands）。 */
 export interface Overlay {
+  /** 浮层标题与退出记录显示的原始输入。 */
+  label: string
   command: string
   args: string[]
   mode: "popup" | "fullscreen"
@@ -53,7 +58,7 @@ export interface AnshellProps {
   cwd?: string
   /** 执行与语法检查使用的 Shell；默认 $SHELL，缺省时回退 /bin/sh。 */
   shell?: string
-  /** 浮层呈现的交互式程序集合（首词命中 → 弹窗/全屏）。默认见 triage.DEFAULT_OVERLAY_COMMANDS */
+  /** 显式浮层命令集合（首词命中 → 弹窗/全屏）；默认空，通常交给 alternate-screen 自动检测。 */
   overlayCommands?: readonly string[]
   /** 内嵌流内活终端卡片的交互命令集合（首词命中 → inline 卡片）。默认空，按需配置（如 ["fzf"]） */
   inlineCommands?: readonly string[]

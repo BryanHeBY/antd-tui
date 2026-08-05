@@ -11,11 +11,16 @@ export interface TranscriptApi {
   appendOutput: (id: number, text: string, stream: "out" | "err") => void
   /** 关闭命令卡片，记录退出码 */
   closeCommand: (id: number, exitCode: number) => void
-  /** 开一张内嵌活终端卡片，返回其 id */
-  addTerminal: (command: string, args: string[]) => number
+  /** 开一张内嵌 PTY 卡片，返回其 id */
+  addTerminal: (
+    command: string,
+    args: string[],
+    cwd: string,
+    options?: { label?: string; prompt?: "shell" | "terminal" },
+  ) => number
   /** 记录一条交给 agent 的用户输入。 */
   addPrompt: (text: string, cwd: string) => void
-  /** 内嵌终端结束：转为已退出摘要 */
+  /** 内嵌终端结束：标记退出并保留最终画面 */
   closeTerminal: (id: number, exitCode: number) => void
   /** 往当前 agent 卡片聚合流式片段（自动开卡片） */
   appendAgentChunk: (text: string) => void
@@ -69,10 +74,24 @@ export function useTranscript(): TranscriptApi {
   )
 
   const addTerminal = useCallback(
-    (command: string, args: string[]) => {
+    (
+      command: string,
+      args: string[],
+      cwd: string,
+      options?: { label?: string; prompt?: "shell" | "terminal" },
+    ) => {
       agentId.current = null
       const id = nextId.current++
-      push({ id, kind: "terminal", command, args, state: "running" })
+      push({
+        id,
+        kind: "terminal",
+        command,
+        args,
+        label: options?.label ?? [command, ...args].join(" "),
+        cwd,
+        prompt: options?.prompt ?? "terminal",
+        state: "running",
+      })
       return id
     },
     [push],

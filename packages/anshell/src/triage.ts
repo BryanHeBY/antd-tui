@@ -1,43 +1,8 @@
 import type { Triage } from "./types"
 import { lexShell, SHELL_BUILTINS, unquoteShellWord } from "./shell"
 
-/**
- * 默认走浮层（弹窗/全屏）的交互式程序：shell/REPL 或全屏 TUI，piped stdout 无意义。
- */
-export const DEFAULT_OVERLAY_COMMANDS: readonly string[] = [
-  "bash",
-  "zsh",
-  "sh",
-  "fish",
-  "dash",
-  "vim",
-  "nvim",
-  "vi",
-  "nano",
-  "emacs",
-  "htop",
-  "top",
-  "btop",
-  "less",
-  "more",
-  "man",
-  "python",
-  "python3",
-  "node",
-  "bun",
-  "irb",
-  "psql",
-  "mysql",
-  "redis-cli",
-  "sqlite3",
-  "ssh",
-  "tmux",
-  "screen",
-  "ranger",
-  "lazygit",
-  "gitui",
-  "tig",
-]
+/** 默认不按命令名猜测呈现方式；PTY 进入 alternate screen 时由运行时自动提升浮层。 */
+export const DEFAULT_OVERLAY_COMMANDS: readonly string[] = []
 
 const BUILTINS = new Set<string>(SHELL_BUILTINS)
 
