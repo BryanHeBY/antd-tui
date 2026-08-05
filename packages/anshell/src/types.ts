@@ -18,17 +18,8 @@ export interface Triage {
   surface?: InteractiveSurface
 }
 
-/** 流式历史的一个块。命令/终端/agent 渲染成卡片，note 是纯行。 */
+/** 流式历史的一个块。终端/agent 渲染成卡片，note 是纯行。 */
 export type Block =
-  | {
-      id: number
-      kind: "command"
-      command: string
-      cwd: string
-      lines: { text: string; stream: "out" | "err" }[]
-      exitCode: number | null
-      running: boolean
-    }
   | {
       id: number
       kind: "terminal"

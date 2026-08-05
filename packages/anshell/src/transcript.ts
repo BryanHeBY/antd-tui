@@ -5,12 +5,6 @@ const BLOCK_LIMIT = 200
 
 export interface TranscriptApi {
   blocks: Block[]
-  /** 开一张命令卡片，返回其 id */
-  openCommand: (command: string, cwd: string) => number
-  /** 往命令卡片追加一行输出 */
-  appendOutput: (id: number, text: string, stream: "out" | "err") => void
-  /** 关闭命令卡片，记录退出码 */
-  closeCommand: (id: number, exitCode: number) => void
   /** 开一张内嵌 PTY 卡片，返回其 id */
   addTerminal: (
     command: string,
@@ -32,7 +26,7 @@ export interface TranscriptApi {
 }
 
 /**
- * 流式历史的块级状态机。命令/终端/agent 各自成块（渲染为卡片），note 为纯行。
+ * 流式历史的块级状态机。终端/agent 各自成块（渲染为卡片），note 为纯行。
  * 块以自增 id 定位更新；数组封顶避免无限增长。
  */
 export function useTranscript(): TranscriptApi {
@@ -48,30 +42,6 @@ export function useTranscript(): TranscriptApi {
   const patch = useCallback((id: number, fn: (b: Block) => Block) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? fn(b) : b)))
   }, [])
-
-  const openCommand = useCallback(
-    (command: string, cwd: string) => {
-      agentId.current = null
-      const id = nextId.current++
-      push({ id, kind: "command", command, cwd, lines: [], exitCode: null, running: true })
-      return id
-    },
-    [push],
-  )
-
-  const appendOutput = useCallback(
-    (id: number, text: string, stream: "out" | "err") => {
-      patch(id, (b) => (b.kind === "command" ? { ...b, lines: [...b.lines, { text, stream }] } : b))
-    },
-    [patch],
-  )
-
-  const closeCommand = useCallback(
-    (id: number, exitCode: number) => {
-      patch(id, (b) => (b.kind === "command" ? { ...b, running: false, exitCode } : b))
-    },
-    [patch],
-  )
 
   const addTerminal = useCallback(
     (
@@ -144,9 +114,6 @@ export function useTranscript(): TranscriptApi {
 
   return {
     blocks,
-    openCommand,
-    appendOutput,
-    closeCommand,
     addTerminal,
     addPrompt,
     closeTerminal,

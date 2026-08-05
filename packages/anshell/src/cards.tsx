@@ -20,80 +20,10 @@ import {
   type SyntaxDiagnostic,
 } from "./shell"
 
-const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
 /** home 缩写成 ~ */
 export function shortCwd(cwd: string): string {
   const home = homedir()
   return cwd === home ? "~" : cwd.startsWith(home + "/") ? "~" + cwd.slice(home.length) : cwd
-}
-
-/** 运行中尾行：自带 tick 定时器，条件渲染本组件即可（hook 在组件内无条件调用）。 */
-function RunningFooter() {
-  const token = useToken()
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => setTick((v) => v + 1), 120)
-    return () => clearInterval(timer)
-  }, [])
-  return (
-    <text attributes={0} fg={token.colorTextSecondary}>
-      {`${SPINNER[tick % SPINNER.length]} 运行中`}
-    </text>
-  )
-}
-
-/**
- * 命令记录：输入卡与输出卡是两个不同底色的相邻区域。
- * 外层 gap=0，保证两张卡以及前后流项目之间不会露出空行。
- */
-export function CommandCard({ block }: { block: Extract<Block, { kind: "command" }> }) {
-  const token = useToken()
-  const hasOutput = block.lines.length > 0 || block.running || (block.exitCode !== null && block.exitCode !== 0)
-  return (
-    <box style={{ flexDirection: "column", gap: 0, width: "100%" }}>
-      <box
-        style={{
-          backgroundColor: cardTint.input,
-          paddingLeft: 1,
-          paddingRight: 1,
-          width: "100%",
-        }}
-      >
-        <text attributes={0}>
-          <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
-          <span fg={token.colorPrimaryHover}>$ </span>
-          <span fg={token.colorText}>{block.command}</span>
-        </text>
-      </box>
-      {hasOutput ? (
-        <box
-          style={{
-            backgroundColor: cardTint.output,
-            flexDirection: "column",
-            paddingLeft: 1,
-            paddingRight: 1,
-            width: "100%",
-          }}
-        >
-          {block.lines.map((line, i) => (
-            <text
-              key={i}
-              attributes={0}
-              fg={line.stream === "err" ? token.colorError : token.colorTextSecondary}
-            >
-              {line.text === "" ? " " : line.text}
-            </text>
-          ))}
-          {block.running ? (
-            <RunningFooter />
-          ) : block.exitCode !== null && block.exitCode !== 0 ? (
-            <text attributes={0} fg={token.colorTextDisabled}>{`exit ${block.exitCode}`}</text>
-          ) : null}
-        </box>
-      ) : null}
-    </box>
-  )
 }
 
 /**
@@ -419,8 +349,6 @@ export function BlockView({
   onTerminalSessionRelease: (session: AntermSession) => void
 }) {
   switch (block.kind) {
-    case "command":
-      return <CommandCard block={block} />
     case "terminal":
       return (
         <TerminalCard
