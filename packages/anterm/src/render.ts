@@ -5,6 +5,8 @@ export interface RenderOptions {
   rows: number
   /** 回看偏移，0 = 贴底 */
   scrollOffset: number
+  /** 指定要平铺渲染的 buffer 起始绝对行；省略时按 viewport/scrollOffset 计算。 */
+  startY?: number
   showCursor: boolean
   defaultFg: RGBA
   defaultBg: RGBA
@@ -52,7 +54,6 @@ function cellAttributes(cell: AntermCell): number {
   if (cell.italic) attrs |= TextAttributes.ITALIC
   if (cell.underline) attrs |= TextAttributes.UNDERLINE
   if (cell.blink) attrs |= TextAttributes.BLINK
-  if (cell.inverse) attrs |= TextAttributes.INVERSE
   if (cell.strikethrough) attrs |= TextAttributes.STRIKETHROUGH
   return attrs
 }
@@ -64,11 +65,11 @@ function cellAttributes(cell: AntermCell): number {
  * chunk。TextChunk 是普通对象，直接构造字面量比链式 fg()(bg()(...)) 少一圈闭包。
  */
 export function screenToRows(screen: AntermScreen, opts: RenderOptions): StyledText[] {
-  const cursorVisible = opts.showCursor && opts.scrollOffset === 0
+  const cursorVisible = opts.showCursor && (opts.startY !== undefined || opts.scrollOffset === 0)
   const out: StyledText[] = []
 
   for (let y = 0; y < opts.rows; y++) {
-    const absoluteY = screen.viewportY - opts.scrollOffset + y
+    const absoluteY = (opts.startY ?? screen.viewportY - opts.scrollOffset) + y
     const chunks: TextChunk[] = []
 
     let runText = ""
@@ -89,11 +90,19 @@ export function screenToRows(screen: AntermScreen, opts: RenderOptions): StyledT
       // 宽字符的尾半格：内容已随首格一起渲染
       if (cell.width === 0) continue
 
-      const fg = resolveColor(cell.fgMode, cell.fg, opts.defaultFg, opts.palette)
-      const bg = resolveColor(cell.bgMode, cell.bg, opts.defaultBg, opts.palette)
+      let fg = resolveColor(cell.fgMode, cell.fg, opts.defaultFg, opts.palette)
+      let bg = resolveColor(cell.bgMode, cell.bg, opts.defaultBg, opts.palette)
       let attrs = cellAttributes(cell)
-      if (cursorVisible && y === screen.cursorY && x === screen.cursorX) {
-        attrs |= TextAttributes.INVERSE
+      // 不把 VT 的 SGR 7 继续作为 INVERSE 属性交给 OpenTUI。less 横向整屏重画时
+      // INVERSE run 会频繁移动，外层终端的属性差分可能漏掉 reset，形成散落白块。
+      // 直接摊平成显式前/背景色，视觉等价且每个单元格的最终颜色是自包含的。
+      if (cell.inverse) {
+        ;[fg, bg] = [bg, fg]
+      }
+      if (cursorVisible && absoluteY === screen.cursorAbsoluteY && x === screen.cursorX) {
+        // OpenTUI 的 StyledText chunk 在组件渲染路径不会稳定保留 INVERSE 位；直接交换
+        // 前景/背景才能保证空白光标格也实际可见。
+        ;[fg, bg] = [bg, fg]
       }
 
       const text = cell.chars.length === 0 ? " " : cell.chars

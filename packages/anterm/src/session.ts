@@ -11,7 +11,7 @@ import type {
 /** pty 的 data 回调频率远高于终端帧率，逐块通知会打爆 React 的提交次数。 */
 const FRAME_INTERVAL_MS = 16
 
-function createScreen(vt: Terminal): AntermScreen {
+function createScreen(vt: Terminal, buffer: () => typeof vt.buffer.active): AntermScreen {
   const cell: AntermCell = {
     chars: " ",
     width: 1,
@@ -36,17 +36,20 @@ function createScreen(vt: Terminal): AntermScreen {
       return vt.rows
     },
     get cursorX() {
-      return vt.buffer.active.cursorX
+      return buffer().cursorX
     },
     get cursorY() {
-      return vt.buffer.active.cursorY
+      return buffer().cursorY
+    },
+    get cursorAbsoluteY() {
+      return buffer().baseY + buffer().cursorY
     },
     get viewportY() {
-      return vt.buffer.active.viewportY
+      return buffer().viewportY
     },
     // 复用同一个 cell 对象：调用方逐格读取后立即消费，不持有引用
     getCell(absoluteY, x) {
-      const line = vt.buffer.active.getLine(absoluteY)
+      const line = buffer().getLine(absoluteY)
       if (!line) return null
       const raw = line.getCell(x)
       if (!raw) return null
@@ -66,6 +69,14 @@ function createScreen(vt: Terminal): AntermScreen {
       return cell
     },
   }
+}
+
+function normalOutputRows(vt: Terminal): number {
+  const buffer = vt.buffer.normal
+  for (let y = buffer.length - 1; y >= 0; y--) {
+    if (buffer.getLine(y)?.translateToString(true) !== "") return y + 1
+  }
+  return 0
 }
 
 /**
@@ -113,13 +124,16 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     scrollback: opts.scrollback ?? 1000,
     allowProposedApi: true,
   })
-  const screen = createScreen(vt)
+  const screen = createScreen(vt, () => vt.buffer.active)
+  const normalScreen = createScreen(vt, () => vt.buffer.normal)
 
   const listeners = new Set<() => void>()
   let frameTimer: ReturnType<typeof setTimeout> | undefined
   let disposed = false
   let exited = false
   let sgrMouse = false
+  let screenTakeover = false
+  let cursorVisible = true
 
   const flush = () => {
     frameTimer = undefined
@@ -143,11 +157,29 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
       if (disposed) return
       const text = decoder.decode(chunk, { stream: true })
       // vt.modes 只暴露追踪级别，不区分 1006/1015 编码，只能自己盯原始字节
+      const tailLength = scanTail.length
       const scan = scanTail + text
       sgrMouse = scanSgrMouseMode(scan, sgrMouse)
+      const hasNewScreenErase = Array.from(scan.matchAll(/\x1b\[[23]J/g)).some(
+        (match) => (match.index ?? 0) + match[0].length > tailLength,
+      )
+      const cursorModeMatches = Array.from(scan.matchAll(/\x1b\[\?25([hl])/g)).filter(
+        (match) => (match.index ?? 0) + match[0].length > tailLength,
+      )
+      const lastCursorMode = cursorModeMatches.at(-1)
+      if (lastCursorMode) cursorVisible = lastCursorMode[1] === "h"
       scanTail = scan.slice(-SGR_SCAN_TAIL)
-      vt.write(text)
-      markDirty()
+      // xterm 的 write 会异步解析；只有回调执行后 buffer 才包含这批输出。
+      // 提前通知会让 React 永久渲染旧快照（光标已移动，但命令结果/prompt 仍为空）。
+      vt.write(text, () => {
+        // less -X 不使用 alternate screen；横向移动时会回首页、清整屏并重画。
+        // 只在解析后仍处于 normal buffer 时记 takeover，避免把 vim 在 alternate
+        // buffer 内的清屏误认为 normal scrollback 已被破坏。
+        if (vt.buffer.active.type === "normal" && hasNewScreenErase) {
+          screenTakeover = true
+        }
+        markDirty()
+      })
     },
   })
 
@@ -169,6 +201,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     if (!disposed && !exited) pty.write(data)
   })
   const titleSub = vt.onTitleChange((title) => opts.onTitleChange?.(title))
+  const bufferSub = vt.buffer.onBufferChange(() => markDirty())
 
   void proc.exited.then((code) => {
     exited = true
@@ -179,6 +212,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
 
   return {
     screen,
+    normalScreen,
     write(data) {
       if (!disposed && !exited) pty.write(data)
     },
@@ -196,6 +230,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
       listeners.clear()
       dataSub.dispose()
       titleSub.dispose()
+      bufferSub.dispose()
       if (!exited) killTerminalProcess(proc, launch.isolatedProcessGroup)
       pty.close()
       vt.dispose()
@@ -217,8 +252,24 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     get exited() {
       return exited
     },
+    get alternateScreen() {
+      return vt.buffer.active.type === "alternate"
+    },
+    get screenTakeover() {
+      return screenTakeover
+    },
+    get normalContentRows() {
+      const buffer = vt.buffer.normal
+      return Math.max(normalOutputRows(vt), buffer.baseY + buffer.cursorY + 1)
+    },
+    get normalOutputRows() {
+      return normalOutputRows(vt)
+    },
     get sgrMouse() {
       return sgrMouse
+    },
+    get cursorVisible() {
+      return cursorVisible
     },
     get mouseTracking(): MouseTrackingMode {
       return vt.modes.mouseTrackingMode

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import { parseColor } from "@opentui/core"
 import type { ReactNode } from "react"
 import { ConfigProvider, FocusScope } from "@antd-tui/components"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
@@ -58,6 +59,24 @@ describe("Anterm", () => {
     await t.type("ping")
     await t.waitUntil(() => t.frame().includes("ping"))
     expect(t.frame()).toContain("ping")
+  })
+
+  test("光标随文本帧反色绘制，不叠加会残留的块字符", async () => {
+    const t = await mount(
+      <Anterm command="cat" autoFocus style={{ width: "100%", height: 8 }} />,
+    )
+    const cursorBackground = parseColor("#dcdcdc").toInts()
+    const cursorSpans = () => t.raw.captureSpans().lines.flatMap((line) => line.spans).filter((span) => {
+      const bg = span.bg.toInts()
+      return span.text === " " && bg.every((value, index) => value === cursorBackground[index])
+    })
+
+    for (const char of "cursor-moved") {
+      await t.type(char)
+      await t.waitUntil(() => t.frame().includes(char) && cursorSpans().length === 1)
+      expect(cursorSpans()).toHaveLength(1)
+    }
+    expect(t.frame()).not.toContain("█")
   })
 
   test("Tab 透传给子进程而不是移走焦点", async () => {

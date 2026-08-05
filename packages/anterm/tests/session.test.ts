@@ -85,6 +85,27 @@ describe("createAntermSession", () => {
     }
   })
 
+  test("onFrame 触发时 xterm buffer 已完成对应输出的解析", async () => {
+    const session = createAntermSession({ command: "cat", cols: 40, rows: 6 })
+    let observedChildOutput = false
+    const unsubscribe = session.onFrame(() => {
+      let matches = 0
+      for (let y = 0; y < session.screen.rows; y++) {
+        if (textOf(session, y) === "parsed-before-frame") matches++
+      }
+      // 一行来自终端本地回显，另一行来自 cat；后者不能只存在于尚未解析的 write 队列。
+      if (matches >= 2) observedChildOutput = true
+    })
+    try {
+      session.write("parsed-before-frame\r")
+      await waitUntil(() => observedChildOutput)
+      expect(observedChildOutput).toBe(true)
+    } finally {
+      unsubscribe()
+      session.kill()
+    }
+  })
+
   test("resize 同步到 pty 与 VT 两侧", async () => {
     const session = createAntermSession({
       command: "bash",
@@ -120,6 +141,73 @@ describe("createAntermSession", () => {
       expect(session.sgrMouse).toBe(true)
       expect(session.applicationCursorKeys).toBe(true)
       expect(session.bracketedPaste).toBe(true)
+    } finally {
+      session.kill()
+    }
+  })
+
+  test("alternate screen 状态跟随 1049 模式切换", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`printf '\033[?1049h\033[2JALT'; sleep 0.2; printf '\033[?1049l'; sleep 1`],
+      cols: 30,
+      rows: 6,
+    })
+    try {
+      await waitUntil(() => session.alternateScreen)
+      expect(session.screen).not.toBe(session.normalScreen)
+      expect(session.screenTakeover).toBe(false)
+      await waitUntil(() => !session.alternateScreen)
+      expect(session.screenTakeover).toBe(false)
+    } finally {
+      session.kill()
+    }
+  })
+
+  test("normal buffer 的整屏清除被识别为 screen takeover", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`printf '\033[H\033[2J\033[HREDRAW'; sleep 1`],
+      cols: 30,
+      rows: 6,
+    })
+    try {
+      await waitUntil(() => session.screenTakeover)
+      expect(session.alternateScreen).toBe(false)
+      expect(session.screenTakeover).toBe(true)
+    } finally {
+      session.kill()
+    }
+  })
+
+  test("DECTCEM 隐藏与恢复子终端光标", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`printf '\033[?25lHIDDEN'; sleep 0.2; printf '\033[?25h'; sleep 1`],
+      cols: 30,
+      rows: 6,
+    })
+    try {
+      await waitUntil(() => !session.cursorVisible)
+      expect(session.cursorVisible).toBe(false)
+      await waitUntil(() => session.cursorVisible)
+      expect(session.cursorVisible).toBe(true)
+    } finally {
+      session.kill()
+    }
+  })
+
+  test("normal buffer 暴露内容自然高度并区分尾部光标行", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", "printf 'one\\ntwo\\n'; sleep 1"],
+      cols: 30,
+      rows: 8,
+    })
+    try {
+      await waitUntil(() => session.normalOutputRows === 2)
+      expect(session.normalContentRows).toBe(3)
+      expect(session.normalOutputRows).toBe(2)
     } finally {
       session.kill()
     }

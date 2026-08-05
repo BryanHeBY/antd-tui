@@ -28,6 +28,9 @@ function screenOf(vt: Terminal): AntermScreen {
     get cursorY() {
       return vt.buffer.active.cursorY
     },
+    get cursorAbsoluteY() {
+      return vt.buffer.active.baseY + vt.buffer.active.cursorY
+    },
     get viewportY() {
       return vt.buffer.active.viewportY
     },
@@ -130,13 +133,15 @@ describe("screenToRows", () => {
     expect(rows[0]!.chunks[0]!.bg).toBe(DEFAULT_BG)
   })
 
-  test("加粗 / 下划线 / 反色映射到 opentui 属性位", async () => {
+  test("加粗 / 下划线保留属性，反色摊平成显式颜色", async () => {
     const vt = await feed("\x1b[1mB\x1b[0m\x1b[4mU\x1b[0m\x1b[7mR\x1b[0m")
     const rows = render(vt)
     const chunks = rows[0]!.chunks
     expect(chunks[0]!.attributes! & TextAttributes.BOLD).toBeGreaterThan(0)
     expect(chunks[1]!.attributes! & TextAttributes.UNDERLINE).toBeGreaterThan(0)
-    expect(chunks[2]!.attributes! & TextAttributes.INVERSE).toBeGreaterThan(0)
+    expect(chunks[2]!.attributes! & TextAttributes.INVERSE).toBe(0)
+    expect(chunks[2]!.fg).toBe(DEFAULT_BG)
+    expect(chunks[2]!.bg).toBe(DEFAULT_FG)
   })
 
   test("宽字符只渲染首格，不重复输出尾半格", async () => {
@@ -145,26 +150,26 @@ describe("screenToRows", () => {
     expect(textOf(rows[0]!).trimEnd()).toBe("中文ab")
   })
 
-  test("光标位置叠加反色属性", async () => {
+  test("光标位置直接交换前背景色", async () => {
     const vt = await feed("hi")
     const withCursor = render(vt, { showCursor: true })
     // 光标停在 "hi" 之后的空格上，会单独成段
     const cursorChunk = withCursor[0]!.chunks.find(
-      (c) => (c.attributes! & TextAttributes.INVERSE) > 0,
+      (c) => c.bg === DEFAULT_FG && c.fg === DEFAULT_BG,
     )
     expect(cursorChunk).toBeDefined()
     expect(cursorChunk!.text).toBe(" ")
 
     const withoutCursor = render(vt, { showCursor: false })
     expect(
-      withoutCursor[0]!.chunks.some((c) => (c.attributes! & TextAttributes.INVERSE) > 0),
+      withoutCursor[0]!.chunks.some((c) => c.bg === DEFAULT_FG && c.fg === DEFAULT_BG),
     ).toBe(false)
   })
 
   test("回看模式下不画光标", async () => {
     const vt = await feed("hi")
     const rows = render(vt, { showCursor: true, scrollOffset: 1 })
-    expect(rows.every((r) => r.chunks.every((c) => (c.attributes! & TextAttributes.INVERSE) === 0))).toBe(
+    expect(rows.every((r) => r.chunks.every((c) => c.bg !== DEFAULT_FG || c.fg !== DEFAULT_BG))).toBe(
       true,
     )
   })

@@ -30,6 +30,13 @@ export function Anterm({
   onExit,
   style,
   autoFocus = false,
+  tuiSession,
+  tuiFlow = false,
+  tuiFlowViewport = false,
+  tuiResizeSession = false,
+  tuiReadOnly = false,
+  tuiKeyboardDisabled = false,
+  tuiBackgroundColor,
   tuiScrollback = 1000,
   tuiPalette,
   tuiEscapeKey = DEFAULT_ESCAPE_KEY,
@@ -49,6 +56,7 @@ export function Anterm({
 
   const { focused, requestFocus, focusNext } = useFocusable({
     kind: "capture",
+    disabled: tuiReadOnly,
     getRect: () => {
       const el = boxRef.current
       return el ? { x: el.x, y: el.y, width: el.width, height: el.height } : null
@@ -64,7 +72,8 @@ export function Anterm({
   // 首帧尺寸未知，等测量结果出来再建会话，避免用 80×24 起进程后立刻 resize
   useEffect(() => {
     if (!ready) return
-    const session = createAntermSession({
+    const owned = tuiSession === undefined
+    const session = tuiSession ?? createAntermSession({
       command,
       args,
       cwd,
@@ -83,16 +92,16 @@ export function Anterm({
     const unsubscribe = session.onFrame(() => setFrame((v) => v + 1))
     return () => {
       unsubscribe()
-      session.kill()
-      sessionRef.current = null
+      if (owned) session.kill()
+      if (sessionRef.current === session) sessionRef.current = null
     }
     // cols/rows 变化走 resize，不重建会话
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, command, argsKey, cwd, envKey, tuiScrollback])
+  }, [ready, command, argsKey, cwd, envKey, tuiScrollback, tuiSession])
 
   useEffect(() => {
-    if (ready) sessionRef.current?.resize(cols, rows)
-  }, [ready, cols, rows])
+    if (ready && (tuiSession === undefined || tuiResizeSession)) sessionRef.current?.resize(cols, rows)
+  }, [ready, cols, rows, tuiSession, tuiResizeSession])
 
   useEffect(() => {
     if (autoFocus) requestFocus()
@@ -107,8 +116,8 @@ export function Anterm({
   )
 
   useKeyboard((key) => {
-    const session = sessionRef.current
-    if (!focused || !session || key.eventType === "release") return
+    const session = tuiSession ?? sessionRef.current
+    if (tuiKeyboardDisabled || !focused || !session || key.eventType === "release") return
     if (matchesEscapeKey(key, escapeSpec)) {
       focusNext()
       return
@@ -131,14 +140,14 @@ export function Anterm({
   })
 
   usePaste((event) => {
-    const session = sessionRef.current
-    if (!focused || !session) return
+    const session = tuiSession ?? sessionRef.current
+    if (tuiKeyboardDisabled || !focused || !session) return
     const text = new TextDecoder().decode(event.bytes)
     session.write(encodePaste(text, session.bracketedPaste))
   })
 
   const forwardMouse = (event: MouseEvent, type: MouseInput["type"]) => {
-    const session = sessionRef.current
+    const session = tuiSession ?? sessionRef.current
     const el = boxRef.current
     if (!session || !el) return
     const col = event.x - el.x
@@ -146,6 +155,8 @@ export function Anterm({
     if (col < 0 || row < 0 || col >= cols || row >= rows) return
 
     if (type === "scroll" && session.mouseTracking === "none") {
+      // flow 视图已经平铺进宿主列表，滚轮应继续交给外层 scrollbox。
+      if (tuiFlow) return
       // 子进程没要鼠标上报时，滚轮用来翻本组件的回看缓冲
       const delta = event.scroll?.direction === "up" ? -3 : 3
       session.scrollLines(delta)
@@ -169,26 +180,52 @@ export function Anterm({
   }
 
   const defaultFg = useMemo(() => parseColor(token.colorText), [token.colorText])
-  const defaultBg = useMemo(() => parseColor(token.colorBgContainer), [token.colorBgContainer])
+  const defaultBg = useMemo(
+    () => parseColor(tuiBackgroundColor ?? token.colorBgContainer),
+    [tuiBackgroundColor, token.colorBgContainer],
+  )
   // 实例必须跨帧稳定：run 合并靠引用相等判断
   const palette = useMemo(() => toAnsiPalette(tuiPalette), [tuiPalette])
 
   let lines: StyledText[] = []
-  if (ready && sessionRef.current) {
-    lines = screenToRows(sessionRef.current.screen, {
-      rows,
+  const renderSession = tuiSession ?? sessionRef.current
+  const flowViewport = tuiFlowViewport || !!(tuiFlow && renderSession?.screenTakeover)
+  const renderScreen = renderSession
+    ? (tuiFlow && !flowViewport ? renderSession.normalScreen : renderSession.screen)
+    : null
+  let renderedRows = tuiFlow && renderSession
+    ? flowViewport
+      ? renderScreen!.rows
+      : (renderSession.exited ? renderSession.normalOutputRows : renderSession.normalContentRows)
+    : rows
+  const showCursor = !!renderScreen && !!renderSession?.cursorVisible && !renderSession.exited && (
+    tuiFlow ? !tuiReadOnly : focused && scrollOffset === 0
+  )
+  if (ready && renderSession) {
+    lines = screenToRows(renderScreen!, {
+      rows: renderedRows,
       scrollOffset,
-      showCursor: focused,
+      startY: tuiFlow ? (flowViewport ? renderScreen!.viewportY : 0) : undefined,
+      // 光标与当前行一同生成，旧位置会随下一帧恢复；不能用绝对定位的实体字符叠加，
+      // 否则高频 shell 重绘时 OpenTUI 可能来不及擦除旧节点而留下块状残影。
+      showCursor,
       defaultFg,
       defaultBg,
       palette,
     })
+    if (flowViewport) {
+      while (lines.length > 0 && lines.at(-1)!.chunks.every((chunk) => chunk.text.trim() === "")) {
+        lines.pop()
+      }
+      renderedRows = lines.length
+    }
   }
 
   return (
     <box
       ref={boxRef}
       onMouseDown={(event) => {
+        if (tuiReadOnly) return
         requestFocus()
         forwardMouse(event, "down")
       }}
@@ -200,12 +237,20 @@ export function Anterm({
         flexGrow: 1,
         flexDirection: "column",
         overflow: "hidden",
-        backgroundColor: token.colorBgContainer,
+        backgroundColor: tuiBackgroundColor ?? token.colorBgContainer,
         ...toBoxStyle(style),
+        ...(tuiFlow ? { height: renderedRows, flexGrow: 0, flexShrink: 0 } : null),
       }}
     >
       {lines.map((line, index) => (
-        <text key={index} attributes={0} content={line} style={{ height: 1, flexShrink: 0 }} />
+        // 一整行作为单个 StyledText 原子更新。终端整屏重画时 run 的数量和边界会
+        // 大幅变化；拆成 React span 会复用错旧节点，导致已经移动的反色背景残留。
+        <text
+          key={index}
+          attributes={0}
+          content={line}
+          style={{ height: 1, flexShrink: 0 }}
+        />
       ))}
     </box>
   )
