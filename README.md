@@ -10,7 +10,7 @@
 
 ## 包结构
 
-Bun workspace,七个包:
+Bun workspace,八个包:
 
 | 包 | 职责 |
 |---|---|
@@ -20,6 +20,7 @@ Bun workspace,七个包:
 | `@antd-tui/live` | `$ui` 活对象树运行时:真 JS 对象 + 真函数、操作级校验、observable 自驱渲染 |
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
+| `@antd-tui/anterm` | 内嵌可交互子终端,能跑 `vim` / `htop` / `ssh` |
 | `@antd-tui/test-utils` | 进程内终端渲染的测试夹具 |
 
 ## 三条通路
@@ -108,6 +109,31 @@ import { Antop } from "@antd-tui/antop"
 
 <Antop />
 ```
+
+## anterm:内嵌终端
+
+`@antd-tui/anterm` 在页面里嵌一块真正的子终端 —— `vim`、`htop`、`ssh` 都能跑。
+
+实现上没有任何 native 依赖:PTY 用 Bun 1.3 起内置的 `Bun.Terminal`(`Bun.spawn({ terminal })`),屏幕模型用零依赖的 `@xterm/headless`,再把 cell 网格按行合并成 `StyledText` 交给 `<text>` 渲染。
+
+```sh
+# 需要真实 TTY;省略命令则跑 $SHELL
+bun run anterm
+bun run anterm htop
+```
+
+```tsx
+import { Anterm } from "@antd-tui/anterm"
+
+<Anterm command="bash" autoFocus style={{ flexGrow: 1 }} />
+```
+
+四个要点:
+
+- **全键捕获**。终端要收到 Tab(shell 补全)、方向键、Enter,所以它以 `kind: "capture"` 注册进焦点系统,`FocusScope` 不再替它消费任何按键。代价是焦点出不来,需按 `tuiEscapeKey`(默认 `Ctrl+]`,telnet 风格)交还。
+- **自建控制终端**。Bun 的 `spawn({ terminal })` 不给子进程建立控制终端(`ps` 里 TT 是 `?`),于是 pty 的 ISIG 找不到前台进程组——Ctrl-C 只回显 `^C`,不产生 SIGINT,作业控制也不工作。Linux 上用 util-linux 的 `setsid --ctty` 补上这一步;其他平台降级为直接运行(显示与输入照常,信号键失效)。
+- **鼠标按协商级别透传**。子进程经 DECSET 1000/1002/1003 声明追踪级别,组件据此过滤事件种类,并按 1006 决定用 SGR 还是 X10 编码。注意 DECSET 允许合并参数(htop 发的是 `\x1b[?1006;1000h`),必须按参数拆开判断,否则会退化成 X10 而让子进程把坐标字节读成按键。子进程没要鼠标时,滚轮用来翻组件自己的回看缓冲。
+- **ANSI 0-15 走自带色板**。opentui 会把 palette 索引摊平成 xterm 的静态默认值(ANSI 1 是 `#800000`),放在现代终端里内容会明显发闷,所以组件自带一张 Campbell 色板,可经 `tuiPalette` 覆盖。索引 16-255 是与主题无关的标准 256 色立方体,不受影响。
 
 ## 组件
 
