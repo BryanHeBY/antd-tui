@@ -1,7 +1,7 @@
 import { constants } from "node:fs"
 import { access, readdir } from "node:fs/promises"
 import { homedir } from "node:os"
-import { basename, dirname, isAbsolute, join, resolve } from "node:path"
+import { isAbsolute, join, resolve } from "node:path"
 import {
   isCommandSeparator,
   lexShell,
@@ -105,14 +105,17 @@ export async function completeShellInput(
       .sort()
       .map((name) => ({ label: `$${name}`, value: `$${name}`, kind: "variable" as const }))
   } else {
-    const expanded = expandHome(prefix)
-    const dirPart = dirname(expanded)
-    const basePart = basename(expanded)
-    const searchDir = isAbsolute(expanded) ? dirPart : resolve(cwd, dirPart === "." ? "" : dirPart)
+    // 先按用户所打的最后一个 / 切分，再对目录段做 home 展开——否则 expandHome("~/")
+    // 会把结尾的 / 吃掉，`ls ~/` 就退化成在 /home 里找 "hby"。
+    const slashIdx = prefix.lastIndexOf("/")
+    const dirTyped = slashIdx < 0 ? "" : prefix.slice(0, slashIdx + 1)
+    const basePart = slashIdx < 0 ? prefix : prefix.slice(slashIdx + 1)
+    const expandedDir = expandHome(dirTyped)
+    const searchDir =
+      dirTyped === "" ? cwd : isAbsolute(expandedDir) ? expandedDir : resolve(cwd, expandedDir)
     try {
       const entries = await readdir(searchDir, { withFileTypes: true })
-      const prefixDir = dirname(prefix)
-      const shownDir = prefixDir === "." ? "" : prefixDir === "/" ? "/" : `${prefixDir}/`
+      const shownDir = dirTyped
       items = entries
         .filter(
           (entry) =>

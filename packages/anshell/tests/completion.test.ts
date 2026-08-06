@@ -13,6 +13,8 @@ afterEach(async () => {
 async function fixture(): Promise<string> {
   dir = await mkdtemp(join(tmpdir(), "ansh-comp-"))
   await mkdir(join(dir, "dev"))
+  await mkdir(join(dir, "dev", "inner"))
+  await writeFile(join(dir, "dev", "note.md"), "")
   await mkdir(join(dir, "apps"))
   await mkdir(join(dir, ".config"))
   await writeFile(join(dir, ".bashrc"), "")
@@ -45,5 +47,15 @@ describe("completeShellInput 路径补全", () => {
     const result = await completeShellInput("ls d", 4, cwd)
     expect(result.items.map((i) => i.label)).toEqual(["dev/"])
     expect(result.items[0]!.kind).toBe("directory")
+  })
+
+  test("补全目录后再 Tab 进入其内容（结尾 / 不再退化）", async () => {
+    const cwd = await fixture()
+    const result = await completeShellInput("ls dev/", 7, cwd)
+    const labels = result.items.map((i) => i.label)
+    expect(labels).toContain("dev/inner/")
+    expect(labels).toContain("dev/note.md")
+    // 不再错误地把 dev/ 当成在 cwd 里找 "dev"
+    expect(labels).not.toContain("dev/")
   })
 })

@@ -102,12 +102,15 @@ export function useShellSession(opts: {
       })
       highWater.current = range.highWater
       const screen: AntermScreen = range.viewport ? term.screen : normal
+      // 运行中的内联命令（如嵌套 bash/zsh，不进 alternate screen）要能看到光标落在哪；
+      // 冻结快照不画光标。screenToRows 用反色单元格画，不依赖宿主真光标（会被 scrollbox 裁）。
+      const showCursor = end === null && term.cursorVisible
       const render = (s: AntermScreen, startY: number, rows: number) =>
         screenToRows(s, {
           rows,
           scrollOffset: 0,
           startY,
-          showCursor: false,
+          showCursor,
           defaultFg,
           defaultBg,
           palette,
