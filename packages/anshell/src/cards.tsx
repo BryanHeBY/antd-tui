@@ -207,7 +207,7 @@ export function TerminalCard({
       args: block.args,
       cwd: block.cwd,
       cols: Math.max(2, dims.width),
-      rows: Math.max(2, dims.height - 1),
+      rows: Math.max(2, block.fullscreen ? dims.height : dims.height - 1),
       onExit: (code) => {
         latest.current.onSessionRelease(current)
         if (isPromoted) {
@@ -222,7 +222,7 @@ export function TerminalCard({
     latest.current.onSessionReady(current)
 
     const syncView = () => {
-      const nextPromoted = !current.exited && current.alternateScreen
+      const nextPromoted = !current.exited && (block.fullscreen || current.alternateScreen)
       if (nextPromoted === isPromoted) return
       isPromoted = nextPromoted
       setPromoted(nextPromoted)

@@ -296,13 +296,16 @@ describe("Anshell 流式布局", () => {
 
   test("Ctrl+O 强制把任意 Shell 整行放进 PTY", async () => {
     const t = await mount()
-    await t.type("read answer; echo got:$answer; sleep 1")
+    await t.type("read answer; echo got:$answer")
     await t.press("o", { ctrl: true })
     await t.waitUntil(() => !t.frame().includes("输入 Agent 提示"))
     await t.type("forced-input")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("got:forced-input"))
-    await t.waitUntil(() => t.frame().includes("▶ read answer; echo got:$answer; sleep 1 (exit 0)"), 4000)
+    // 退出后与其他 shell 卡片同款：`<cwd> $ <整行>  (exit 0)` 留在列表里
+    await t.waitUntil(() => t.frame().includes("$ read answer; echo got:$answer"), 4000)
+    await t.waitUntil(() => t.frame().includes("(exit 0)"), 4000)
+    expect(t.frame()).toContain("got:forced-input")
   })
 
   test("inlineCommands 命中 → 流内活终端卡片", async () => {

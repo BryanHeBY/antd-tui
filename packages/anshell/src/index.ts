@@ -3,7 +3,6 @@ export type {
   InteractiveSurface,
   Triage,
   Block,
-  Overlay,
   AnshellProps,
 } from "./types"
 export { classifyInput, DEFAULT_OVERLAY_COMMANDS, type ClassifyOptions } from "./triage"

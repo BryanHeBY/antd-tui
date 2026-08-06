@@ -3,7 +3,7 @@ import { useTerminalDimensions } from "@opentui/react"
 import { Anterm } from "@antd-tui/anterm"
 import { FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { cardTint } from "./theme"
-import type { Overlay, PromotedTerminal } from "./types"
+import type { PromotedTerminal } from "./types"
 
 type OverlayMode = "popup" | "fullscreen"
 
@@ -56,7 +56,7 @@ function TerminalOverlayFrame({
   )
 }
 
-/** 全屏行为视图：只搬动 Anterm 视图，PTY 会话仍由对应的流内卡片持有。 */
+/** 浮层视图：只搬动 Anterm 视图，PTY 会话仍由对应的流内卡片持有。 */
 export function PromotedTerminalWindow({
   terminal,
   mode,
@@ -69,7 +69,7 @@ export function PromotedTerminalWindow({
     <TerminalOverlayFrame
       mode={mode}
       title={terminal.label}
-      status={`alternate screen · Ctrl+O ${fullscreen ? "弹窗" : "全屏"}`}
+      status={`Ctrl+O ${fullscreen ? "弹窗" : "全屏"}`}
     >
       <Anterm
         command={terminal.command}
@@ -79,38 +79,6 @@ export function PromotedTerminalWindow({
         tuiSession={terminal.session}
         tuiResizeSession
         tuiKeyboardDisabled
-        style={{ flexGrow: 1 }}
-      />
-    </TerminalOverlayFrame>
-  )
-}
-
-/** 用户显式打开的 PTY 浮层；切换模式只改变外框，Anterm 会话保持挂载。 */
-export function OverlayWindow({
-  overlay,
-  cwd,
-  onCycle,
-  onExit,
-}: {
-  overlay: Overlay
-  cwd: string
-  onCycle: () => void
-  onExit: (code: number) => void
-}) {
-  const fullscreen = overlay.mode === "fullscreen"
-  return (
-    <TerminalOverlayFrame
-      mode={overlay.mode}
-      title={overlay.label}
-      status={`Ctrl+O ${fullscreen ? "弹窗" : "全屏"} · Ctrl-D/exit 退出`}
-    >
-      <Anterm
-        command={overlay.command}
-        args={overlay.args}
-        cwd={cwd}
-        autoFocus
-        tuiHotkeys={{ "ctrl+o": onCycle }}
-        onExit={onExit}
         style={{ flexGrow: 1 }}
       />
     </TerminalOverlayFrame>

@@ -29,6 +29,8 @@ export type Block =
       label: string
       cwd: string
       prompt: "shell" | "terminal"
+      /** 用户显式要求浮层运行（Ctrl+O / overlayCommands）：不等 alternate screen 就提升。 */
+      fullscreen: boolean
       state: "running" | "exited"
       exitCode?: number
     }
@@ -36,16 +38,7 @@ export type Block =
   | { id: number; kind: "agent"; text: string }
   | { id: number; kind: "note"; level: "system" | "error"; text: string }
 
-/** 用户显式要求浮层运行的终端状态（Ctrl+O 或 overlayCommands）。 */
-export interface Overlay {
-  /** 浮层标题与退出记录显示的原始输入。 */
-  label: string
-  command: string
-  args: string[]
-  mode: "popup" | "fullscreen"
-}
-
-/** 流内 PTY 进入 alternate screen 后，浮层视图接管的同一终端会话。 */
+/** 流内 PTY 被提升为浮层视图后，浮层接管的同一终端会话。 */
 export interface PromotedTerminal {
   id: number
   label: string

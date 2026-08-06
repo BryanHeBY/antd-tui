@@ -146,7 +146,8 @@ import { Anterm } from "@antd-tui/anterm"
 `@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡:识别为 Shell 时显示 `<cwd> $ …`,否则显示 `<cwd> ◆ …`;`Ctrl+T` 可覆盖当前草稿的路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 - **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 在流内 PTY 卡片中运行,键盘直接交给原生命令;卡片按 normal buffer 的实际内容自然增长,进程退出后保留最终画面并恢复下一条输入。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
-- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出 alternate screen 后回到列表。全屏不留任何 chrome——alternate screen 程序按整屏行数排版,浮层多占一行状态提示就会让子进程少一行、底部露出空行,因此提示只出现在弹窗那一档(弹窗有边框承载标题)。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则显式强制把当前整行放进浮层,同样默认全屏。
+- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出后回到列表。全屏不留任何 chrome——alternate screen 程序按整屏行数排版,浮层多占一行状态提示就会让子进程少一行、底部露出空行,因此提示只出现在弹窗那一档(弹窗有边框承载标题)。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则强制当前整行直接以浮层起跑。
+- **浮层只是同一张卡片的另一种视图**。浮层不持有自己的 PTY:无论自动提升还是 `Ctrl+O` 强制,会话都由流内卡片创建并持有,浮层只是把 `Anterm` 视图搬过去。于是程序退出后卡片**原样留在列表里**——`<cwd> $ <整行>  (exit N)` 头 + 较暗的输出块,与普通 shell 卡片同款,不会退化成一行提示。
 - **内嵌交互**:`inlineCommands`(可配,默认空)只作为显式执行覆盖,同样使用自然高度的流内 PTY。
 - **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
 
@@ -176,7 +177,7 @@ import { Anshell } from "@antd-tui/anshell"
 - `shell/` **分析层**,三者职责严格分开:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 只出诊断——调 `bash -n` / `zsh -n` 空跑解析(带超时),**不参与路由决策**;`completion.ts` 给命令/`$ENV`/文件路径三类补全(PATH 可执行表带短 TTL 缓存),返回的偏移按 code point 计,可直接喂 `InputEdit`。
 - `draft-state.ts` —— 草稿的单一 reducer(输入、路由覆盖、诊断、候选项),让这几项原子更新,避免高亮/诊断与输入内容错位。
 - `terminal-input.ts` —— 提交到 `TerminalCard` 挂载会话之间隔着一帧,这段窗口里敲的键会被**排队**并在会话就绪后按序回放,所以 Enter 后立刻连打不丢字。
-- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame);`cards.tsx` 按块渲染并由 `TerminalCard` 持有 PTY 会话;`triage.ts` 现在只用于选 `$`/`◆` 路由指示符,不再靠命令名决定是否全屏。
+- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame,只有 `PromotedTerminalWindow` 一种浮层);`cards.tsx` 按块渲染并由 `TerminalCard` 独家持有 PTY 会话与提升判定(`block.fullscreen` 或 alternate screen);`triage.ts` 现在只用于选 `$`/`◆` 路由指示符,不再靠命令名决定是否全屏。
 
 ## 组件
 

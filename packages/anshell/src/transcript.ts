@@ -10,7 +10,7 @@ export interface TranscriptApi {
     command: string,
     args: string[],
     cwd: string,
-    options?: { label?: string; prompt?: "shell" | "terminal" },
+    options?: { label?: string; prompt?: "shell" | "terminal"; fullscreen?: boolean },
   ) => number
   /** 记录一条交给 agent 的用户输入。 */
   addPrompt: (text: string, cwd: string) => void
@@ -48,7 +48,7 @@ export function useTranscript(): TranscriptApi {
       command: string,
       args: string[],
       cwd: string,
-      options?: { label?: string; prompt?: "shell" | "terminal" },
+      options?: { label?: string; prompt?: "shell" | "terminal"; fullscreen?: boolean },
     ) => {
       agentId.current = null
       const id = nextId.current++
@@ -60,6 +60,7 @@ export function useTranscript(): TranscriptApi {
         label: options?.label ?? [command, ...args].join(" "),
         cwd,
         prompt: options?.prompt ?? "terminal",
+        fullscreen: options?.fullscreen ?? false,
         state: "running",
       })
       return id

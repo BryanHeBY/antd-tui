@@ -10,8 +10,8 @@ import { useTranscript } from "./transcript"
 import { BlockView, DraftCard } from "./cards"
 import { TerminalInputHandoff } from "./terminal-input"
 import { draftReducer, initialDraftState } from "./draft-state"
-import { OverlayWindow, PromotedTerminalWindow } from "./overlays"
-import type { AnshellProps, Overlay, PromotedTerminal } from "./types"
+import { PromotedTerminalWindow } from "./overlays"
+import type { AnshellProps, PromotedTerminal } from "./types"
 import {
   checkShellSyntax,
   commonPrefix,
@@ -42,7 +42,6 @@ export function Anshell({
   const [cwd, setCwd] = useState(initialCwd ?? process.cwd())
   const [draft, dispatchDraft] = useReducer(draftReducer, initialDraftState)
   const { input, routeOverride, diagnostic, completions } = draft
-  const [overlay, setOverlay] = useState<Overlay | null>(null)
   const [promotedTerminal, setPromotedTerminal] = useState<PromotedTerminal | null>(null)
   const [promotedMode, setPromotedMode] = useState<"popup" | "fullscreen">("fullscreen")
   const [draftCursorVisible, setDraftCursorVisible] = useState(true)
@@ -161,9 +160,15 @@ export function Anshell({
   }, [beginTerminalHandoff, commandShell, transcript])
 
   const openInteractiveLine = useCallback((line: string) => {
-    // 经同一个 Shell 解释原始整行，保留引号、变量、管道和 builtin；Anterm 为它提供真 PTY。
-    setOverlay({ label: line, command: commandShell, args: ["-lc", line], mode: "fullscreen" })
-  }, [commandShell])
+    // 经同一个 Shell 解释原始整行，保留引号、变量、管道和 builtin；与普通命令共用流内
+    // PTY 卡片，只是立刻提升为浮层——退出后自然留在列表里，样式与其他卡片一致。
+    beginTerminalHandoff()
+    transcript.addTerminal(commandShell, ["-lc", line], cwdRef.current, {
+      label: line,
+      prompt: "shell",
+      fullscreen: true,
+    })
+  }, [beginTerminalHandoff, commandShell, transcript])
 
   const changeInput = useCallback((value: string) => {
     dispatchDraft({ type: "change", input: value })
@@ -256,19 +261,6 @@ export function Anshell({
     openInteractiveLine(line)
   }, [input, openInteractiveLine])
 
-  const cycleOverlayMode = useCallback(() => {
-    setOverlay((o) => (o ? { ...o, mode: o.mode === "popup" ? "fullscreen" : "popup" } : o))
-  }, [])
-
-  const closeOverlay = useCallback(
-    (code: number) => {
-      const o = overlay
-      setOverlay(null)
-      if (o) transcript.addNote("system", `▶ ${o.label} (exit ${code})`)
-    },
-    [overlay, transcript],
-  )
-
   const handleTerminalPromotion = useCallback((terminal: PromotedTerminal | null) => {
     setPromotedTerminal(terminal)
     if (terminal) setPromotedMode("fullscreen")
@@ -297,7 +289,7 @@ export function Anshell({
       terminalInput.writeKey(key)
       return
     }
-    if (overlay || promotedTerminal || inlineRunning) return
+    if (promotedTerminal || inlineRunning) return
     if (key.ctrl && key.name === "o") {
       key.preventDefault?.()
       key.stopPropagation?.()
@@ -347,7 +339,7 @@ export function Anshell({
     <ConfigProvider>
       <FocusScope>
         {/* 主作用域：浮层打开时挂起（输入框/内嵌终端全部失焦，键盘归浮层） */}
-        <FocusScope suspended={!!overlay || !!promotedTerminal}>
+        <FocusScope suspended={!!promotedTerminal}>
           <box style={{ flexDirection: "column", width: "100%", height: "100%", ...toBoxStyle(style) }}>
             <scrollbox
               ref={scrollRef}
@@ -370,7 +362,7 @@ export function Anshell({
                 />
               ))}
               {/* PTY 退出后恢复下一条草稿；运行中键盘完全归 PTY。 */}
-              {!inlineRunning && !overlay ? (
+              {!inlineRunning ? (
                 <DraftCard
                   value={input}
                   onChange={changeInput}
@@ -388,13 +380,8 @@ export function Anshell({
           </box>
         </FocusScope>
 
-        {overlay ? (
-          <OverlayWindow overlay={overlay} cwd={cwd} onCycle={cycleOverlayMode} onExit={closeOverlay} />
-        ) : promotedTerminal ? (
-          <PromotedTerminalWindow
-            terminal={promotedTerminal}
-            mode={promotedMode}
-          />
+        {promotedTerminal ? (
+          <PromotedTerminalWindow terminal={promotedTerminal} mode={promotedMode} />
         ) : null}
       </FocusScope>
     </ConfigProvider>
