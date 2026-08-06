@@ -7,7 +7,7 @@ import { AcpClient, type AvailableCommand, type SessionConfigOption, type Sessio
 import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "./triage"
 import { isBuiltin, runBuiltin } from "./builtins"
 import { useTranscript } from "./transcript"
-import { BlockView, DraftCard } from "./cards"
+import { AgentBusyLine, BlockView, DraftCard } from "./cards"
 import { TerminalInputHandoff } from "./terminal-input"
 import { draftReducer, initialDraftState } from "./draft-state"
 import { PromotedTerminalWindow } from "./overlays"
@@ -61,6 +61,7 @@ export function Anshell({
   const [agentModes, setAgentModes] = useState<SessionModeState | null>(null)
   const [agentConfig, setAgentConfig] = useState<SessionConfigOption[]>([])
   const [agentUsage, setAgentUsage] = useState<string | null>(null)
+  const [agentBusy, setAgentBusy] = useState(false)
   const transcript = useTranscript()
   const commandShell = useMemo(() => resolveShell(shell), [shell])
 
@@ -203,10 +204,12 @@ export function Anshell({
           const cost = usage.cost ? `  ${usage.cost.amount} ${usage.cost.currency}` : ""
           setAgentUsage(`${usage.used}/${usage.size}${cost}`)
         },
+        onBusy: setAgentBusy,
         onPermission: decidePermission,
         onExit: (code) => {
           latest.current.transcript.flushAgent()
           setAgentReady(false)
+          setAgentBusy(false)
           latest.current.transcript.addNote("system", `agent 已退出（code ${code ?? "?"}）`)
         },
       },
@@ -645,6 +648,16 @@ export function Anshell({
       return
     }
 
+    // agent 轮次在途：草稿此时不渲染，Esc/Ctrl-C 直接中断（等价 /cancel）
+    if (agentBusy) {
+      if (key.name === "escape" || (key.ctrl && key.name === "c")) {
+        key.preventDefault?.()
+        key.stopPropagation?.()
+        clientRef.current?.cancel()
+      }
+      return
+    }
+
     // 斜杠菜单的方向键/Esc 必须抢在命令历史翻阅之前
     if (menuOpen && slashMenu.length > 0) {
       if (key.name === "up" || key.name === "down") {
@@ -736,8 +749,10 @@ export function Anshell({
                   onTerminalSessionRelease={handleTerminalSessionRelease}
                 />
               ))}
-              {/* PTY 运行中或权限待决策时键盘归它们，草稿不渲染 */}
-              {!inlineRunning && !permissionPending ? (
+              {/* 轮次在途时占住流尾，仿 shell 的 prompt 未归位 */}
+              {agentBusy && !permissionPending && !inlineRunning ? <AgentBusyLine /> : null}
+              {/* PTY 运行中、权限待决策或 agent 轮次在途时键盘归它们，草稿不渲染 */}
+              {!inlineRunning && !permissionPending && !agentBusy ? (
                 <DraftCard
                   value={input}
                   onChange={changeInput}

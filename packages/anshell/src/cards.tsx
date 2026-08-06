@@ -413,6 +413,29 @@ export function PermissionCard({ block }: { block: Extract<Block, { kind: "permi
   )
 }
 
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+/**
+ * agent 轮次在途时占住流尾：仿 shell「prompt 未归位」，一轮没结束就不发新的草稿卡，
+ * 否则输入卡会先冒出来、agent 的文字再插到它上面。自带 tick 定时器，条件渲染即可。
+ */
+export function AgentBusyLine() {
+  const token = useToken()
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick((v) => v + 1), 120)
+    return () => clearInterval(timer)
+  }, [])
+  return (
+    <box style={{ backgroundColor: cardTint.input, paddingLeft: 1, paddingRight: 1, width: "100%" }}>
+      <text attributes={0}>
+        <span fg={token.colorWarning}>{`${SPINNER[tick % SPINNER.length]} `}</span>
+        <span fg={token.colorTextSecondary}>运行中 · Esc 中断</span>
+      </text>
+    </box>
+  )
+}
+
 /** 斜杠命令卡片：`<cwd> / <命令>` 头 + 结果行，与 shell 卡片同款。 */
 export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "command" }> }) {
   const token = useToken()
@@ -449,7 +472,9 @@ export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "com
 /** agent 回复卡片：◆ 前缀 + 多行文本。 */
 export function AgentCard({ block }: { block: Extract<Block, { kind: "agent" }> }) {
   const token = useToken()
-  const lines = block.text.split("\n")
+  // agent 的 chunk 通常以换行收尾，直接 split 会在卡片底部留一行空白，
+  // 与「流项目之间不留空行」相悖
+  const lines = block.text.replace(/\n+$/, "").split("\n")
   return (
     <box
       style={{

@@ -30,7 +30,13 @@ async function mount(props: AnshellProps = {}, options?: { width?: number; heigh
   return t
 }
 
+/** 草稿卡回来了才输入：轮次在途时草稿不渲染，按键会没人接。 */
+async function idle(t: TuiTestSetup) {
+  await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 10000)
+}
+
 async function send(t: TuiTestSetup, line: string) {
+  await idle(t)
   await t.type(line)
   await t.enter()
 }
@@ -53,6 +59,8 @@ describe("Anshell 的 agent 接入", () => {
     const t = await mount()
     await send(t, "echo history-entry")
     await t.waitUntil(() => t.frame().includes("$ echo history-entry"))
+    // PTY 卡片跑完、草稿归位之后再敲，否则按键会被流内 PTY 收走
+    await idle(t)
     await t.type("/s")
     await t.waitUntil(() => t.frame().includes("▸ /session"))
     await t.press("down")
@@ -148,13 +156,15 @@ describe("Anshell 的 agent 接入", () => {
     await t.waitUntil(() => t.frame().includes("已清空 1 条权限记忆"), 10000)
   }, 40000)
 
-  test("/cancel 发出 session/cancel 并让 agent 收敛", async () => {
+  test("轮次在途时不发新草稿，Esc 中断后草稿归位", async () => {
     const t = await mount()
     await send(t, "slow")
-    await t.settle()
-    await send(t, "/cancel")
-    await t.waitUntil(() => t.frame().includes("已发送 session/cancel"), 10000)
+    // 仿 shell 的 prompt 未归位：agent 说完之前不出下一张输入卡
+    await t.waitUntil(() => t.frame().includes("运行中 · Esc 中断"), 10000)
+    expect(t.frame()).not.toContain("输入 Agent 提示")
+    await t.escape()
     await t.waitUntil(() => t.frame().includes("已中断"), 10000)
+    await idle(t)
   }, 30000)
 
   test("/usage 呈现 usage_update 上报的占用", async () => {
