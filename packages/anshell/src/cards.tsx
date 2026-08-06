@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { homedir } from "node:os"
 import { useTerminalDimensions } from "@opentui/react"
 import {
@@ -33,19 +33,31 @@ export function shortCwd(cwd: string): string {
  * 斜杠命令）共用它，「在哪里」于是在整列卡片里对齐成一条视觉锚线；用户覆盖主色时
  * 徽章跟着变。
  */
+/**
+ * 徽章底色 = 主色再压暗一档。直接用 `colorPrimary` 配主色系文字对比度不够，
+ * 压暗后配纯白才读得清；仍从主题派生，用户覆盖主色时徽章跟着变。
+ */
+function badgeBackground(primary: string): string {
+  const hex = primary.replace("#", "")
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return primary
+  const channels = [0, 2, 4].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * 0.55))
+  return `#${channels.map((value) => value.toString(16).padStart(2, "0")).join("")}`
+}
+
 export function PromptChip({ cwd }: { cwd: string }) {
   const token = useToken()
+  const background = useMemo(() => badgeBackground(token.colorPrimary), [token.colorPrimary])
   return (
     <box
       style={{
-        backgroundColor: token.colorPrimary,
+        backgroundColor: background,
         paddingLeft: 1,
         paddingRight: 1,
         height: 1,
         flexShrink: 0,
       }}
     >
-      <text attributes={0} fg={token.colorPrimaryHover}>
+      <text attributes={0} fg="#ffffff">
         {shortCwd(cwd)}
       </text>
     </box>
@@ -144,8 +156,9 @@ export function DraftCard({
         }}
       >
         <PromptChip cwd={cwd} />
-        {/* 徽章自带左右内边距，符号不再补空格，否则与徽章之间会空出两格 */}
-        <text attributes={0} fg={symbolColor}>{symbol}</text>
+        {/* 原生 input 在徽章后自带一格：shell/agent 的符号补一个空格，各路由的
+            提示符与命令文本才在同一列起笔（斜杠命令的 / 由 input 自己渲染） */}
+        <text attributes={0} fg={symbolColor}>{symbol === "" ? "" : ` ${symbol}`}</text>
         <Input
           value={value}
           placeholder={placeholder}
@@ -240,7 +253,7 @@ export function PromptCard({ block }: { block: Extract<Block, { kind: "prompt" }
     >
       <PromptChip cwd={block.cwd} />
       <text attributes={0}>
-        <span fg={token.colorWarning}>◆ </span>
+        <span fg={token.colorWarning}> ◆ </span>
         <span fg={token.colorText}>{block.text}</span>
       </text>
     </box>
@@ -342,7 +355,7 @@ export function TerminalCard({
       >
         <PromptChip cwd={block.cwd} />
         <text attributes={0}>
-          <span fg={token.colorPrimaryHover}>{`${symbol} `}</span>
+          <span fg={token.colorPrimaryHover}>{` ${symbol} `}</span>
           <span fg={token.colorText}>{block.label}</span>
           <span fg={token.colorTextDisabled}>
             {running ? "  (PTY)" : `  (exit ${block.exitCode ?? 0})`}
@@ -488,7 +501,8 @@ export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "com
       >
         <PromptChip cwd={block.cwd} />
         <text attributes={0}>
-          <span fg={token.colorSuccess}>{`/${block.name}`}</span>
+          {/* 草稿里原生 input 在徽章后自带一格，卡片补一个空格才与所打对齐 */}
+          <span fg={token.colorSuccess}>{` /${block.name}`}</span>
           <span fg={token.colorTextSecondary}>{block.input === "" ? "" : ` ${block.input}`}</span>
         </text>
       </box>
