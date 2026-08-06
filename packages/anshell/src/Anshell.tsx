@@ -24,6 +24,7 @@ import type { AnshellProps, CommandRow } from "./types"
 import {
   checkShellSyntax,
   commonPrefix,
+  completeLive,
   completeShellInput,
   lexShell,
   resolveShellDialect,
@@ -48,7 +49,7 @@ export function Anshell({
   const startCwd = initialCwd ?? process.cwd()
   const resolved = useMemo(() => resolveShellDialect(shell), [shell])
   const [draft, dispatchDraft] = useReducer(draftReducer, initialDraftState)
-  const { input, routeOverride, diagnostic, completions, menuOpen, menuIndex } = draft
+  const { input, routeOverride, diagnostic, completions, completionOpen, completionIndex, menuOpen, menuIndex } = draft
   const [draftCursorVisible, setDraftCursorVisible] = useState(true)
   const [agentReady, setAgentReady] = useState(false)
   const [agentCommands, setAgentCommands] = useState<AvailableCommand[]>([])
@@ -296,7 +297,23 @@ export function Anshell({
   const completeInput = useCallback(
     async ({ value, cursor }: { value: string; cursor: number }) => {
       if (inputMode !== "shell" && routeOverride === "agent") return
-      const result = await completeShellInput(value, cursor, cwdRef.current)
+      // 下拉框已展开时，Tab 前进选中项（zsh menu-complete 手感）
+      if (completionOpenRef.current && completionsRef.current.length > 0) {
+        dispatchDraft({
+          type: "completionMove",
+          delta: 1,
+          count: Math.min(completionsRef.current.length, SLASH_MENU_LIMIT),
+        })
+        return
+      }
+      // bash 走真实补全（complete/compgen spec），超时/为空回退启发式；zsh 暂用启发式
+      let result = null
+      if (resolved.dialect === "bash" && shellCtl.session) {
+        result = await completeLive(shellCtl.session, value, cursor).catch(() => null)
+      }
+      if (!result || result.items.length === 0) {
+        result = await completeShellInput(value, cursor, cwdRef.current)
+      }
       if (result.items.length === 0) {
         dispatchDraft({ type: "completions", completions: [] })
         return
@@ -306,7 +323,8 @@ export function Anshell({
       let replacement = ""
       if (result.items.length === 1) {
         const only = result.items[0]!
-        replacement = `${only.value}${only.kind === "directory" ? "" : " "}`
+        const suffix = only.kind === "directory" || result.nospace ? "" : " "
+        replacement = `${only.value}${suffix}`
       } else {
         const prefix = commonPrefix(result.items.map((item) => item.value))
         if (prefix.length > current.length) replacement = prefix
@@ -318,10 +336,33 @@ export function Anshell({
           cursor: result.start + Array.from(replacement).length,
         }
       }
+      completionRangeRef.current = { start: result.start, end: result.end, nospace: !!result.nospace }
       dispatchDraft({ type: "completions", completions: result.items.slice(0, 50) })
     },
-    [inputMode, routeOverride],
+    [inputMode, routeOverride, resolved.dialect, shellCtl],
   )
+  // Tab 前进选中项需要读到最新的展开态/候选，用 ref 避免闭包过期
+  const completionOpenRef = useRef(completionOpen)
+  completionOpenRef.current = completionOpen
+  const completionsRef = useRef(completions)
+  completionsRef.current = completions
+  const completionRangeRef = useRef<{ start: number; end: number; nospace: boolean }>({
+    start: 0,
+    end: 0,
+    nospace: false,
+  })
+
+  /** Enter 接受当前选中的补全项，替换当前词。 */
+  const acceptCompletion = useCallback((): boolean => {
+    const item = completions[completionIndex]
+    if (!item) return false
+    const { start, end, nospace } = completionRangeRef.current
+    const chars = Array.from(input)
+    const suffix = item.kind === "directory" || nospace ? "" : " "
+    const next = [...chars.slice(0, start), item.value + suffix, ...chars.slice(end)].join("")
+    changeInput(next)
+    return true
+  }, [completions, completionIndex, input, changeInput])
 
   /**
    * 斜杠命令执行：本地命令映射到真正的 ACP 方法，其余名字按 agent 命令编译成 prompt 文本。
@@ -556,6 +597,7 @@ export function Anshell({
   }, [menuIndex, runSlashCommand, slash, slashMenu])
 
   const submitLine = useCallback(() => {
+    if (completionOpen && completions.length > 0 && acceptCompletion()) return
     if (menuOpen && slashMenu.length > 0 && acceptMenu()) return
     const line = input.trim()
     const mode = inputMode
@@ -588,7 +630,20 @@ export function Anshell({
     }
     // 其余（含 cd / pwd / exit）交给长驻 shell
     shellCtl.submit(line, { requestedOverlay: overlaySet.has(argv0) })
-  }, [acceptMenu, input, inputMode, menuOpen, overlaySet, runSlashCommand, shellCtl, slashMenu, transcript])
+  }, [
+    acceptCompletion,
+    acceptMenu,
+    completionOpen,
+    completions,
+    input,
+    inputMode,
+    menuOpen,
+    overlaySet,
+    runSlashCommand,
+    shellCtl,
+    slashMenu,
+    transcript,
+  ])
 
   const submitInteractiveLine = useCallback(() => {
     const line = input.trim()
@@ -644,6 +699,26 @@ export function Anshell({
         clientRef.current?.cancel()
       }
       return
+    }
+
+    // 补全下拉框方向键/Esc 抢在斜杠菜单与命令历史之前
+    if (completionOpen && completions.length > 0) {
+      if (key.name === "up" || key.name === "down") {
+        key.preventDefault?.()
+        key.stopPropagation?.()
+        dispatchDraft({
+          type: "completionMove",
+          delta: key.name === "down" ? 1 : -1,
+          count: Math.min(completions.length, SLASH_MENU_LIMIT),
+        })
+        return
+      }
+      if (key.name === "escape") {
+        key.preventDefault?.()
+        key.stopPropagation?.()
+        dispatchDraft({ type: "completionClose" })
+        return
+      }
     }
 
     // 斜杠菜单方向键/Esc 抢在命令历史翻阅之前
@@ -751,6 +826,7 @@ export function Anshell({
                   shellTokens={shellLex.tokens}
                   diagnostic={diagnostic}
                   completions={completions}
+                  completionIndex={completionIndex}
                   menu={slashMenu}
                   menuIndex={menuIndex}
                   onTab={completeInput}

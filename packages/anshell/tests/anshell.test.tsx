@@ -292,6 +292,28 @@ describe("Anshell 流式布局", () => {
     await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 8000)
   })
 
+  test("补全下拉框：↑↓ 选择而非翻历史，Enter 接受", async () => {
+    const t = await mount()
+    await ready(t)
+    // 先制造两条历史，用来区分「翻历史」与「移动选中项」
+    await t.type("echo one")
+    await t.enter()
+    await t.waitUntil(() => t.frame().split("\n").some((l) => l.trim() === "one"), 8000)
+    // 注册一个固定候选表，Tab 展开下拉框
+    await t.type("complete -W 'alpha beta gamma' anshtest")
+    await t.enter()
+    await ready(t)
+    await t.type("anshtest ")
+    await t.tab()
+    // 三个候选（cur 为空），展开下拉框而不是唯一补全
+    await t.waitUntil(() => t.frame().includes("▸ alpha"), 8000)
+    expect(t.frame()).toContain("beta")
+    // ↑↓ 在候选间移动，而不是把草稿替换成历史命令
+    await t.press(KeyCodes.ARROW_DOWN)
+    await t.waitUntil(() => t.frame().includes("▸ beta"))
+    expect(t.frame()).toContain("anshtest")
+  }, 30000)
+
   test("Ctrl+O 强制把任意 Shell 整行放进 PTY", async () => {
     const t = await mount()
     await t.type("read answer; echo got:$answer")

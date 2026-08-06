@@ -77,6 +77,7 @@ export function DraftCard({
   shellTokens,
   diagnostic,
   completions,
+  completionIndex,
   menu,
   menuIndex,
   onTab,
@@ -90,6 +91,7 @@ export function DraftCard({
   shellTokens: ShellToken[]
   diagnostic: SyntaxDiagnostic | null
   completions: CompletionItem[]
+  completionIndex: number
   menu: SlashCommand[]
   menuIndex: number
   onTab: (context: InputTabContext) => InputEdit | void | Promise<InputEdit | void>
@@ -204,20 +206,32 @@ export function DraftCard({
         </box>
       ) : null}
       {completions.length > 0 ? (
-        <box
-          style={{
-            backgroundColor: cardTint.output,
-            paddingLeft: 1,
-            paddingRight: 1,
-            width: "100%",
-            height: 1,
-            flexShrink: 0,
-            overflow: "hidden",
-          }}
-        >
-          <text attributes={0} fg={token.colorTextSecondary}>
-            {completions.slice(0, 12).map((item) => item.label).join("  ")}
-          </text>
+        <box style={{ flexDirection: "column", width: "100%", backgroundColor: cardTint.output }}>
+          {completions.slice(0, SLASH_MENU_LIMIT).map((item, index) => {
+            const selected = index === completionIndex
+            return (
+              <box
+                key={`${item.value}-${index}`}
+                style={{
+                  backgroundColor: selected ? cardTint.input : cardTint.output,
+                  paddingLeft: 1,
+                  paddingRight: 1,
+                  width: "100%",
+                  height: 1,
+                  flexShrink: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <text attributes={0}>
+                  <span fg={selected ? token.colorSuccess : token.colorText}>
+                    {`${selected ? "▸" : " "} ${item.label}`}
+                  </span>
+                  <span fg={token.colorTextDisabled}>{`  ${item.kind}`}</span>
+                  <span fg={token.colorTextSecondary}>{item.description ? `  ${item.description}` : ""}</span>
+                </text>
+              </box>
+            )
+          })}
         </box>
       ) : null}
       {status ? (

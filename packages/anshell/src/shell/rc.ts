@@ -82,6 +82,49 @@ __ansh_reply() {
   return \${__ansh_user_status:-0}
 }
 
+# 真实补全驱动：喂 COMP_* 给已注册的 completion 函数，回带 TSV。
+# 关键是 124 重试——bash-completion 多为懒加载，首调 _completion_loader 返回 124
+# 后 spec 才出现,不重试大多数命令补不出东西。
+__ansh_compgen() {
+  local line=\$1 point=\$2
+  local before=\${line:0:\$point}
+  local -; set -f
+  local IFS=\$' \t\n'
+  read -ra COMP_WORDS <<< "\$before"
+  if [[ -z \$before || \$before =~ [[:space:]]\$ ]]; then COMP_WORDS+=(""); fi
+  COMP_LINE=\$line COMP_POINT=\$point COMP_TYPE=9 COMP_KEY=9
+  COMP_CWORD=\$(( \${#COMP_WORDS[@]} - 1 ))
+  local cmd=\${COMP_WORDS[0]} cur=\${COMP_WORDS[COMP_CWORD]} prev=""
+  (( COMP_CWORD > 0 )) && prev=\${COMP_WORDS[COMP_CWORD-1]}
+  local spec="" func="" rc i=0
+  while (( i++ < 3 )); do
+    spec=\$(complete -p -- "\$cmd" 2>/dev/null)
+    if [[ -z \$spec ]]; then
+      (( COMP_CWORD == 0 )) && spec=\$(complete -p -I 2>/dev/null) || spec=\$(complete -p -D 2>/dev/null)
+    fi
+    if [[ \$spec == *" -F "* ]]; then
+      func=\${spec#*-F }; func=\${func%% *}
+      COMPREPLY=(); "\$func" "\$cmd" "\$cur" "\$prev"; rc=\$?
+      (( rc == 124 )) || break
+    elif [[ -n \$spec ]]; then
+      # -W/-A/-G/-o 等非函数 spec：把 complete 的选项原样交给 compgen
+      local optpart=\${spec#complete }; optpart=\${optpart% *}
+      while IFS= read -r x; do COMPREPLY+=("\$x"); done < <(eval "compgen \$optpart -- \${cur@Q}" 2>/dev/null)
+      break
+    else
+      break
+    fi
+  done
+  # 只有存在已注册 spec 时才回退到文件补全；否则交给宿主的启发式（它会 stat 目录、
+  # 处理 \$VAR，比裸 compgen 更好）——completeLive 收到空结果就回退
+  if (( \${#COMPREPLY[@]} == 0 )) && [[ -n \$spec ]]; then
+    while IFS= read -r x; do COMPREPLY+=("\$x"); done < <(compgen -o default -- "\$cur" 2>/dev/null)
+  fi
+  printf 'cur\t%s\n' "\$cur"
+  printf 'opts\t%s\n' "\$spec"
+  printf 'item\t%s\n' "\${COMPREPLY[@]}"
+}
+
 __ansh_install
 `
 }

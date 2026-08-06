@@ -15,6 +15,8 @@ export interface CompletionItem {
   label: string
   value: string
   kind: "command" | "directory" | "file" | "variable"
+  /** 可选说明（真实补全暂不提供，留给下拉框展示） */
+  description?: string
 }
 
 export interface CompletionResult {
@@ -22,6 +24,8 @@ export interface CompletionResult {
   start: number
   end: number
   items: CompletionItem[]
+  /** bash `-o nospace`：唯一候选补全后不追加空格 */
+  nospace?: boolean
 }
 
 let executableCache: { path: string; expires: number; values: string[] } | null = null

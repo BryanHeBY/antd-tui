@@ -44,3 +44,4 @@ export {
   type CompletionItem,
   type CompletionResult,
 } from "./completion"
+export { completeLive } from "./completion-live"
