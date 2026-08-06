@@ -130,29 +130,28 @@ import { Anterm } from "@antd-tui/anterm"
 <Anterm command="bash" autoFocus style={{ flexGrow: 1 }} />
 ```
 
-八个要点:
+九个要点:
 
 - **全键捕获**。终端要收到 Tab(shell 补全)、方向键、Enter,所以它以 `kind: "capture"` 注册进焦点系统,`FocusScope` 不再替它消费任何按键。代价是焦点出不来,需按 `tuiEscapeKey`(默认 `Ctrl+]`,telnet 风格)交还。宿主若要保留少量自己的快捷键(如切换窗口大小),用 `tuiHotkeys`(键名如 `"ctrl+o"`)拦下,命中的键不透传子进程。
 - **会话可被宿主复用**。`tuiSession` 接管一个宿主自己 `createAntermSession` 建出的 PTY,组件卸载时**不**终止它——于是同一个会话能在流内卡片与浮层视图之间搬移而不重启子进程(`tuiResizeSession` 决定该视图的尺寸是否同步回 PTY)。配套开关:`tuiKeyboardDisabled`(宿主统一接管输入)、`tuiReadOnly`(退出后只读展示,不再注册焦点)、`tuiBackgroundColor`(与宿主卡片底色融合)。
-- **flow 平铺渲染**。`tuiFlow` 改用 normal buffer 从首行平铺,卡片高度随实际输出行数自然增长(而非固定视口),让命令输出能嵌进宿主的滚动历史流;若会话曾整屏重画、append-only 历史已不可还原,用 `tuiFlowViewport` 退化为只冻结当前视口。这是 anshell 把每条命令跑成流内 PTY 卡片的基础。
+- **flow 平铺渲染**。`tuiFlow` 改用 normal buffer 从首行平铺,卡片高度随实际输出行数自然增长(而非固定视口),让命令输出能嵌进宿主的滚动历史流;若会话曾整屏重画、append-only 历史已不可还原,用 `tuiFlowViewport` 退化为只冻结当前视口。
 - **光标分两条路**。视口模式(浮层/全屏)把子进程的光标交给**宿主终端的真光标**(`setCursorPosition`):自带闪烁与用户的光标样式,也不会像涂色单元格那样在分页器反复重画后留下白块。flow 卡片仍把光标涂进单元格——真光标不受 scrollbox 视口裁剪,卡片滚出视口后它会飘在别的位置。
 - **会话暴露行为读面**。`normalScreen`(即便已切到 alternate screen 仍可读流式历史)、`alternateScreen`、`screenTakeover`、`normalContentRows` / `normalOutputRows`、`cursorVisible` —— 宿主据此按**程序的实际行为**而非命令名决定呈现(如切 alternate screen 就把会话升格成浮层)。
+- **OSC 标记读面**。`onOsc` 转发子进程的 OSC 7(cwd)与 133(FinalTerm 语义 prompt 标记),带上序列被解析当刻的 buffer 行列——这是把一条长驻 shell 的输出切成命令区间的唯一准确来源;`AntermMark`(基于 xterm `registerMarker`)对 scrollback 裁剪安全但对 reflow 不安全,`screenTakeoverSeq` 把整屏擦除从 sticky 布尔换成可按命令比较的代数。anshell 的长驻 shell 模型就架在这套读面上。
 - **自建控制终端**。Bun 的 `spawn({ terminal })` 不给子进程建立控制终端(`ps` 里 TT 是 `?`),于是 pty 的 ISIG 找不到前台进程组——Ctrl-C 只回显 `^C`,不产生 SIGINT,作业控制也不工作。Linux 上用 util-linux 的 `setsid --ctty` 补上这一步;其他平台降级为直接运行(显示与输入照常,信号键失效)。
 - **鼠标按协商级别透传**。子进程经 DECSET 1000/1002/1003 声明追踪级别,组件据此过滤事件种类,并按 1006 决定用 SGR 还是 X10 编码。注意 DECSET 允许合并参数(htop 发的是 `\x1b[?1006;1000h`),必须按参数拆开判断,否则会退化成 X10 而让子进程把坐标字节读成按键。子进程没要鼠标时,滚轮用来翻组件自己的回看缓冲。
 - **ANSI 0-15 走自带色板**。opentui 会把 palette 索引摊平成 xterm 的静态默认值(ANSI 1 是 `#800000`),放在现代终端里内容会明显发闷,所以组件自带一张 Campbell 色板,可经 `tuiPalette` 覆盖。索引 16-255 是与主题无关的标准 256 色立方体,不受影响。
 
 ## anshell:对话式 shell
 
-`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`;斜杠命令不另加提示符——用户敲的那个 `/` 本身就是提示符(只染色),所以草稿与冻结后的卡片头逐字一致,不会出现 `/ /session` 这种双斜杠或掉斜杠;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。所有命令跑在**一条长驻交互 shell** 里,靠 OSC 133 语义标记切成卡片(VS Code / Warp 的 shell integration 做法)——`export`/`source venv`/别名/`cd`/作业控制/`history` 全部跨命令留存。仅支持 bash 与 zsh(其余 shell 启动即报错)。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`;斜杠命令不另加提示符——用户敲的那个 `/` 本身就是提示符(只染色),所以草稿与冻结后的卡片头逐字一致,不会出现 `/ /session` 这种双斜杠或掉斜杠;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 卡片的符号是一套:`$` 经 Shell 解释、`▶` 不经 Shell 直接 exec、`◆` agent、`/` 斜杠命令、`*` 工具调用、`!` 权限请求、`·` 系统提示。
 
 提示符做成**主色徽章**:cwd 占一块实心方块,底色是 `colorPrimary` 再压暗一档(直接用主色配主色系文字对比度不够)、文字纯白,左右各一格内边距、硬边收尾——不用端帽字符(半圆/三角/半块都要么太小要么依赖字体),也不用又一档灰(灰阶之间差异太小、扫视时抓不住);底色仍从主题派生,覆盖主色时徽章跟着变。徽章之后所有路由的提示符都在同一列起笔(原生 input 在徽章后自带一格,`$`/`◆` 各补一个空格对齐),草稿与冻结后的卡片头因此逐字对齐。卡片底色仍分三档,从亮到暗:输入 `#1f1f1f`、agent 回复 `#1a1a1a`、输出 `#171717`。斜杠命令的结果不是纯文本行而是结构化的 `CommandRow`(标记 + 主体 + 参数提示 + 说明 + 备注),因此 `/help` 的命令名、`/session` 的当前会话、`/mode` 的当前模式都能各自上色,而不必靠猜字符串边界。
 
-- **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 在流内 PTY 卡片中运行,键盘直接交给原生命令;卡片按 normal buffer 的实际内容自然增长,进程退出后保留最终画面并恢复下一条输入。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
-- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出后回到列表。全屏不留任何 chrome——alternate screen 程序按整屏行数排版,浮层多占一行状态提示就会让子进程少一行、底部露出空行,因此提示只出现在弹窗那一档(弹窗有边框承载标题)。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则强制当前整行直接以浮层起跑。
-- **浮层只是同一张卡片的另一种视图**。浮层不持有自己的 PTY:无论自动提升还是 `Ctrl+O` 强制,会话都由流内卡片创建并持有,浮层只是把 `Anterm` 视图搬过去。于是程序退出后卡片**原样留在列表里**——`<cwd> $ <整行>  (exit N)` 头 + 较暗的输出块,与普通 shell 卡片同款,不会退化成一行提示。
-- **内嵌交互**:`inlineCommands`(可配,默认空)只作为显式执行覆盖,同样使用自然高度的流内 PTY。
+- **命令**:首词是已知命令(PATH 可执行 / builtin / shell 自报的函数别名),或整行含 Shell 结构(`| > & ; $` …)→ 写进那条长驻 shell。卡片头是 `<cwd> $ <整行>`,输出是 `133;C`→`133;D` 之间行区间的实时派生,命令结束时冻结成**不可变快照**(冻结画面与最后一帧逐格一致)。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
+- **全屏行为**:不按命令名特判。命令切到 alternate screen(或 `Ctrl+O` 强制)时,那条共享 shell 的视图被搬进**全屏**浮层(vim/less/htop 的原生体验),退出后卡片原样留在流里(`<cwd> $ <整行>  (exit N)` + 输出块)。浮层两档**同宽**(只差高度)——这样 cols 恒定、xterm 不会 reflow,浮层才能安全 resize 共享 shell。`Ctrl+O` 在全屏↔居中弹窗间切换。整屏重画(`clear` / `\e[2J`)按 `screenTakeoverSeq` 只让**那一条**命令降级为视口快照,不像旧的 sticky 布尔那样污染整个会话。
 - **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。agent 的流式回复、思考、工具调用、权限请求各自成卡片,与 shell 卡片同一套版式。轮次在途时**不发新的草稿卡**(仿 shell 的 prompt 未归位),流尾只有一行 `⠋ 运行中 · Esc 中断`——否则输入卡会先冒出来、agent 的文字再插到它上面;`Esc`/`Ctrl-C` 等价 `/cancel`,轮次收敛后草稿归位。
 - **斜杠命令**:`/` 开头进入第三条路由(优先于 shell/agent 分诊),草稿卡下方展开内联候选菜单——`↑↓` 选择、`Tab` 补全、`Enter` 执行(命令名没敲全且该命令带参数提示时,Enter 先补全名字等参数)、`Esc` 收起。命名空间里合流两类命令:
   - **本地命令**映射到真正的 ACP 方法,并按 agent 声明的能力过滤(没声明就不出现在菜单里):`/session`(`session/list`·`new`·`load <id>`·`delete <id>`)、`/mode`(`session/set_mode`)、`/model`(ACP **没有** `session/set_model`,模型是 `category:"model"` 的 select 配置项,走 `session/set_config_option`)、`/cancel`(`session/cancel`)、`/usage`(`usage_update` 上报的占用与费用)、`/permissions`(权限记忆与审计,`reset` 清空)、`/help`。
@@ -170,24 +169,25 @@ bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL
 ```tsx
 import { Anshell } from "@antd-tui/anshell"
 
-<Anshell shell="/usr/bin/zsh" agentCmd={["qodercli", "--acp"]} inlineCommands={["fzf"]} />
+<Anshell shell="/usr/bin/zsh" agentCmd={["qodercli", "--acp"]} />
 ```
 
 要点:
 
 - **感知式行内输入(所见即所得)**。自动路由以 `$`(Shell)/`◆`(Agent)实时反馈,`Ctrl+T` 显式切换当前草稿;Enter 后原样冻结,输出以较暗底色的卡片紧贴其下,所有流项目之间不留空行。无独立底部输入框、无状态行,cwd 融进每张输入卡的提示符。
-- **PTY 行为驱动视图**。normal buffer 平铺进历史流并自然增长;alternate screen 自动升格为全屏浮层(`Ctrl+O` 可切成居中弹窗)。视图切换复用同一个 PTY 会话,不会重启子进程。
-- **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层);草稿中 **Ctrl-C 取消当前输入**,命令运行中则把 Ctrl-C 原样交给 PTY 产生中断,均不退出应用。
-- **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。
+- **一条 shell,卡片是它的切片**。命令输出按 OSC 133 的 `C`/`D` 标记切成卡片;标记带 `ansh=<nonce>`,会话里再开一层 shell(它用你自己的 rc、可能自带别家 shell integration)的标记 nonce 不符会被丢弃,不会把外层卡片切断。alternate screen 升格为全屏浮层,复用同一个会话。
+- **退出用 Ctrl-D / exit**——`exit` 直接让那条 shell 退出、应用随之收场;草稿中 **Ctrl-C 取消当前输入**,命令运行中则原样交给 PTY 产生中断。
+- **cwd 由 shell 经 OSC 7 上报**:`cd`/`pwd`/`export`/`source` 全回归真 shell,徽章跟着 OSC 7 变。唯一的宿主内建是 `clear`(清卡片流,不清 shell 屏幕)。
 - 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。
 
 内部结构:
 
 - `shell/` **分析层**,三者职责严格分开:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 只出诊断——调 `bash -n` / `zsh -n` 空跑解析(带超时),**不参与路由决策**;`completion.ts` 给命令/`$ENV`/文件路径三类补全(PATH 可执行表带短 TTL 缓存),返回的偏移按 code point 计,可直接喂 `InputEdit`。
 - `draft-state.ts` —— 草稿的单一 reducer(输入、路由覆盖、诊断、候选项),让这几项原子更新,避免高亮/诊断与输入内容错位。
-- `terminal-input.ts` —— 提交到 `TerminalCard` 挂载会话之间隔着一帧,这段窗口里敲的键会被**排队**并在会话就绪后按序回放,所以 Enter 后立刻连打不丢字。
+- `shell/dialect.ts`(bash/zsh 判定)、`shell/rc.ts`(临时 rc 注入:先 source 用户配置再追加 prompt 钩子,与 starship/p10k 共存;bash `PROMPT_COMMAND` 前置以拿到命令真实 `$?`;每条标记带 nonce)、`shell/session.ts`(OSC 事件 → idle/inFlight 状态机 + 命令边界 + cwd + `runHidden` 静默命令走文件通道)、`shell/range.ts`(`[C, D)` 行区间代数,运行中单调水位线,标记被裁/整屏重画的降级)。
+- `useShellSession.tsx` —— React 接缝:建会话、把 OSC 事件接进 transcript、维护 cwd/浮层,并把行区间快照成 `StyledText[]`(运行中每帧派生,`133;D` 时同步冻结,不与下一个 prompt 竞态)。命令在飞用同步 ref 标志,提交当刻即翻转,紧跟的 stdin 不丢。
 - `commands.ts` 斜杠命令表(纯函数:`parseSlash`/`listCommands`/`matchCommands`/`compileAgentCommand`),`permissions.ts` 权限记忆与审计流水,`tool-content.ts` 把 ACP 的 `ToolCallContent` 压成几行摘要——三者都不碰 React,可独立测试。
-- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame,只有 `PromotedTerminalWindow` 一种浮层);`cards.tsx` 按块渲染并由 `TerminalCard` 独家持有 PTY 会话与提升判定(`block.fullscreen` 或 alternate screen);`triage.ts` 现在只用于选 `$`/`◆` 路由指示符,不再靠命令名决定是否全屏。
+- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame、同宽只差高度,只有 `PromotedTerminalWindow` 一种浮层);`cards.tsx` 的 `ShellCard`/`RunningShellCard` 只渲染行区间快照,不再自持会话;`triage.ts` 只剩 shell / agent 二选一(斜杠命令在更上层已分流)。
 
 ## 组件
 
