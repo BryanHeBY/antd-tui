@@ -28,22 +28,24 @@ export function shortCwd(cwd: string): string {
 }
 
 /**
- * 提示符 chip：cwd 单独占一块更亮的底色。所有带 cwd 的卡片头（草稿/命令/PTY/斜杠）
- * 共用它，让「在哪里」在整列卡片里对齐成一条视觉锚线。
+ * 提示符 chip：cwd 做成一块主色徽章。底色取 `colorPrimary`（暗色派生出的深蓝）而不是
+ * 又一档灰——灰阶之间差异太小，扫视时抓不住。所有带 cwd 的卡片头（草稿/prompt/PTY/
+ * 斜杠命令）共用它，「在哪里」于是在整列卡片里对齐成一条视觉锚线；用户覆盖主色时
+ * 徽章跟着变。
  */
 export function PromptChip({ cwd }: { cwd: string }) {
   const token = useToken()
   return (
     <box
       style={{
-        backgroundColor: cardTint.prompt,
+        backgroundColor: token.colorPrimary,
         paddingLeft: 1,
         paddingRight: 1,
         height: 1,
         flexShrink: 0,
       }}
     >
-      <text attributes={0} fg={token.colorTextSecondary}>
+      <text attributes={0} fg={token.colorPrimaryHover}>
         {shortCwd(cwd)}
       </text>
     </box>
@@ -142,7 +144,7 @@ export function DraftCard({
         }}
       >
         <PromptChip cwd={cwd} />
-        {/* chip 自带右侧内边距，符号不再补空格，否则会出现双空格 */}
+        {/* 徽章自带左右内边距，符号不再补空格，否则与徽章之间会空出两格 */}
         <text attributes={0} fg={symbolColor}>{symbol}</text>
         <Input
           value={value}

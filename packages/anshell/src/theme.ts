@@ -5,8 +5,6 @@
 export const cardTint = {
   /** 已提交命令与流尾草稿：较亮，表示人的输入。 */
   input: "#1f1f1f",
-  /** 提示符 chip（cwd）：比输入卡再亮一档，让「在哪里」先被眼睛抓到。 */
-  prompt: "#2d2d2d",
   /** 命令 stdout/stderr 与运行状态：较暗，紧贴在对应输入下方。 */
   output: "#171717",
   /** @deprecated 使用 output；保留旧键避免破坏外部主题引用。 */
