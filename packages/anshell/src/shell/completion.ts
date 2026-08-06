@@ -72,11 +72,15 @@ function completionRange(line: string, cursorUtf16: number): { start: number; ra
   const before = line.slice(0, cursorUtf16)
   const lexed = lexShell(before)
   const last = lexed.tokens.at(-1)
-  if (last && last.end === cursorUtf16 && last.kind !== "operator" && last.kind !== "comment") {
+  // 关键字（do/done/in/then…）在词法层是 operator，但作为正在敲的词仍要能补全；
+  // 只有真正的命令分隔符（; | && …）才该让补全从空词重新开始。
+  const isSeparator = (token: { kind: string; text: string }) =>
+    token.kind === "operator" && isCommandSeparator(token.text)
+  if (last && last.end === cursorUtf16 && last.kind !== "comment" && !isSeparator(last)) {
     return { start: last.start, raw: line.slice(last.start, cursorUtf16), command: last.kind === "command" }
   }
   const previous = lexed.tokens.at(-1)
-  const command = !previous || (previous.kind === "operator" && isCommandSeparator(previous.text))
+  const command = !previous || isSeparator(previous)
   return { start: cursorUtf16, raw: "", command }
 }
 
