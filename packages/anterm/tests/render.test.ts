@@ -4,6 +4,7 @@ import { RGBA, TextAttributes } from "@opentui/core"
 import {
   defaultAnsiPalette,
   screenToRows,
+  screenToText,
   toAnsiPalette,
   type AntermCell,
   type AntermScreen,
@@ -33,6 +34,12 @@ function screenOf(vt: Terminal): AntermScreen {
     },
     get viewportY() {
       return vt.buffer.active.viewportY
+    },
+    get length() {
+      return vt.buffer.active.length
+    },
+    isWrapped(absoluteY) {
+      return vt.buffer.active.getLine(absoluteY)?.isWrapped ?? false
     },
     getCell(absoluteY, x) {
       const line = vt.buffer.active.getLine(absoluteY)
@@ -184,5 +191,30 @@ describe("screenToRows", () => {
     const vt = await feed("\x1b[2J\x1b[3;5HHELLO")
     const rows = render(vt)
     expect(textOf(rows[2]!).trimEnd()).toBe("    HELLO")
+  })
+
+  test("screenToText 取绝对区间的纯文本并拼回软换行", async () => {
+    const vt = await feed("abcdefghij\r\nsecond\r\n", 6, 4)
+    // 6 列宽下首行被软换行成两行，拼回后与原文一致；末尾那行是光标所在的空行
+    expect(screenToText(screenOf(vt), { startY: 0, rows: 4 })).toEqual(["abcdefghij", "second", ""])
+    expect(screenToText(screenOf(vt), { startY: 0, rows: 3 })).toEqual(["abcdefghij", "second"])
+    expect(screenToText(screenOf(vt), { startY: 0, rows: 4, joinWrapped: false })).toEqual([
+      "abcdef",
+      "ghij",
+      "second",
+      "",
+    ])
+  })
+
+  test("screenToText 到 buffer 末尾就停，不补空行", async () => {
+    const vt = await feed("only\r\n", 20, 4)
+    expect(screenToText(screenOf(vt), { startY: 0, rows: 50 }).length).toBeLessThan(50)
+  })
+
+  test("用 cols 代理截断末行（按 OSC 标记的列切输出）", async () => {
+    const vt = await feed("no-newline", 20, 4)
+    const screen = screenOf(vt)
+    const clipped: AntermScreen = { ...screen, get cols() { return 3 } }
+    expect(screenToText(clipped, { startY: 0, rows: 1 })).toEqual(["no-"])
   })
 })

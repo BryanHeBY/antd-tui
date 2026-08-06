@@ -125,3 +125,36 @@ export function screenToRows(screen: AntermScreen, opts: RenderOptions): StyledT
 
   return out
 }
+
+export interface TextOptions {
+  /** 起始绝对行 */
+  startY: number
+  /** 取多少行 */
+  rows: number
+  /** 软换行的续行是否与上一行拼成一行（默认 true，取命令输出时才是原文） */
+  joinWrapped?: boolean
+}
+
+/**
+ * 取一段绝对行区间的纯文本。宿主要把命令输出当数据用（静默命令的回包、复制输出）
+ * 时需要它；渲染仍然走 screenToRows，两者对 cell 的读法保持一致。
+ */
+export function screenToText(screen: AntermScreen, opts: TextOptions): string[] {
+  const join = opts.joinWrapped ?? true
+  const out: string[] = []
+  for (let i = 0; i < opts.rows; i++) {
+    const absoluteY = opts.startY + i
+    if (absoluteY >= screen.length) break
+    let text = ""
+    for (let x = 0; x < screen.cols; x++) {
+      const cell = screen.getCell(absoluteY, x)
+      if (!cell) break
+      if (cell.width === 0) continue
+      text += cell.chars.length === 0 ? " " : cell.chars
+    }
+    text = text.replace(/\s+$/, "")
+    if (join && i > 0 && screen.isWrapped(absoluteY)) out[out.length - 1] += text
+    else out.push(text)
+  }
+  return out
+}

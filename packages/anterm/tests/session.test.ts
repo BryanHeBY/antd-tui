@@ -164,6 +164,120 @@ describe("createAntermSession", () => {
     }
   })
 
+  test("OSC 7/133 转发给宿主并带上解析当刻的行列", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: [
+        "-c",
+        String.raw`printf 'first
+'; printf ']133;A$ ]133;Becho hi
+'; printf ']133;Chi
+'; printf ']133;D;0]7;file://h/tmp'; sleep 1`,
+      ],
+      cols: 30,
+      rows: 6,
+    })
+    const events: Array<{ ident: number; data: string; row: number; col: number }> = []
+    const unsubscribe = session.onOsc((event) => {
+      events.push({ ident: event.ident, data: event.data, row: event.row, col: event.col })
+    })
+    try {
+      await waitUntil(() => events.some((e) => e.ident === 7))
+      const marks = events.filter((e) => e.ident === 133).map((e) => e.data)
+      expect(marks).toEqual(["A", "B", "C", "D;0"])
+      // A/B 落在 prompt 行，C 落在输出首行，D 落在输出之后——这正是切区间要的边界
+      const at = (data: string) => events.find((e) => e.ident === 133 && e.data === data)!
+      expect(at("A").row).toBe(1)
+      expect(at("B").col).toBeGreaterThan(0)
+      expect(at("C").row).toBe(2)
+      expect(at("D;0").row).toBe(3)
+      expect(events.find((e) => e.ident === 7)!.data).toBe("file://h/tmp")
+      // 序列本身不会进 buffer
+      expect(textOf(session, 1)).toBe("$ echo hi")
+      expect(textOf(session, 2)).toBe("hi")
+    } finally {
+      unsubscribe()
+      session.kill()
+    }
+  })
+
+  test("被读缓冲切断的 OSC 仍只触发一次（xterm 自己攒完整载荷）", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`printf ']133;'; sleep 0.3; printf 'D;7'; sleep 1`],
+      cols: 30,
+      rows: 4,
+    })
+    const events: string[] = []
+    const unsubscribe = session.onOsc((event) => events.push(event.data))
+    try {
+      await waitUntil(() => events.length > 0)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      expect(events).toEqual(["D;7"])
+    } finally {
+      unsubscribe()
+      session.kill()
+    }
+  })
+
+  test("OSC 标记建出的行引用随 scrollback 裁剪自动下移", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`printf 'MARKED
+'; printf ']133;C'; sleep 0.2; seq 1 40; sleep 1`],
+      cols: 30,
+      rows: 4,
+      scrollback: 5,
+    })
+    let mark: { row: number } | null = null
+    const unsubscribe = session.onOsc((event) => {
+      if (event.data === "C") mark = event.createMark()
+    })
+    try {
+      await waitUntil(() => mark !== null)
+      const first = mark!.row
+      await waitUntil(() => mark!.row < first)
+      // 行号被裁剪推着往下走，而不是指向别的内容
+      expect(mark!.row).toBeLessThan(first)
+    } finally {
+      unsubscribe()
+      session.kill()
+    }
+  })
+
+  test("整屏清除的代数逐次递增，长驻会话可按命令比较", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: [
+        "-c",
+        String.raw`printf 'a'; printf '[2J'; sleep 0.2; printf 'b'; printf '[2J'; sleep 1`,
+      ],
+      cols: 30,
+      rows: 4,
+    })
+    try {
+      await waitUntil(() => session.screenTakeoverSeq === 1)
+      await waitUntil(() => session.screenTakeoverSeq === 2)
+      expect(session.screenTakeover).toBe(true)
+    } finally {
+      session.kill()
+    }
+  })
+
+  test("kill 之后不再转发 OSC", async () => {
+    const session = createAntermSession({
+      command: "bash",
+      args: ["-c", String.raw`sleep 0.2; printf ']133;A'; sleep 1`],
+      cols: 20,
+      rows: 4,
+    })
+    const events: string[] = []
+    session.onOsc((event) => events.push(event.data))
+    session.kill()
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(events).toEqual([])
+  })
+
   test("normal buffer 的整屏清除被识别为 screen takeover", async () => {
     const session = createAntermSession({
       command: "bash",

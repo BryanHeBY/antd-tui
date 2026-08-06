@@ -2,6 +2,8 @@ import { Terminal } from "@xterm/headless"
 import { SGR_SCAN_TAIL, scanSgrMouseMode } from "./mouse"
 import type {
   AntermCell,
+  AntermMark,
+  AntermOscEvent,
   AntermScreen,
   AntermSession,
   AntermSessionOptions,
@@ -46,6 +48,12 @@ function createScreen(vt: Terminal, buffer: () => typeof vt.buffer.active): Ante
     },
     get viewportY() {
       return buffer().viewportY
+    },
+    get length() {
+      return buffer().length
+    },
+    isWrapped(absoluteY) {
+      return buffer().getLine(absoluteY)?.isWrapped ?? false
     },
     // 复用同一个 cell 对象：调用方逐格读取后立即消费，不持有引用
     getCell(absoluteY, x) {
@@ -127,13 +135,48 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
   const screen = createScreen(vt, () => vt.buffer.active)
   const normalScreen = createScreen(vt, () => vt.buffer.normal)
 
+  /**
+   * OSC 7（cwd）与 OSC 133（语义 prompt 标记）xterm 自己不处理，会静默吞掉。
+   * 在解析器里挂钩子而不是像鼠标那样扫原始字节，是因为只有解析中的这一刻
+   * 才能读到序列所在的 buffer 行列；事后光标已经走了。
+   */
+  const forwardOsc = (ident: number) => (data: string) => {
+    if (disposed || oscListeners.size === 0) return true
+    const buffer = vt.buffer.active
+    const event: AntermOscEvent = {
+      ident,
+      data,
+      row: buffer.baseY + buffer.cursorY,
+      col: buffer.cursorX,
+      alternate: buffer.type === "alternate",
+      screenTakeoverSeq,
+      createMark: () => {
+        // registerMarker 只在 normal buffer 上有效（alternate 没有 scrollback）
+        const marker = vt.registerMarker(0)
+        if (!marker) return null
+        const mark: AntermMark = {
+          get row() {
+            return marker.line
+          },
+          dispose: () => marker.dispose(),
+        }
+        return mark
+      },
+    }
+    for (const listener of oscListeners) listener(event)
+    // 继续吞掉：交给 xterm 的 fallback 只会多一条 debug 日志
+    return true
+  }
+
   const listeners = new Set<() => void>()
   let frameTimer: ReturnType<typeof setTimeout> | undefined
   let disposed = false
   let exited = false
   let sgrMouse = false
   let screenTakeover = false
+  let screenTakeoverSeq = 0
   let cursorVisible = true
+  const oscListeners = new Set<(event: AntermOscEvent) => void>()
 
   const flush = () => {
     frameTimer = undefined
@@ -177,6 +220,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
         // buffer 内的清屏误认为 normal scrollback 已被破坏。
         if (vt.buffer.active.type === "normal" && hasNewScreenErase) {
           screenTakeover = true
+          screenTakeoverSeq += 1
         }
         markDirty()
       })
@@ -201,6 +245,7 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     if (!disposed && !exited) pty.write(data)
   })
   const titleSub = vt.onTitleChange((title) => opts.onTitleChange?.(title))
+  const oscSubs = [7, 133].map((ident) => vt.parser.registerOscHandler(ident, forwardOsc(ident)))
   const bufferSub = vt.buffer.onBufferChange(() => markDirty())
 
   void proc.exited.then((code) => {
@@ -231,6 +276,8 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
       dataSub.dispose()
       titleSub.dispose()
       bufferSub.dispose()
+      for (const sub of oscSubs) sub.dispose()
+      oscListeners.clear()
       if (!exited) killTerminalProcess(proc, launch.isolatedProcessGroup)
       pty.close()
       vt.dispose()
@@ -238,6 +285,10 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     onFrame(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    onOsc(listener) {
+      oscListeners.add(listener)
+      return () => oscListeners.delete(listener)
     },
     scrollLines(delta) {
       if (disposed) return
@@ -257,6 +308,9 @@ export function createAntermSession(opts: AntermSessionOptions): AntermSession {
     },
     get screenTakeover() {
       return screenTakeover
+    },
+    get screenTakeoverSeq() {
+      return screenTakeoverSeq
     },
     get normalContentRows() {
       const buffer = vt.buffer.normal

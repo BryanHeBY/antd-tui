@@ -3,6 +3,33 @@ import type { CssLikeStyle } from "@antd-tui/components"
 /** xterm 的鼠标追踪模式（由子进程经 DECSET 1000/1002/1003 协商）。 */
 export type MouseTrackingMode = "none" | "x10" | "vt200" | "drag" | "any"
 
+/**
+ * buffer 中一行的稳定引用。绝对行号会随 scrollback 裁剪整体位移，marker 由 xterm
+ * 自己维护偏移；被裁掉后 `row` 变成 -1。对 reflow（cols 变化）**不**保证正确。
+ */
+export interface AntermMark {
+  readonly row: number
+  dispose(): void
+}
+
+/**
+ * 子进程发来的 OSC 序列（目前只转发 7 与 133）。row/col 是序列被解析时的光标位置，
+ * 这是宿主把输出切成语义区间的唯一准确来源——事后再读光标已经晚了。
+ */
+export interface AntermOscEvent {
+  /** OSC 标识码，如 7 或 133 */
+  ident: number
+  /** `<ident>;` 之后的原始载荷 */
+  data: string
+  row: number
+  col: number
+  /** 序列出现时是否处于 alternate screen */
+  alternate: boolean
+  screenTakeoverSeq: number
+  /** 为当前位置建一个抗裁剪的行引用；只在监听器同步执行期内调用有效。 */
+  createMark(): AntermMark | null
+}
+
 export interface AntermSessionOptions {
   command: string
   args?: string[]
@@ -23,6 +50,11 @@ export interface AntermSession {
   kill(): void
   /** 屏幕有变化时通知（已按帧合并） */
   onFrame(listener: () => void): () => void
+  /**
+   * 订阅子进程的 OSC 7/133。回调在 xterm 解析中同步触发，因此必然早于同一批输出
+   * 对应的 onFrame——宿主可以先记下区间边界，再渲染。
+   */
+  onOsc(listener: (event: AntermOscEvent) => void): () => void
   /** 取当前屏幕快照所需的读接口 */
   readonly screen: AntermScreen
   /** normal buffer 的读接口；active 切到 alternate screen 后仍可读取流式历史。 */
@@ -32,6 +64,11 @@ export interface AntermSession {
   readonly alternateScreen: boolean
   /** 子进程是否在 normal buffer 上执行过整屏清除并重画（如 systemd 的 less -X）。 */
   readonly screenTakeover: boolean
+  /**
+   * 整屏清除的代数，每次新的 normal-buffer 整屏擦除 +1。长驻会话里 sticky 布尔会
+   * 一次污染整个进程生命期，宿主要判断「这一条命令期间是否发生过重画」就得比较代数。
+   */
+  readonly screenTakeoverSeq: number
   /** normal buffer 中包含当前光标行的自然内容高度。 */
   readonly normalContentRows: number
   /** normal buffer 中最后一行非空内容之后的高度，不包含尾部空光标行。 */
@@ -58,6 +95,10 @@ export interface AntermScreen {
   readonly cursorAbsoluteY: number
   /** 视口首行在 buffer 中的绝对行号 */
   readonly viewportY: number
+  /** buffer 的总行数（含 scrollback），用于钳制绝对区间。 */
+  readonly length: number
+  /** 该行是否是上一行的软换行续行（取文本时据此拼接）。 */
+  isWrapped(absoluteY: number): boolean
   getCell(absoluteY: number, x: number): AntermCell | null
 }
 
