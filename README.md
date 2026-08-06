@@ -21,8 +21,8 @@ Bun workspace,十个包:
 | `@antd-tui/acp` | ACP 客户端桥:连接 agent 子进程(initialize/session/prompt/update),纯协议、零 UI |
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
-| `@antd-tui/anterm` | 内嵌可交互子终端,能跑 `vim` / `htop` / `ssh` |
-| `@antd-tui/anshell` | agent 时代的对话式 shell:分诊命令/交互程序/agent |
+| `@antd-tui/anterm` | 内嵌可交互子终端(能跑 `vim` / `htop` / `ssh`)+ 可被宿主复用的 PTY 会话与 flow 平铺渲染 |
+| `@antd-tui/anshell` | agent 时代的流式对话式 shell:命令跑在流内 PTY 卡片,带语法高亮与 Tab 补全 |
 | `@antd-tui/test-utils` | 进程内终端渲染的测试夹具 |
 
 ## 三条通路
@@ -130,9 +130,12 @@ import { Anterm } from "@antd-tui/anterm"
 <Anterm command="bash" autoFocus style={{ flexGrow: 1 }} />
 ```
 
-四个要点:
+六个要点:
 
-- **全键捕获**。终端要收到 Tab(shell 补全)、方向键、Enter,所以它以 `kind: "capture"` 注册进焦点系统,`FocusScope` 不再替它消费任何按键。代价是焦点出不来,需按 `tuiEscapeKey`(默认 `Ctrl+]`,telnet 风格)交还。
+- **全键捕获**。终端要收到 Tab(shell 补全)、方向键、Enter,所以它以 `kind: "capture"` 注册进焦点系统,`FocusScope` 不再替它消费任何按键。代价是焦点出不来,需按 `tuiEscapeKey`(默认 `Ctrl+]`,telnet 风格)交还。宿主若要保留少量自己的快捷键(如切换窗口大小),用 `tuiHotkeys`(键名如 `"ctrl+o"`)拦下,命中的键不透传子进程。
+- **会话可被宿主复用**。`tuiSession` 接管一个宿主自己 `createAntermSession` 建出的 PTY,组件卸载时**不**终止它——于是同一个会话能在流内卡片与浮层视图之间搬移而不重启子进程(`tuiResizeSession` 决定该视图的尺寸是否同步回 PTY)。配套开关:`tuiKeyboardDisabled`(宿主统一接管输入)、`tuiReadOnly`(退出后只读展示,不再注册焦点)、`tuiBackgroundColor`(与宿主卡片底色融合)。
+- **flow 平铺渲染**。`tuiFlow` 改用 normal buffer 从首行平铺,卡片高度随实际输出行数自然增长(而非固定视口),让命令输出能嵌进宿主的滚动历史流;若会话曾整屏重画、append-only 历史已不可还原,用 `tuiFlowViewport` 退化为只冻结当前视口。这是 anshell 把每条命令跑成流内 PTY 卡片的基础。
+- **会话暴露行为读面**。`normalScreen`(即便已切到 alternate screen 仍可读流式历史)、`alternateScreen`、`screenTakeover`、`normalContentRows` / `normalOutputRows`、`cursorVisible` —— 宿主据此按**程序的实际行为**而非命令名决定呈现(如切 alternate screen 就把会话升格成浮层)。
 - **自建控制终端**。Bun 的 `spawn({ terminal })` 不给子进程建立控制终端(`ps` 里 TT 是 `?`),于是 pty 的 ISIG 找不到前台进程组——Ctrl-C 只回显 `^C`,不产生 SIGINT,作业控制也不工作。Linux 上用 util-linux 的 `setsid --ctty` 补上这一步;其他平台降级为直接运行(显示与输入照常,信号键失效)。
 - **鼠标按协商级别透传**。子进程经 DECSET 1000/1002/1003 声明追踪级别,组件据此过滤事件种类,并按 1006 决定用 SGR 还是 X10 编码。注意 DECSET 允许合并参数(htop 发的是 `\x1b[?1006;1000h`),必须按参数拆开判断,否则会退化成 X10 而让子进程把坐标字节读成按键。子进程没要鼠标时,滚轮用来翻组件自己的回看缓冲。
 - **ANSI 0-15 走自带色板**。opentui 会把 palette 索引摊平成 xterm 的静态默认值(ANSI 1 是 `#800000`),放在现代终端里内容会明显发闷,所以组件自带一张 Campbell 色板,可经 `tuiPalette` 覆盖。索引 16-255 是与主题无关的标准 256 色立方体,不受影响。
@@ -167,12 +170,25 @@ import { Anshell } from "@antd-tui/anshell"
 - **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。
 - 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。
 
-## 组件
+内部结构:
 
+- `shell/` **分析层**,三者职责严格分开:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 只出诊断——调 `bash -n` / `zsh -n` 空跑解析(带超时),**不参与路由决策**;`completion.ts` 给命令/`$ENV`/文件路径三类补全(PATH 可执行表带短 TTL 缓存),返回的偏移按 code point 计,可直接喂 `InputEdit`。
+- `draft-state.ts` —— 草稿的单一 reducer(输入、路由覆盖、诊断、候选项),让这几项原子更新,避免高亮/诊断与输入内容错位。
+- `terminal-input.ts` —— 提交到 `TerminalCard` 挂载会话之间隔着一帧,这段窗口里敲的键会被**排队**并在会话就绪后按序回放,所以 Enter 后立刻连打不丢字。
+- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame);`cards.tsx` 按块渲染并由 `TerminalCard` 持有 PTY 会话;`triage.ts` 现在只用于选 `$`/`◆` 路由指示符,不再靠命令名决定是否全屏。
+
+## 组件
 
 31 个组件,命名与语义对齐 antd:`Button` / `Input` / `InputNumber` / `TextArea` / `Select` / `Checkbox` / `Radio` / `Switch` / `Slider` / `FormItem` / `Typography`(Text/Title/Link)/ `Card` / `Space` / `Flex` / `Row` / `Col` / `List` / `Table` / `Descriptions` / `Statistic` / `Progress` / `Tag` / `Alert` / `Divider` / `Spin` / `Modal` / `message` 等。
 
 命名原则:与 antd **行为完全一致**的字段沿用原名(如 `type`、`options`、`onChange`);因终端适配而**行为相近但不同**的字段加 `tui` 前缀(如 `tuiOnClick` 无 DOM 事件参、`tuiHotkey` 全局热键、`tuiScroll` 滚动视口)。样式经 `style`(CSS 子集:`width`/`flex`/`flexGrow`/`flexShrink`/`flexBasis`/`padding`/`margin*`/`color`/`backgroundColor`/`textAlign`/`overflow`)表达。
+
+**输入增强**(anshell 的语法高亮与 Tab 补全就建在这三项之上):
+
+- `tuiHighlights: InputHighlight[]` —— 在原生输入缓冲上叠加语义高亮(`color` / `backgroundColor` / `bold` / `italic` / `underline` / `dim`)。起止偏移按 **Unicode code point** 计,`end` 不含。
+- `tuiShowCursor: boolean` —— 隐藏终端原生光标但**保留输入焦点**。opentui 的原生光标不受 scrollbox 视口裁剪,滚动看历史时需要靠它避免光标浮在历史上方。
+- `tuiOnTab: (ctx: InputTabContext) => InputEdit | void | Promise<...>` —— 接管 Tab。返回 `InputEdit {value, cursor}` 时 Input 会在受控值回填后恢复光标位置;返回 `void` 则只消费按键(适合仅展示候选列表)。异步补全期间的值变更会作废在途结果。
+- 配套的焦点系统开关 `useFocusable({ captureTab: true })`:让该控件独占 Tab,`FocusScope` 不再拿 Tab 切换焦点。
 
 ## 开发
 
