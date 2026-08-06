@@ -64,7 +64,12 @@ export function DraftCard({
   const commandResolved = command
     ? SHELL_BUILTINS.includes(commandName as (typeof SHELL_BUILTINS)[number]) || Bun.which(commandName) !== null
     : true
-  const highlights: InputHighlight[] = mode === "shell"
+  // 斜杠命令：用户敲的那个 / 本身就是提示符，所以不另加前缀，只把 /name 染色，
+  // 避免出现 `/ /session` 这种双斜杠、也让卡片与草稿逐字一致。
+  const slashHead = mode === "command" ? (value.match(/^\s*\/\S*/)?.[0].length ?? 0) : 0
+  const highlights: InputHighlight[] = mode === "command"
+    ? [{ start: 0, end: toCodePointOffset(value, slashHead), color: token.colorSuccess, bold: true }]
+    : mode === "shell"
     ? shellTokens.map((item) => {
         const base = {
           start: toCodePointOffset(value, item.start),
@@ -91,12 +96,8 @@ export function DraftCard({
         }
       })
     : []
-  const symbol = mode === "shell" ? "$" : mode === "command" ? "/" : "◆"
-  const symbolColor = mode === "shell"
-    ? token.colorPrimaryHover
-    : mode === "command"
-      ? token.colorSuccess
-      : token.colorWarning
+  const symbol = mode === "shell" ? "$ " : mode === "command" ? "" : "◆ "
+  const symbolColor = mode === "shell" ? token.colorPrimaryHover : token.colorWarning
   const placeholder = mode === "command"
     ? "斜杠命令 · ↑↓ 选择 · Tab 补全 · Esc 收起"
     : mode === "shell"
@@ -120,7 +121,7 @@ export function DraftCard({
       >
         <text attributes={0}>
           <span fg={token.colorTextSecondary}>{`${shortCwd(cwd)} `}</span>
-          <span fg={symbolColor}>{`${symbol} `}</span>
+          <span fg={symbolColor}>{symbol}</span>
         </text>
         <Input
           value={value}
@@ -420,8 +421,7 @@ export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "com
       <box style={{ backgroundColor: cardTint.input, paddingLeft: 1, paddingRight: 1, width: "100%" }}>
         <text attributes={0}>
           <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
-          <span fg={token.colorSuccess}>/ </span>
-          <span fg={token.colorText}>{block.name}</span>
+          <span fg={token.colorSuccess}>{`/${block.name}`}</span>
           <span fg={token.colorTextSecondary}>{block.input === "" ? "" : ` ${block.input}`}</span>
         </text>
       </box>

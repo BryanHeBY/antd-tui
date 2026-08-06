@@ -67,7 +67,8 @@ describe("Anshell 的 agent 接入", () => {
     await send(t, "/session")
     await t.waitUntil(() => t.frame().includes("mock-old"), 10000)
     const frame = t.frame()
-    expect(frame).toContain("/ session")
+    // 卡片头与所打逐字一致：斜杠不掉、不多空格
+    expect(frame).toContain("/session")
     expect(frame).toContain("▸ mock-session")
     expect(frame).toContain("历史会话")
   }, 30000)

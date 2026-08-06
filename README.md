@@ -143,7 +143,7 @@ import { Anterm } from "@antd-tui/anterm"
 
 ## anshell:对话式 shell
 
-`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`、斜杠命令 `/`;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`;斜杠命令不另加提示符——用户敲的那个 `/` 本身就是提示符(只染色),所以草稿与冻结后的卡片头逐字一致,不会出现 `/ /session` 这种双斜杠或掉斜杠;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 卡片的符号是一套:`$` 经 Shell 解释、`▶` 不经 Shell 直接 exec、`◆` agent、`/` 斜杠命令、`*` 工具调用、`!` 权限请求、`·` 系统提示。
 
