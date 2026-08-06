@@ -145,7 +145,7 @@ import { Anterm } from "@antd-tui/anterm"
 `@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡:识别为 Shell 时显示 `<cwd> $ …`,否则显示 `<cwd> ◆ …`;`Ctrl+T` 可覆盖当前草稿的路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 - **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 在流内 PTY 卡片中运行,键盘直接交给原生命令;卡片按 normal buffer 的实际内容自然增长,进程退出后保留最终画面并恢复下一条输入。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
-- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为弹窗,退出 alternate screen 后回到列表。`Ctrl+O` 可显式强制浮层,并在弹窗/全屏之间切换。
+- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出 alternate screen 后回到列表。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则显式强制把当前整行放进浮层,同样默认全屏。
 - **内嵌交互**:`inlineCommands`(可配,默认空)只作为显式执行覆盖,同样使用自然高度的流内 PTY。
 - **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
 
@@ -165,7 +165,7 @@ import { Anshell } from "@antd-tui/anshell"
 要点:
 
 - **感知式行内输入(所见即所得)**。自动路由以 `$`(Shell)/`◆`(Agent)实时反馈,`Ctrl+T` 显式切换当前草稿;Enter 后原样冻结,输出以较暗底色的卡片紧贴其下,所有流项目之间不留空行。无独立底部输入框、无状态行,cwd 融进每张输入卡的提示符。
-- **PTY 行为驱动视图**。normal buffer 平铺进历史流并自然增长;alternate screen 自动弹出。视图切换复用同一个 PTY 会话,不会重启子进程。
+- **PTY 行为驱动视图**。normal buffer 平铺进历史流并自然增长;alternate screen 自动升格为全屏浮层(`Ctrl+O` 可切成居中弹窗)。视图切换复用同一个 PTY 会话,不会重启子进程。
 - **退出用 Ctrl-D / exit**(标准 shell 约定,天然分层);草稿中 **Ctrl-C 取消当前输入**,命令运行中则把 Ctrl-C 原样交给 PTY 产生中断,均不退出应用。
 - **cd 在宿主内维护**:子进程改不了宿主 cwd,故 `cd`/`pwd`/`clear`/`exit` 作为内建在 anshell 里处理,cwd 传给后续命令与嵌入终端。
 - 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。

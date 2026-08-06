@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { useTerminalDimensions } from "@opentui/react"
 import { Anterm } from "@antd-tui/anterm"
-import { FocusScope, useToken } from "@antd-tui/components"
+import { FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { cardTint } from "./theme"
 import type { Overlay, PromotedTerminal } from "./types"
 
@@ -44,8 +44,9 @@ function TerminalOverlayFrame({
         border={!fullscreen}
         title={fullscreen ? undefined : title}
       >
+        {/* 全屏没有边框承载标题，把程序名接在提示之后；提示固定在前，长命令名被截断而非挤掉提示 */}
         <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
-          {status}
+          {truncateToWidth(fullscreen ? `${status} · ${title}` : status, Math.max(1, width - 2))}
         </text>
         {children}
       </box>

@@ -44,7 +44,7 @@ export function Anshell({
   const { input, routeOverride, diagnostic, completions } = draft
   const [overlay, setOverlay] = useState<Overlay | null>(null)
   const [promotedTerminal, setPromotedTerminal] = useState<PromotedTerminal | null>(null)
-  const [promotedMode, setPromotedMode] = useState<"popup" | "fullscreen">("popup")
+  const [promotedMode, setPromotedMode] = useState<"popup" | "fullscreen">("fullscreen")
   const [draftCursorVisible, setDraftCursorVisible] = useState(true)
   const transcript = useTranscript()
   const commandShell = useMemo(() => resolveShell(shell), [shell])
@@ -162,7 +162,7 @@ export function Anshell({
 
   const openInteractiveLine = useCallback((line: string) => {
     // 经同一个 Shell 解释原始整行，保留引号、变量、管道和 builtin；Anterm 为它提供真 PTY。
-    setOverlay({ label: line, command: commandShell, args: ["-lc", line], mode: "popup" })
+    setOverlay({ label: line, command: commandShell, args: ["-lc", line], mode: "fullscreen" })
   }, [commandShell])
 
   const changeInput = useCallback((value: string) => {
@@ -271,7 +271,7 @@ export function Anshell({
 
   const handleTerminalPromotion = useCallback((terminal: PromotedTerminal | null) => {
     setPromotedTerminal(terminal)
-    if (terminal) setPromotedMode("popup")
+    if (terminal) setPromotedMode("fullscreen")
   }, [])
 
   const handleTerminalSessionReady = useCallback((session: AntermSession) => {
