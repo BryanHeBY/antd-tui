@@ -167,7 +167,7 @@ bun run ansh --agent "<agent 启动命令>"
 bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL；仅支持 bash/zsh
 bun run ansh --no-rc                # 不 source 用户 dotfiles（干净环境）
 
-# 打包成单文件可执行（dist/ansh，约 124MB，目标机无需装 bun）
+# 打包成单文件可执行（dist/ansh，约 111MB，目标机无需装 bun）
 bun run build:ansh
 ./dist/ansh
 ```
@@ -176,8 +176,13 @@ bun run build:ansh
 (`@opentui/core-<platform>-<arch>`),`--compile` 会把 `libopentui.so` 连同
 tree-sitter 资产一起嵌进 `$bunfs`(opentui 自己就识别这种路径);而 mjs 路线会散出
 十几个文件——两个 13MB 的 `.so`(glibc/musl)加几 MB wasm——且目标机仍要装 bun,
-因为 anshell 依赖 `Bun.Terminal` 这类 Bun 独有 API。opentui 又静态引用了全部平台包
-而本机只装了当前平台,所以两种打包都要把异平台包标成 `--external`。
+因为 anshell 依赖 `Bun.Terminal` 这类 Bun 独有 API。
+
+opentui 又静态 `await import` 了全部平台包,而本机只装了宿主那一个,所以异平台包必须标
+`--external`。这个名单**只能按构建机推导**,不能写死:`scripts/build-ansh.ts` 按
+`process.platform/arch` 算出宿主包留下、其余全部 external。写死一份 linux 名单会在 macOS
+上把 `@opentui/core-darwin-arm64` 一并排除,产物启动即报
+`Cannot find module ... from '/$bunfs/root/ansh'`。产物因此是平台专属的,每台机各自 build。
 
 ```tsx
 import { Anshell } from "@antd-tui/anshell"
