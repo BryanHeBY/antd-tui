@@ -2,7 +2,8 @@ import type { CompletionItem, SyntaxDiagnostic } from "../shell"
 
 export interface DraftState {
   input: string
-  routeOverride: "shell" | "agent" | null
+  /** Ctrl+T 强制的路由；null = 自动判断。command 用来在绝对路径与斜杠命令间取舍。 */
+  routeOverride: "shell" | "agent" | "command" | null
   diagnostic: SyntaxDiagnostic | null
   completions: CompletionItem[]
   /** 补全下拉框是否展开（有候选且未按 Esc 收起） */

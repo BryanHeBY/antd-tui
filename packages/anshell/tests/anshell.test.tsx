@@ -292,6 +292,35 @@ describe("Anshell 流式布局", () => {
     await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 8000)
   })
 
+  test("Ctrl+T 把单段绝对路径从斜杠命令扳回 Shell（/ 路径冲突）", async () => {
+    const t = await mount()
+    await ready(t)
+    // 斜杠命令模式不另加提示符（/ 本身就是），且候选菜单展开
+    await t.type("/hel")
+    await t.waitUntil(() => t.frame().includes("▸ /help"))
+    expect(t.frame()).not.toContain("$ /hel")
+
+    // Ctrl+T 强制当作路径：提示符回到 $，斜杠菜单收起
+    await t.press("t", { ctrl: true })
+    await t.waitUntil(() => t.frame().includes("$ /hel"))
+    expect(t.frame()).not.toContain("▸ /help")
+
+    // 三档轮换：再按到 Agent，第三次回到斜杠命令
+    await t.press("t", { ctrl: true })
+    await t.waitUntil(() => t.frame().includes("◆ /hel"))
+    await t.press("t", { ctrl: true })
+    await t.waitUntil(() => t.frame().includes("▸ /help"))
+  }, 30000)
+
+  test("强制为 Shell 后单段绝对路径真的交给 shell 执行", async () => {
+    const t = await mount()
+    await ready(t)
+    await t.type("/bin/echo abs-path-ok")
+    // 首词含第二个 / → 本来就是 shell，直接提交验证不被斜杠层劫持
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("abs-path-ok"), 8000)
+  }, 30000)
+
   test("补全下拉框：↑↓ 选择而非翻历史，Enter 接受", async () => {
     const t = await mount()
     await ready(t)

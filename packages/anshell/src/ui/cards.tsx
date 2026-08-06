@@ -138,7 +138,7 @@ export function DraftCard({
   const symbol = mode === "shell" ? "$ " : mode === "command" ? "" : "◆ "
   const symbolColor = mode === "shell" ? token.colorPrimaryHover : token.colorWarning
   const placeholder = mode === "command"
-    ? "斜杠命令 · ↑↓ 选择 · Tab 补全 · Esc 收起"
+    ? "斜杠命令 · ↑↓ 选择 · Tab 补全 · Ctrl+T 当作路径 · Esc 收起"
     : mode === "shell"
       ? "输入 Shell 命令 · Ctrl+T 路由 · Ctrl+O 浮层"
       : "输入 Agent 提示 · / 命令 · Ctrl+T 路由 · Ctrl+O 浮层"

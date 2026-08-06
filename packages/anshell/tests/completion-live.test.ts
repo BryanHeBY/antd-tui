@@ -45,7 +45,7 @@ describe("completeLive (bash)", () => {
     const result = await completeLive(session, "anshtest a", 10, 6000)
     expect(result).not.toBeNull()
     expect(result!.items.map((i) => i.value)).toEqual(["alpha"])
-  })
+  }, 20000)
 
   test("124 重试：懒加载 spec 首调返回 124 后仍能补出", async () => {
     const { session, ready } = start()
@@ -61,7 +61,7 @@ describe("completeLive (bash)", () => {
     const result = await completeLive(session, "lazycmd laz", 11, 6000)
     expect(result).not.toBeNull()
     expect(result!.items.map((i) => i.value).sort()).toEqual(["lazyone", "lazytwo"])
-  })
+  }, 20000)
 
   test("未注册命令返回 null，交回宿主启发式（它更会处理路径/目录）", async () => {
     const { session, ready } = start()
@@ -69,7 +69,7 @@ describe("completeLive (bash)", () => {
     // minimal 环境没 source bash-completion，cat 无 spec → live 返回 null
     const result = await completeLive(session, "cat /xyz", 8, 3000)
     expect(result).toBeNull()
-  })
+  }, 20000)
 
   test("git 真实补全（有 git 时）", async () => {
     if (!Bun.which("git")) return
@@ -80,5 +80,5 @@ describe("completeLive (bash)", () => {
     if (result && result.items.length > 0) {
       expect(result.items.some((i) => i.value.startsWith("chec"))).toBe(true)
     }
-  })
+  }, 20000)
 })

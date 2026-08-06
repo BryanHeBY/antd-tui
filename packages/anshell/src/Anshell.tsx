@@ -117,13 +117,14 @@ export function Anshell({
     }),
     [agentReady, agentModes, agentConfig, agentCommands],
   )
+  // 强制路由优先于斜杠识别：单段绝对路径（/start.sh、/tmp）既像斜杠命令也像可执行
+  // 路径，Ctrl+T 让用户直接裁决，而不是靠更多猜测规则。
+  const inputMode: "shell" | "agent" | "command" =
+    routeOverride ?? (slash ? "command" : autoTriage.kind === "agent" ? "agent" : "shell")
   const slashMenu = useMemo(
-    () => (menuOpen ? matchCommands(input, slashContext) : []),
-    [menuOpen, input, slashContext],
+    () => (menuOpen && inputMode === "command" ? matchCommands(input, slashContext) : []),
+    [menuOpen, inputMode, input, slashContext],
   )
-  const inputMode: "shell" | "agent" | "command" = slash
-    ? "command"
-    : (routeOverride ?? (autoTriage.kind === "agent" ? "agent" : "shell"))
   const shellLex = useMemo(() => lexShell(input), [input])
 
   const running = shellCtl.running !== null
@@ -551,7 +552,12 @@ export function Anshell({
     if (key.ctrl && key.name === "t") {
       key.preventDefault?.()
       key.stopPropagation?.()
-      dispatchDraft({ type: "route", route: inputMode === "shell" ? "agent" : "shell" })
+      // 能解析成斜杠命令时三档轮换（命令 → Shell → Agent），否则只在 Shell↔Agent 间切
+      const cycle: Array<"command" | "shell" | "agent"> = slash
+        ? ["command", "shell", "agent"]
+        : ["shell", "agent"]
+      const next = cycle[(cycle.indexOf(inputMode) + 1) % cycle.length]!
+      dispatchDraft({ type: "route", route: next })
       return
     }
     if (key.ctrl && key.name === "d") {

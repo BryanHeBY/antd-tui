@@ -144,7 +144,7 @@ import { Anterm } from "@antd-tui/anterm"
 
 ## anshell:对话式 shell
 
-`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。所有命令跑在**一条长驻交互 shell** 里,靠 OSC 133 语义标记切成卡片(VS Code / Warp 的 shell integration 做法)——`export`/`source venv`/别名/`cd`/作业控制/`history` 全部跨命令留存。仅支持 bash 与 zsh(其余 shell 启动即报错)。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`;斜杠命令不另加提示符——用户敲的那个 `/` 本身就是提示符(只染色),所以草稿与冻结后的卡片头逐字一致,不会出现 `/ /session` 这种双斜杠或掉斜杠;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。所有命令跑在**一条长驻交互 shell** 里,靠 OSC 133 语义标记切成卡片(VS Code / Warp 的 shell integration 做法)——`export`/`source venv`/别名/`cd`/作业控制/`history` 全部跨命令留存。仅支持 bash 与 zsh(其余 shell 启动即报错)。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`;斜杠命令不另加提示符——用户敲的那个 `/` 本身就是提示符(只染色),所以草稿与冻结后的卡片头逐字一致,不会出现 `/ /session` 这种双斜杠或掉斜杠;`Ctrl+T` 可覆盖当前草稿的路由(斜杠命令输入上是三档轮换),提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 卡片的符号是一套:`$` 经 Shell 解释、`▶` 不经 Shell 直接 exec、`◆` agent、`/` 斜杠命令、`*` 工具调用、`!` 权限请求、`·` 系统提示。
 
@@ -157,7 +157,7 @@ import { Anterm } from "@antd-tui/anterm"
 - **斜杠命令**:`/` 开头进入第三条路由(优先于 shell/agent 分诊),草稿卡下方展开内联候选菜单——`↑↓` 选择、`Tab` 补全、`Enter` 执行(命令名没敲全且该命令带参数提示时,Enter 先补全名字等参数)、`Esc` 收起。命名空间里合流两类命令:
   - **本地命令**映射到真正的 ACP 方法,并按 agent 声明的能力过滤(没声明就不出现在菜单里):`/session`(`session/list`·`new`·`load <id>`·`delete <id>`)、`/mode`(`session/set_mode`)、`/model`(ACP **没有** `session/set_model`,模型是 `category:"model"` 的 select 配置项,走 `session/set_config_option`)、`/cancel`(`session/cancel`)、`/usage`(`usage_update` 上报的占用与费用)、`/permissions`(权限记忆与审计,`reset` 清空)、`/help`。
   - **agent 命令**来自 `available_commands_update`(全量替换、推送式,启动时为空),带 `description` 与 `input.hint`;ACP 没有 execute 方法,执行就是编译成一段 `/name args` 的 `session/prompt` 文本。
-  - 判定只认「`/` 开头且首词里没有第二个 `/`」,`/usr/bin/ls`、`/tmp/x.sh` 仍然是可执行路径,照旧走 shell。
+  - 判定只认「`/` 开头且首词里没有第二个 `/`」,`/usr/bin/ls`、`/tmp/x.sh` 仍然是可执行路径,照旧走 shell。**单段**绝对路径(`/tmp`、`/start.sh`)天生两义——`Ctrl+T` 在这种输入上三档轮换(斜杠命令 → Shell → Agent)让用户直接裁决,强制路由优先于斜杠识别,而不是靠更多猜测规则。
 - **权限审计**:`session/request_permission` 不再自动放行,而是开一张待决策卡片(`! <工具> 需要授权` + 编号选项);待决策期间草稿不渲染,键盘完全归卡片——数字键选项、`Esc`/`Ctrl-C` 取消。选中 `allow_always`/`reject_always` 会按工具名写进本地记忆,下次同名工具直接命中并在卡片上标「(记忆)」;`/permissions` 查看记忆与审计流水。agent 换了选项集时记忆自动失效,重新问人。
 
 ```sh
