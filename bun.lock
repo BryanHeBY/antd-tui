@@ -35,6 +35,7 @@
         "react": "^19.0.0",
       },
       "devDependencies": {
+        "@agentclientprotocol/sdk": "^1.3.0",
         "@antd-tui/test-utils": "workspace:*",
       },
     },

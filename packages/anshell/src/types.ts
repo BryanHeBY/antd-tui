@@ -36,6 +36,39 @@ export type Block =
     }
   | { id: number; kind: "prompt"; text: string; cwd: string }
   | { id: number; kind: "agent"; text: string }
+  | {
+      id: number
+      kind: "tool"
+      toolCallId: string
+      title: string
+      /** ACP ToolKind；缺省按 other 呈现 */
+      toolKind?: string
+      status: "pending" | "in_progress" | "completed" | "failed"
+      /** 工具输出的文本摘要（content 为整体替换语义，这里也整体替换） */
+      lines: string[]
+    }
+  | {
+      id: number
+      kind: "permission"
+      toolCallId: string
+      title: string
+      options: Array<{ optionId: string; name: string; kind: string }>
+      state: "pending" | "decided"
+      /** 已决策时的选项名 */
+      chosen?: string
+      /** true = 命中记忆策略自动决定 */
+      auto?: boolean
+    }
+  | {
+      id: number
+      kind: "command"
+      /** 不带斜杠的命令名 */
+      name: string
+      /** 命令名之后的原始参数 */
+      input: string
+      cwd: string
+      lines: string[]
+    }
   | { id: number; kind: "note"; level: "system" | "error"; text: string }
 
 /** 流内 PTY 被提升为浮层视图后，浮层接管的同一终端会话。 */

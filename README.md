@@ -18,7 +18,7 @@ Bun workspace,十个包:
 | `@antd-tui/engine` | 页面 Schema 校验、`PageView`/`App` 渲染、无头快照与 `--drive` 驱动器、CLI |
 | `@antd-tui/formily` | 把 Formily `SchemaField` 映射到组件库(Schema 通路的表单引擎) |
 | `@antd-tui/live` | `$ui` 活对象树运行时:真 JS 对象 + 真函数、操作级校验、observable 自驱渲染 |
-| `@antd-tui/acp` | ACP 客户端桥:连接 agent 子进程(initialize/session/prompt/update),纯协议、零 UI |
+| `@antd-tui/acp` | ACP 客户端桥:连接 agent 子进程,把 `session/update` 的各变体、权限请求、会话/模式/模型/取消都摊成宿主可用的回调与方法,纯协议、零 UI |
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
 | `@antd-tui/anterm` | 内嵌可交互子终端(能跑 `vim` / `htop` / `ssh`)+ 可被宿主复用的 PTY 会话与 flow 平铺渲染 |
@@ -143,13 +143,20 @@ import { Anterm } from "@antd-tui/anterm"
 
 ## anshell:对话式 shell
 
-`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡:识别为 Shell 时显示 `<cwd> $ …`,否则显示 `<cwd> ◆ …`;`Ctrl+T` 可覆盖当前草稿的路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
+`@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡,提示符按路由变:Shell `$`、Agent `◆`、斜杠命令 `/`;`Ctrl+T` 可覆盖当前草稿的 shell/agent 路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
+
+卡片的符号是一套:`$` 经 Shell 解释、`▶` 不经 Shell 直接 exec、`◆` agent、`/` 斜杠命令、`*` 工具调用、`!` 权限请求、`·` 系统提示。
 
 - **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 在流内 PTY 卡片中运行,键盘直接交给原生命令;卡片按 normal buffer 的实际内容自然增长,进程退出后保留最终画面并恢复下一条输入。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
 - **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出后回到列表。全屏不留任何 chrome——alternate screen 程序按整屏行数排版,浮层多占一行状态提示就会让子进程少一行、底部露出空行,因此提示只出现在弹窗那一档(弹窗有边框承载标题)。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则强制当前整行直接以浮层起跑。
 - **浮层只是同一张卡片的另一种视图**。浮层不持有自己的 PTY:无论自动提升还是 `Ctrl+O` 强制,会话都由流内卡片创建并持有,浮层只是把 `Anterm` 视图搬过去。于是程序退出后卡片**原样留在列表里**——`<cwd> $ <整行>  (exit N)` 头 + 较暗的输出块,与普通 shell 卡片同款,不会退化成一行提示。
 - **内嵌交互**:`inlineCommands`(可配,默认空)只作为显式执行覆盖,同样使用自然高度的流内 PTY。
-- **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
+- **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。agent 的流式回复、思考、工具调用、权限请求各自成卡片,与 shell 卡片同一套版式。
+- **斜杠命令**:`/` 开头进入第三条路由(优先于 shell/agent 分诊),草稿卡下方展开内联候选菜单——`↑↓` 选择、`Tab` 补全、`Enter` 执行(命令名没敲全且该命令带参数提示时,Enter 先补全名字等参数)、`Esc` 收起。命名空间里合流两类命令:
+  - **本地命令**映射到真正的 ACP 方法,并按 agent 声明的能力过滤(没声明就不出现在菜单里):`/session`(`session/list`·`new`·`load <id>`·`delete <id>`)、`/mode`(`session/set_mode`)、`/model`(ACP **没有** `session/set_model`,模型是 `category:"model"` 的 select 配置项,走 `session/set_config_option`)、`/cancel`(`session/cancel`)、`/usage`(`usage_update` 上报的占用与费用)、`/permissions`(权限记忆与审计,`reset` 清空)、`/help`。
+  - **agent 命令**来自 `available_commands_update`(全量替换、推送式,启动时为空),带 `description` 与 `input.hint`;ACP 没有 execute 方法,执行就是编译成一段 `/name args` 的 `session/prompt` 文本。
+  - 判定只认「`/` 开头且首词里没有第二个 `/`」,`/usr/bin/ls`、`/tmp/x.sh` 仍然是可执行路径,照旧走 shell。
+- **权限审计**:`session/request_permission` 不再自动放行,而是开一张待决策卡片(`! <工具> 需要授权` + 编号选项);待决策期间草稿不渲染,键盘完全归卡片——数字键选项、`Esc`/`Ctrl-C` 取消。选中 `allow_always`/`reject_always` 会按工具名写进本地记忆,下次同名工具直接命中并在卡片上标「(记忆)」;`/permissions` 查看记忆与审计流水。agent 换了选项集时记忆自动失效,重新问人。
 
 ```sh
 # 需要真实 TTY
@@ -177,6 +184,7 @@ import { Anshell } from "@antd-tui/anshell"
 - `shell/` **分析层**,三者职责严格分开:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 只出诊断——调 `bash -n` / `zsh -n` 空跑解析(带超时),**不参与路由决策**;`completion.ts` 给命令/`$ENV`/文件路径三类补全(PATH 可执行表带短 TTL 缓存),返回的偏移按 code point 计,可直接喂 `InputEdit`。
 - `draft-state.ts` —— 草稿的单一 reducer(输入、路由覆盖、诊断、候选项),让这几项原子更新,避免高亮/诊断与输入内容错位。
 - `terminal-input.ts` —— 提交到 `TerminalCard` 挂载会话之间隔着一帧,这段窗口里敲的键会被**排队**并在会话就绪后按序回放,所以 Enter 后立刻连打不丢字。
+- `commands.ts` 斜杠命令表(纯函数:`parseSlash`/`listCommands`/`matchCommands`/`compileAgentCommand`),`permissions.ts` 权限记忆与审计流水,`tool-content.ts` 把 ACP 的 `ToolCallContent` 压成几行摘要——三者都不碰 React,可独立测试。
 - `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame,只有 `PromotedTerminalWindow` 一种浮层);`cards.tsx` 按块渲染并由 `TerminalCard` 独家持有 PTY 会话与提升判定(`block.fullscreen` 或 alternate screen);`triage.ts` 现在只用于选 `$`/`◆` 路由指示符,不再靠命令名决定是否全屏。
 
 ## 组件
