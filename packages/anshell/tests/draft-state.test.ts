@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { draftReducer, initialDraftState } from "../src/draft-state"
+import { draftReducer, initialDraftState } from "../src/ui/draft-state"
 
 describe("draftReducer", () => {
   test("修改输入时清理上一次派生的诊断和补全", () => {

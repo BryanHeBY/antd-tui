@@ -3,7 +3,7 @@ import { useTerminalDimensions } from "@opentui/react"
 import { Anterm } from "@antd-tui/anterm"
 import { FocusScope, truncateToWidth, useToken } from "@antd-tui/components"
 import { cardTint } from "./theme"
-import type { PromotedTerminal } from "./types"
+import type { PromotedTerminal } from "../types"
 
 type OverlayMode = "popup" | "fullscreen"
 

@@ -22,7 +22,7 @@ Bun workspace,十个包:
 | `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
 | `@antd-tui/anterm` | 内嵌可交互子终端(能跑 `vim` / `htop` / `ssh`)+ 可被宿主复用的 PTY 会话与 flow 平铺渲染 |
-| `@antd-tui/anshell` | agent 时代的流式对话式 shell:命令跑在流内 PTY 卡片,带语法高亮与 Tab 补全 |
+| `@antd-tui/anshell` | agent 时代的流式对话式 shell:所有命令跑在一条长驻 shell 里(OSC 133 切卡片),真实 bash 补全与斜杠命令 |
 | `@antd-tui/test-utils` | 进程内终端渲染的测试夹具 |
 
 ## 三条通路
@@ -181,14 +181,11 @@ import { Anshell } from "@antd-tui/anshell"
 - **cwd 由 shell 经 OSC 7 上报**:`cd`/`pwd`/`export`/`source` 全回归真 shell,徽章跟着 OSC 7 变。唯一的宿主内建是 `clear`(清卡片流,不清 shell 屏幕)。
 - 命令历史经 ↑↓ 翻阅(`Input` 无方向键钩子,由组件级 `useKeyboard` 处理)。
 
-内部结构:
+内部结构按三层分目录:`shell/` 是与 shell 打交道的执行层、`agent/` 是 ACP/斜杠命令层、`ui/` 是渲染与草稿状态层;根目录只留入口(`Anshell.tsx`/`cli.tsx`)、桶文件(`index.ts`)、共享类型(`types.ts`)与 shell↔agent 分诊(`triage.ts`)。
 
-- `shell/` **分析层**,三者职责严格分开:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 只出诊断——调 `bash -n` / `zsh -n` 空跑解析(带超时),**不参与路由决策**;`completion.ts` 给命令/`$ENV`/文件路径三类补全(PATH 可执行表带短 TTL 缓存),返回的偏移按 code point 计,可直接喂 `InputEdit`。
-- `draft-state.ts` —— 草稿的单一 reducer(输入、路由覆盖、诊断、候选项),让这几项原子更新,避免高亮/诊断与输入内容错位。
-- `shell/dialect.ts`(bash/zsh 判定)、`shell/rc.ts`(临时 rc 注入:先 source 用户配置再追加 prompt 钩子,与 starship/p10k 共存;bash `PROMPT_COMMAND` 前置以拿到命令真实 `$?`;每条标记带 nonce)、`shell/session.ts`(OSC 事件 → idle/inFlight 状态机 + 命令边界 + cwd + `runHidden` 静默命令走文件通道)、`shell/range.ts`(`[C, D)` 行区间代数,运行中单调水位线,标记被裁/整屏重画的降级)。
-- `useShellSession.tsx` —— React 接缝:建会话、把 OSC 事件接进 transcript、维护 cwd/浮层,并把行区间快照成 `StyledText[]`(运行中每帧派生,`133;D` 时同步冻结,不与下一个 prompt 竞态)。命令在飞用同步 ref 标志,提交当刻即翻转,紧跟的 stdin 不丢。
-- `commands.ts` 斜杠命令表(纯函数:`parseSlash`/`listCommands`/`matchCommands`/`compileAgentCommand`),`permissions.ts` 权限记忆与审计流水,`tool-content.ts` 把 ACP 的 `ToolCallContent` 压成几行摘要——三者都不碰 React,可独立测试。
-- `overlays.tsx` 纯视图(弹窗↔全屏共用一个 frame、同宽只差高度,只有 `PromotedTerminalWindow` 一种浮层);`cards.tsx` 的 `ShellCard`/`RunningShellCard` 只渲染行区间快照,不再自持会话;`triage.ts` 只剩 shell / agent 二选一(斜杠命令在更上层已分流)。
+- `shell/` **执行与分析层**:`lexer.ts` 只做单行词法(着色、命令位置、补全边界),**不做任何展开**;`syntax.ts` 调 `bash -n`/`zsh -n` 空跑出诊断(带超时),**不参与路由**;`completion.ts` 给命令/`$ENV`/文件路径三类启发式补全,`completion-live.ts` 把整行交给 bash 自己的 completion spec 跑(带 124 重试);`dialect.ts`(bash/zsh 判定)、`rc.ts`(临时 rc 注入:先 source 用户配置再追加 prompt 钩子,与 starship/p10k 共存;bash `PROMPT_COMMAND` 前置以拿到真实 `$?`;每条标记带 nonce)、`session.ts`(OSC 事件 → idle/inFlight 状态机 + 命令边界 + cwd + `runHidden` 静默命令走文件通道)、`range.ts`(`[C, D)` 行区间代数,运行中单调水位线,标记被裁/整屏重画的降级)。
+- `agent/` **ACP/斜杠层**(都不碰 React,可独立测试):`commands.ts` 斜杠命令表(`parseSlash`/`listCommands`/`matchCommands`/`compileAgentCommand`),`slash-actions.ts` 把每条本地命令映射到真正的 ACP 方法(依赖经参数注入,React 细节留在 `Anshell`),`permissions.ts` 权限记忆与审计流水,`tool-content.ts` 把 ACP 的 `ToolCallContent` 压成几行摘要。
+- `ui/` **渲染与状态层**:`draft-state.ts` 草稿的单一 reducer(输入/路由覆盖/诊断/补全候选/斜杠菜单原子更新);`useShellSession.tsx` React 接缝——建会话、把 OSC 事件接进 transcript、维护 cwd/浮层,并把行区间快照成 `StyledText[]`(运行中每帧派生,`133;D` 同步冻结;命令在飞用同步 ref 标志,提交当刻即翻转,紧跟的 stdin 不丢);`cards.tsx` 的 `ShellCard`/`RunningShellCard` 只渲染行区间快照、不自持会话;`overlays.tsx` 纯浮层视图(弹窗↔全屏同宽只差高度);`transcript.ts` 块级状态机;`theme.ts` 卡片底色。
 
 ## 组件
 

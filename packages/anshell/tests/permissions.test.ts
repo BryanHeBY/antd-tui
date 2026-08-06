@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { outcomeOfKind, PermissionPolicy, type PolicyOption } from "../src/permissions"
-import { toolLines } from "../src/tool-content"
+import { outcomeOfKind, PermissionPolicy, type PolicyOption } from "../src/agent/permissions"
+import { toolLines } from "../src/agent/tool-content"
 
 const options: PolicyOption[] = [
   { optionId: "once", name: "允许一次", kind: "allow_once" },

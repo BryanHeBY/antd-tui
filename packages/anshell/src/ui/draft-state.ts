@@ -1,4 +1,4 @@
-import type { CompletionItem, SyntaxDiagnostic } from "./shell"
+import type { CompletionItem, SyntaxDiagnostic } from "../shell"
 
 export interface DraftState {
   input: string

@@ -17,7 +17,7 @@ export {
   type ParsedSlash,
   type SlashCommand,
   type SlashContext,
-} from "./commands"
+} from "./agent/commands"
 export {
   outcomeOfKind,
   PermissionPolicy,
@@ -25,10 +25,10 @@ export {
   type PermissionRecord,
   type PolicyOption,
   type RememberedDecision,
-} from "./permissions"
-export { toolLines } from "./tool-content"
-export { useTranscript, type TranscriptApi } from "./transcript"
-export { cardTint } from "./theme"
+} from "./agent/permissions"
+export { toolLines } from "./agent/tool-content"
+export { useTranscript, type TranscriptApi } from "./ui/transcript"
+export { cardTint } from "./ui/theme"
 export {
   lexShell,
   checkShellSyntax,
@@ -46,5 +46,5 @@ export {
   type CompletionItem,
   type CompletionResult,
 } from "./shell"
-export { useShellSession } from "./useShellSession"
+export { useShellSession } from "./ui/useShellSession"
 export { Anshell } from "./Anshell"

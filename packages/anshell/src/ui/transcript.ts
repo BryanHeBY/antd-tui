@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react"
 import type { StyledText } from "@opentui/core"
-import type { Block, CommandRow } from "./types"
+import type { Block, CommandRow } from "../types"
 
 const BLOCK_LIMIT = 200
 

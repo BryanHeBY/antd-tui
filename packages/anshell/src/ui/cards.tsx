@@ -10,8 +10,8 @@ import {
 } from "@antd-tui/components"
 import type { AntermSession } from "@antd-tui/anterm"
 import { cardTint } from "./theme"
-import { SLASH_MENU_LIMIT, type SlashCommand } from "./commands"
-import type { Block } from "./types"
+import { SLASH_MENU_LIMIT, type SlashCommand } from "../agent/commands"
+import type { Block } from "../types"
 import {
   SHELL_BUILTINS,
   toCodePointOffset,
@@ -19,7 +19,7 @@ import {
   type CompletionItem,
   type ShellToken,
   type SyntaxDiagnostic,
-} from "./shell"
+} from "../shell"
 
 /** home 缩写成 ~ */
 export function shortCwd(cwd: string): string {

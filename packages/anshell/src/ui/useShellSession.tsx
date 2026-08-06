@@ -14,8 +14,8 @@ import {
   type CommandStart,
   type ShellDialect,
   type ShellSession,
-} from "./shell"
-import type { PromotedTerminal } from "./types"
+} from "../shell"
+import type { PromotedTerminal } from "../types"
 import { cardTint } from "./theme"
 
 export interface ShellSessionController {

@@ -6,7 +6,7 @@ import {
   matchCommands,
   parseSlash,
   type SlashContext,
-} from "../src/commands"
+} from "../src/agent/commands"
 
 const bare: SlashContext = {
   agentReady: false,
