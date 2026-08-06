@@ -164,8 +164,20 @@ import { Anterm } from "@antd-tui/anterm"
 # 需要真实 TTY
 bun run ansh
 bun run ansh --agent "<agent 启动命令>"
-bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL
+bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL；仅支持 bash/zsh
+bun run ansh --no-rc                # 不 source 用户 dotfiles（干净环境）
+
+# 打包成单文件可执行（dist/ansh，约 124MB，目标机无需装 bun）
+bun run build:ansh
+./dist/ansh
 ```
+
+打包用 `bun build --compile` 而不是输出 mjs:opentui 的原生库来自平台专属包
+(`@opentui/core-<platform>-<arch>`),`--compile` 会把 `libopentui.so` 连同
+tree-sitter 资产一起嵌进 `$bunfs`(opentui 自己就识别这种路径);而 mjs 路线会散出
+十几个文件——两个 13MB 的 `.so`(glibc/musl)加几 MB wasm——且目标机仍要装 bun,
+因为 anshell 依赖 `Bun.Terminal` 这类 Bun 独有 API。opentui 又静态引用了全部平台包
+而本机只装了当前平台,所以两种打包都要把异平台包标成 `--external`。
 
 ```tsx
 import { Anshell } from "@antd-tui/anshell"
