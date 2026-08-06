@@ -28,6 +28,29 @@ export function shortCwd(cwd: string): string {
 }
 
 /**
+ * 提示符 chip：cwd 单独占一块更亮的底色。所有带 cwd 的卡片头（草稿/命令/PTY/斜杠）
+ * 共用它，让「在哪里」在整列卡片里对齐成一条视觉锚线。
+ */
+export function PromptChip({ cwd }: { cwd: string }) {
+  const token = useToken()
+  return (
+    <box
+      style={{
+        backgroundColor: cardTint.prompt,
+        paddingLeft: 1,
+        paddingRight: 1,
+        height: 1,
+        flexShrink: 0,
+      }}
+    >
+      <text attributes={0} fg={token.colorTextSecondary}>
+        {shortCwd(cwd)}
+      </text>
+    </box>
+  )
+}
+
+/**
  * 草稿卡片：流尾正在敲的下一条输入。自动识别为 Shell 时显示 `$`，否则显示 `◆`；
  * Enter 后原样冻结成对应输入卡（所见即所得）。
  */
@@ -114,15 +137,13 @@ export function DraftCard({
         style={{
           backgroundColor: cardTint.input,
           flexDirection: "row",
-          paddingLeft: 1,
           paddingRight: 1,
           width: "100%",
         }}
       >
-        <text attributes={0}>
-          <span fg={token.colorTextSecondary}>{`${shortCwd(cwd)} `}</span>
-          <span fg={symbolColor}>{symbol}</span>
-        </text>
+        <PromptChip cwd={cwd} />
+        {/* chip 自带右侧内边距，符号不再补空格，否则会出现双空格 */}
+        <text attributes={0} fg={symbolColor}>{symbol}</text>
         <Input
           value={value}
           placeholder={placeholder}
@@ -207,9 +228,16 @@ export function DraftCard({
 export function PromptCard({ block }: { block: Extract<Block, { kind: "prompt" }> }) {
   const token = useToken()
   return (
-    <box style={{ backgroundColor: cardTint.input, paddingLeft: 1, paddingRight: 1, width: "100%" }}>
+    <box
+      style={{
+        backgroundColor: cardTint.input,
+        flexDirection: "row",
+        paddingRight: 1,
+        width: "100%",
+      }}
+    >
+      <PromptChip cwd={block.cwd} />
       <text attributes={0}>
-        <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
         <span fg={token.colorWarning}>◆ </span>
         <span fg={token.colorText}>{block.text}</span>
       </text>
@@ -302,9 +330,16 @@ export function TerminalCard({
     <box
       style={{ flexDirection: "column", gap: 0, width: "100%" }}
     >
-      <box style={{ backgroundColor: cardTint.input, paddingLeft: 1, paddingRight: 1, width: "100%" }}>
+      <box
+        style={{
+          backgroundColor: cardTint.input,
+          flexDirection: "row",
+          paddingRight: 1,
+          width: "100%",
+        }}
+      >
+        <PromptChip cwd={block.cwd} />
         <text attributes={0}>
-          <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
           <span fg={token.colorPrimaryHover}>{`${symbol} `}</span>
           <span fg={token.colorText}>{block.label}</span>
           <span fg={token.colorTextDisabled}>
@@ -441,14 +476,21 @@ export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "com
   const token = useToken()
   return (
     <box style={{ flexDirection: "column", gap: 0, width: "100%" }}>
-      <box style={{ backgroundColor: cardTint.input, paddingLeft: 1, paddingRight: 1, width: "100%" }}>
+      <box
+        style={{
+          backgroundColor: cardTint.input,
+          flexDirection: "row",
+          paddingRight: 1,
+          width: "100%",
+        }}
+      >
+        <PromptChip cwd={block.cwd} />
         <text attributes={0}>
-          <span fg={token.colorTextSecondary}>{`${shortCwd(block.cwd)} `}</span>
           <span fg={token.colorSuccess}>{`/${block.name}`}</span>
           <span fg={token.colorTextSecondary}>{block.input === "" ? "" : ` ${block.input}`}</span>
         </text>
       </box>
-      {block.lines.length > 0 ? (
+      {block.rows.length > 0 ? (
         <box
           style={{
             backgroundColor: cardTint.output,
@@ -458,9 +500,23 @@ export function SlashCommandCard({ block }: { block: Extract<Block, { kind: "com
             width: "100%",
           }}
         >
-          {block.lines.map((line, i) => (
-            <text key={i} attributes={0} fg={token.colorTextSecondary}>
-              {line === "" ? " " : line}
+          {block.rows.map((row, i) => (
+            <text key={i} attributes={0}>
+              <span fg={token.colorTextDisabled}>{row.marker ? `${row.marker} ` : ""}</span>
+              <span
+                fg={
+                  row.tone === "error"
+                    ? token.colorError
+                    : row.current
+                      ? token.colorSuccess
+                      : token.colorText
+                }
+              >
+                {row.primary}
+              </span>
+              <span fg={token.colorWarning}>{row.hint ? ` ${row.hint}` : ""}</span>
+              <span fg={token.colorTextSecondary}>{row.detail ? `  ${row.detail}` : ""}</span>
+              <span fg={token.colorTextDisabled}>{row.note ? `  ${row.note}` : ""}</span>
             </text>
           ))}
         </box>

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react"
-import type { Block } from "./types"
+import type { Block, CommandRow } from "./types"
 
 const BLOCK_LIMIT = 200
 
@@ -33,9 +33,9 @@ export interface TranscriptApi {
   /** 权限已决策：落定选项名并标记是否来自记忆策略 */
   resolvePermission: (id: number, chosen: string, auto: boolean) => void
   /** 开一张斜杠命令卡片，返回其 id（结果可能异步补齐） */
-  addCommand: (name: string, input: string, cwd: string, lines?: string[]) => number
+  addCommand: (name: string, input: string, cwd: string, rows?: CommandRow[]) => number
   /** 补齐命令结果 */
-  setCommandLines: (id: number, lines: string[]) => void
+  setCommandRows: (id: number, rows: CommandRow[]) => void
   /** 内嵌终端结束：标记退出并保留最终画面 */
   closeTerminal: (id: number, exitCode: number) => void
   /** 往当前 agent 卡片聚合流式片段（自动开卡片） */
@@ -161,18 +161,18 @@ export function useTranscript(): TranscriptApi {
   )
 
   const addCommand = useCallback(
-    (name: string, input: string, cwd: string, lines: string[] = []) => {
+    (name: string, input: string, cwd: string, rows: CommandRow[] = []) => {
       agentId.current = null
       const id = nextId.current++
-      push({ id, kind: "command", name, input, cwd, lines })
+      push({ id, kind: "command", name, input, cwd, rows })
       return id
     },
     [push],
   )
 
-  const setCommandLines = useCallback(
-    (id: number, lines: string[]) => {
-      patch(id, (b) => (b.kind === "command" ? { ...b, lines } : b))
+  const setCommandRows = useCallback(
+    (id: number, rows: CommandRow[]) => {
+      patch(id, (b) => (b.kind === "command" ? { ...b, rows } : b))
     },
     [patch],
   )
@@ -223,7 +223,7 @@ export function useTranscript(): TranscriptApi {
     addPermission,
     resolvePermission,
     addCommand,
-    setCommandLines,
+    setCommandRows,
     closeTerminal,
     appendAgentChunk,
     flushAgent,

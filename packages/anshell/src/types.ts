@@ -67,9 +67,29 @@ export type Block =
       /** 命令名之后的原始参数 */
       input: string
       cwd: string
-      lines: string[]
+      rows: CommandRow[]
     }
   | { id: number; kind: "note"; level: "system" | "error"; text: string }
+
+/**
+ * 斜杠命令结果的一行。拆成「标记 + 主体 + 参数提示 + 说明」而不是一整串文本，
+ * 卡片才能给命令名/会话 id 上色——纯字符串只能靠猜边界。
+ */
+export interface CommandRow {
+  /** 行首标记，如当前项的 ▸ 或审计流水的 #1；对齐用，非当前项传空格 */
+  marker?: string
+  /** 主体：命令名、会话 id、模式 id 等，高亮 */
+  primary: string
+  /** 参数提示（/help 里的 hint），dim */
+  hint?: string
+  /** 说明，正文色 */
+  detail?: string
+  /** 行尾备注，如 · agent */
+  note?: string
+  /** 当前项：主体用强调色 */
+  current?: boolean
+  tone?: "default" | "error"
+}
 
 /** 流内 PTY 被提升为浮层视图后，浮层接管的同一终端会话。 */
 export interface PromotedTerminal {

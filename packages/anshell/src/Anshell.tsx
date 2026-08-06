@@ -22,7 +22,7 @@ import {
 } from "./commands"
 import { outcomeOfKind, PermissionPolicy } from "./permissions"
 import { toolLines } from "./tool-content"
-import type { AnshellProps, PromotedTerminal } from "./types"
+import type { AnshellProps, CommandRow, PromotedTerminal } from "./types"
 import {
   checkShellSyntax,
   commonPrefix,
@@ -324,45 +324,63 @@ export function Anshell({
    * 斜杠命令执行：本地命令映射到真正的 ACP 方法（会话/模式/模型/取消/用量/权限），
    * 其余名字按 agent 命令处理——ACP 没有 execute 方法，命令就是一段约定 prompt 文本。
    */
+  /**
+   * 斜杠命令执行：本地命令映射到真正的 ACP 方法（会话/模式/模型/取消/用量/权限），
+   * 其余名字按 agent 命令处理——ACP 没有 execute 方法，命令就是一段约定 prompt 文本。
+   */
   const runSlashCommand = useCallback(
     (name: string, rest: string) => {
       const t = latest.current.transcript
       const cwd = cwdRef.current
       const client = clientRef.current
+      const say = (text: string): CommandRow[] => [{ primary: text }]
       const requireAgent = (): boolean => {
         if (client) return true
-        t.addCommand(name, rest, cwd, ["未配置 agent（用 ansh --agent \"<命令>\" 接入）"])
+        t.addCommand(name, rest, cwd, [
+          { primary: "未配置 agent", detail: "用 ansh --agent \"<命令>\" 接入", tone: "error" },
+        ])
         return false
       }
-      const fail = (id: number) => (err: Error) => t.setCommandLines(id, [`失败：${err.message}`])
+      const fail = (id: number) => (err: Error) =>
+        t.setCommandRows(id, [{ primary: "失败", detail: err.message, tone: "error" }])
+      const pending = (): CommandRow[] => [{ primary: "…" }]
 
       switch (name) {
         case "help": {
-          const lines = listCommands(latest.current.slashContext).map(
-            (command) =>
-              `/${command.name}${command.hint ? ` ${command.hint}` : ""}  ${command.description}` +
-              (command.source === "agent" ? "  · agent" : ""),
+          t.addCommand(
+            name,
+            rest,
+            cwd,
+            listCommands(latest.current.slashContext).map((command) => ({
+              primary: `/${command.name}`,
+              hint: command.hint,
+              detail: command.description,
+              note: command.source === "agent" ? "· agent" : undefined,
+              current: true,
+            })),
           )
-          t.addCommand(name, rest, cwd, lines)
           return
         }
         case "session": {
           if (!requireAgent()) return
           const [verb, arg] = rest.split(/\s+/).filter(Boolean)
-          const id = t.addCommand(name, rest, cwd, ["…"])
+          const id = t.addCommand(name, rest, cwd, pending())
           if (verb === undefined) {
             void client!
               .listSessions()
               .then((sessions) =>
-                t.setCommandLines(id, [
-                  `当前会话 ${client!.sessionId ?? "—"}`,
-                  ...sessions.map(
-                    (session) =>
-                      `${session.sessionId === client!.sessionId ? "▸" : " "} ${session.sessionId}` +
-                      `${session.updatedAt ? `  ${session.updatedAt}` : ""}` +
-                      `${session.title ? `  ${session.title}` : ""}`,
-                  ),
-                  ...(sessions.length === 0 ? ["（agent 未返回会话列表）"] : []),
+                t.setCommandRows(id, [
+                  { marker: "当前会话", primary: client!.sessionId ?? "—", current: true },
+                  ...sessions.map((session) => {
+                    const isCurrent = session.sessionId === client!.sessionId
+                    return {
+                      marker: isCurrent ? "▸" : " ",
+                      primary: session.sessionId,
+                      current: isCurrent,
+                      detail: [session.updatedAt, session.title].filter(Boolean).join("  "),
+                    }
+                  }),
+                  ...(sessions.length === 0 ? [{ primary: "（agent 未返回会话列表）" }] : []),
                 ]),
               )
               .catch(fail(id))
@@ -375,7 +393,7 @@ export function Anshell({
                 setAgentCommands(client!.availableCommands)
                 setAgentModes(client!.modes)
                 setAgentConfig(client!.configOptions)
-                t.setCommandLines(id, [`已新建会话 ${sessionId}`])
+                t.setCommandRows(id, [{ marker: "已新建会话", primary: sessionId, current: true }])
               })
               .catch(fail(id))
             return
@@ -386,7 +404,14 @@ export function Anshell({
               .then(() => {
                 setAgentModes(client!.modes)
                 setAgentConfig(client!.configOptions)
-                t.setCommandLines(id, [`已切换到会话 ${arg}（历史经 session/update 回放）`])
+                t.setCommandRows(id, [
+                  {
+                    marker: "已切换到会话",
+                    primary: arg,
+                    detail: "历史经 session/update 回放",
+                    current: true,
+                  },
+                ])
               })
               .catch(fail(id))
             return
@@ -394,18 +419,18 @@ export function Anshell({
           if (verb === "delete" && arg) {
             void client!
               .deleteSession(arg)
-              .then(() => t.setCommandLines(id, [`已删除会话 ${arg}`]))
+              .then(() => t.setCommandRows(id, [{ marker: "已删除会话", primary: arg }]))
               .catch(fail(id))
             return
           }
-          t.setCommandLines(id, ["用法：/session [new | load <id> | delete <id>]"])
+          t.setCommandRows(id, [{ primary: "用法", detail: "/session [new | load <id> | delete <id>]" }])
           return
         }
         case "mode": {
           if (!requireAgent()) return
           const modes = client!.modes
           if (!modes) {
-            t.addCommand(name, rest, cwd, ["该 agent 未声明会话模式"])
+            t.addCommand(name, rest, cwd, say("该 agent 未声明会话模式"))
             return
           }
           if (rest === "") {
@@ -413,21 +438,26 @@ export function Anshell({
               name,
               rest,
               cwd,
-              modes.availableModes.map(
-                (mode) =>
-                  `${mode.id === modes.currentModeId ? "▸" : " "} ${mode.id}` +
-                  `${mode.name === mode.id ? "" : `  ${mode.name}`}` +
-                  `${mode.description ? `  ${mode.description}` : ""}`,
-              ),
+              modes.availableModes.map((mode) => {
+                const isCurrent = mode.id === modes.currentModeId
+                return {
+                  marker: isCurrent ? "▸" : " ",
+                  primary: mode.id,
+                  current: isCurrent,
+                  detail: [mode.name === mode.id ? "" : mode.name, mode.description ?? ""]
+                    .filter(Boolean)
+                    .join("  "),
+                }
+              }),
             )
             return
           }
-          const id = t.addCommand(name, rest, cwd, ["…"])
+          const id = t.addCommand(name, rest, cwd, pending())
           void client!
             .setMode(rest)
             .then(() => {
               setAgentModes(client!.modes)
-              t.setCommandLines(id, [`已切到模式 ${rest}`])
+              t.setCommandRows(id, [{ marker: "已切到模式", primary: rest, current: true }])
             })
             .catch(fail(id))
           return
@@ -436,30 +466,33 @@ export function Anshell({
           if (!requireAgent()) return
           const option = findModelOption(client!.configOptions)
           if (!option || option.type !== "select") {
-            t.addCommand(name, rest, cwd, ["该 agent 未提供模型配置项"])
+            t.addCommand(name, rest, cwd, say("该 agent 未提供模型配置项"))
             return
           }
-          const choices = option.options.flatMap((entry) =>
-            "group" in entry ? entry.options : [entry],
-          )
+          const choices = option.options.flatMap((entry) => ("group" in entry ? entry.options : [entry]))
           if (rest === "") {
             t.addCommand(
               name,
               rest,
               cwd,
-              choices.map(
-                (choice) =>
-                  `${choice.value === option.currentValue ? "▸" : " "} ${choice.value}  ${choice.name}`,
-              ),
+              choices.map((choice) => {
+                const isCurrent = choice.value === option.currentValue
+                return {
+                  marker: isCurrent ? "▸" : " ",
+                  primary: choice.value,
+                  current: isCurrent,
+                  detail: choice.name,
+                }
+              }),
             )
             return
           }
-          const id = t.addCommand(name, rest, cwd, ["…"])
+          const id = t.addCommand(name, rest, cwd, pending())
           void client!
             .setConfigOption(option.id, rest)
             .then((options) => {
               setAgentConfig(options)
-              t.setCommandLines(id, [`已切到 ${rest}`])
+              t.setCommandRows(id, [{ marker: "已切到", primary: rest, current: true }])
             })
             .catch(fail(id))
           return
@@ -467,35 +500,48 @@ export function Anshell({
         case "cancel": {
           if (!requireAgent()) return
           client!.cancel()
-          t.addCommand(name, rest, cwd, ["已发送 session/cancel"])
+          t.addCommand(name, rest, cwd, say("已发送 session/cancel"))
           return
         }
         case "usage": {
           if (!requireAgent()) return
-          t.addCommand(name, rest, cwd, [latest.current.agentUsage ?? "agent 未上报 usage"])
+          const usage = latest.current.agentUsage
+          t.addCommand(
+            name,
+            rest,
+            cwd,
+            usage ? [{ marker: "上下文", primary: usage, current: true }] : say("agent 未上报 usage"),
+          )
           return
         }
         case "permissions": {
           if (rest === "reset") {
             const count = policy.forget()
-            t.addCommand(name, rest, cwd, [`已清空 ${count} 条权限记忆（审计流水保留）`])
+            t.addCommand(name, rest, cwd, [
+              { primary: `已清空 ${count} 条权限记忆`, detail: "审计流水保留" },
+            ])
             return
           }
-          const memory = [...policy.memory.entries()].map(
-            ([tool, decision]) => `记忆  ${tool} → ${decision.option}（${decision.kind}）`,
-          )
-          const records = policy.records.map(
-            (record) =>
-              `#${record.seq}  ${record.tool} → ${record.option}` +
-              `  ${record.outcome}${record.auto ? "（记忆）" : ""}`,
-          )
-          const lines = [...memory, ...records]
-          t.addCommand(name, rest, cwd, lines.length > 0 ? lines : ["暂无权限记录"])
+          const rows: CommandRow[] = [
+            ...[...policy.memory.entries()].map(([tool, decision]) => ({
+              marker: "记忆",
+              primary: tool,
+              detail: `→ ${decision.option}（${decision.kind}）`,
+              current: true,
+            })),
+            ...policy.records.map((record) => ({
+              marker: `#${record.seq}`,
+              primary: record.tool,
+              detail: `→ ${record.option}  ${record.outcome}${record.auto ? "（记忆）" : ""}`,
+              tone: record.outcome === "rejected" ? ("error" as const) : undefined,
+            })),
+          ]
+          t.addCommand(name, rest, cwd, rows.length > 0 ? rows : say("暂无权限记录"))
           return
         }
         default: {
           if (!requireAgent()) return
-          t.addCommand(name, rest, cwd, ["已交给 agent"])
+          t.addCommand(name, rest, cwd, say("已交给 agent"))
           client!.prompt(compileAgentCommand(name, rest))
         }
       }

@@ -150,7 +150,7 @@ describe("Anshell 的 agent 接入", () => {
     await send(t, "ask again")
     await t.waitUntil(() => t.frame().includes("（记忆）"), 10000)
     await send(t, "/permissions")
-    await t.waitUntil(() => t.frame().includes("记忆  删除 /tmp/x"), 10000)
+    await t.waitUntil(() => t.frame().includes("记忆 删除 /tmp/x"), 10000)
     expect(t.frame()).toContain("allow_always")
     await send(t, "/permissions reset")
     await t.waitUntil(() => t.frame().includes("已清空 1 条权限记忆"), 10000)
