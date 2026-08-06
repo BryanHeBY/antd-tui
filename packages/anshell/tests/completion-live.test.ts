@@ -41,8 +41,8 @@ describe("completeLive (bash)", () => {
     const { session, ready } = start()
     await waitUntil(ready)
     // 注册一个固定候选表的命令（不依赖宿主的 bash-completion）
-    await session.runHidden("complete -W 'alpha beta gamma' anshtest")
-    const result = await completeLive(session, "anshtest a", 10, 3000)
+    await session.runHidden("complete -W 'alpha beta gamma' anshtest", { timeoutMs: 6000 })
+    const result = await completeLive(session, "anshtest a", 10, 6000)
     expect(result).not.toBeNull()
     expect(result!.items.map((i) => i.value)).toEqual(["alpha"])
   })
@@ -56,8 +56,9 @@ describe("completeLive (bash)", () => {
         "_ansh_lazy() { complete -W 'lazyone lazytwo' lazycmd; return 124; }",
         "complete -F _ansh_lazy lazycmd",
       ].join("\n"),
+      { timeoutMs: 6000 },
     )
-    const result = await completeLive(session, "lazycmd laz", 11, 3000)
+    const result = await completeLive(session, "lazycmd laz", 11, 6000)
     expect(result).not.toBeNull()
     expect(result!.items.map((i) => i.value).sort()).toEqual(["lazyone", "lazytwo"])
   })

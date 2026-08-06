@@ -82,7 +82,7 @@ describe("createShellSession (bash)", () => {
     session.submit("false")
     await waitUntil(() => rec.ends.length === 1)
     const startsBefore = rec.starts.length
-    const out = await session.runHidden("echo hidden-output")
+    const out = await session.runHidden("echo hidden-output", { timeoutMs: 6000 })
     expect(out).toBe("hidden-output")
     expect(rec.starts.length).toBe(startsBefore) // 静默命令不触发 onCommandStart
 

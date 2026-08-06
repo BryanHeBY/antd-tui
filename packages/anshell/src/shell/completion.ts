@@ -114,7 +114,12 @@ export async function completeShellInput(
       const prefixDir = dirname(prefix)
       const shownDir = prefixDir === "." ? "" : prefixDir === "/" ? "/" : `${prefixDir}/`
       items = entries
-        .filter((entry) => entry.name.startsWith(basePart))
+        .filter(
+          (entry) =>
+            entry.name.startsWith(basePart) &&
+            // 仿 shell：前缀不以 . 开头时不列隐藏文件，否则真实目录会被 dotfile 淹没
+            (basePart.startsWith(".") || !entry.name.startsWith(".")),
+        )
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((entry) => {
           const display = `${shownDir}${entry.name}${entry.isDirectory() ? "/" : ""}`
