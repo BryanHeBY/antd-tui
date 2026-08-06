@@ -44,10 +44,12 @@ function TerminalOverlayFrame({
         border={!fullscreen}
         title={fullscreen ? undefined : title}
       >
-        {/* 全屏没有边框承载标题，把程序名接在提示之后；提示固定在前，长命令名被截断而非挤掉提示 */}
-        <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
-          {truncateToWidth(fullscreen ? `${status} · ${title}` : status, Math.max(1, width - 2))}
-        </text>
+        {/* 全屏不留 chrome：alternate screen 程序按整屏行数排版，少一行就会在底部露出空行 */}
+        {fullscreen ? null : (
+          <text attributes={0} fg={token.colorTextSecondary} style={{ paddingLeft: 1 }}>
+            {truncateToWidth(status, Math.max(1, width - 2))}
+          </text>
+        )}
         {children}
       </box>
     </FocusScope>

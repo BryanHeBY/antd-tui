@@ -61,20 +61,23 @@ describe("Anterm", () => {
     expect(t.frame()).toContain("ping")
   })
 
-  test("光标随文本帧反色绘制，不叠加会残留的块字符", async () => {
+  test("视口模式把光标交给宿主真光标，帧里不涂反色块", async () => {
     const t = await mount(
       <Anterm command="cat" autoFocus style={{ width: "100%", height: 8 }} />,
     )
     const cursorBackground = parseColor("#dcdcdc").toInts()
-    const cursorSpans = () => t.raw.captureSpans().lines.flatMap((line) => line.spans).filter((span) => {
+    const paintedCursors = () => t.raw.captureSpans().lines.flatMap((line) => line.spans).filter((span) => {
       const bg = span.bg.toInts()
       return span.text === " " && bg.every((value, index) => value === cursorBackground[index])
     })
 
-    for (const char of "cursor-moved") {
+    const text = "cursor-moved"
+    for (const [index, char] of [...text].entries()) {
       await t.type(char)
-      await t.waitUntil(() => t.frame().includes(char) && cursorSpans().length === 1)
-      expect(cursorSpans()).toHaveLength(1)
+      await t.waitUntil(() => t.frame().includes(char) && t.raw.renderer.getCursorState().x === index + 2)
+      // 真光标随回显前进（1-based），文本帧里既没有涂色光标也没有块字符
+      expect(t.raw.renderer.getCursorState().visible).toBe(true)
+      expect(paintedCursors()).toHaveLength(0)
     }
     expect(t.frame()).not.toContain("█")
   })

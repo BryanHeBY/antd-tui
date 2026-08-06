@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useKeyboard, usePaste } from "@opentui/react"
+import { useKeyboard, usePaste, useRenderer } from "@opentui/react"
 import { parseColor, type MouseEvent, type StyledText } from "@opentui/core"
 import {
   toBoxStyle,
@@ -45,8 +45,10 @@ export function Anterm({
   tuiOnReady,
 }: AntermProps) {
   const token = useToken()
+  const renderer = useRenderer()
   const { boxRef, width, height } = useMeasuredSize()
   const sessionRef = useRef<AntermSession | null>(null)
+  const ownsHostCursor = useRef(false)
   const [, setFrame] = useState(0)
   const [scrollOffset, setScrollOffset] = useState(0)
 
@@ -201,6 +203,14 @@ export function Anterm({
   const showCursor = !!renderScreen && !!renderSession?.cursorVisible && !renderSession.exited && (
     tuiFlow ? !tuiReadOnly : focused && scrollOffset === 0
   )
+  // 视口模式（浮层/全屏）把光标交给宿主终端的真光标：它自带闪烁与用户的光标样式，
+  // 也不会像涂色单元格那样在子程序重画后残留成白块。flow 卡片仍用涂色光标——真光标
+  // 不受 scrollbox 视口裁剪，卡片滚出屏幕后会飘在别处。
+  const hostCursor = !tuiFlow
+  const cursorWindowRow = renderScreen
+    ? renderScreen.cursorAbsoluteY - (renderScreen.viewportY - scrollOffset)
+    : -1
+  const cursorWindowCol = renderScreen ? renderScreen.cursorX : -1
   if (ready && renderSession) {
     lines = screenToRows(renderScreen!, {
       rows: renderedRows,
@@ -208,7 +218,7 @@ export function Anterm({
       startY: tuiFlow ? (flowViewport ? renderScreen!.viewportY : 0) : undefined,
       // 光标与当前行一同生成，旧位置会随下一帧恢复；不能用绝对定位的实体字符叠加，
       // 否则高频 shell 重绘时 OpenTUI 可能来不及擦除旧节点而留下块状残影。
-      showCursor,
+      showCursor: showCursor && !hostCursor,
       defaultFg,
       defaultBg,
       palette,
@@ -220,6 +230,35 @@ export function Anterm({
       renderedRows = lines.length
     }
   }
+
+  const hostCursorVisible =
+    hostCursor &&
+    showCursor &&
+    cursorWindowRow >= 0 &&
+    cursorWindowRow < renderedRows &&
+    cursorWindowCol >= 0 &&
+    cursorWindowCol < cols
+  useEffect(() => {
+    const el = boxRef.current
+    if (hostCursorVisible && el) {
+      ownsHostCursor.current = true
+      // setCursorPosition 是 1-based
+      renderer.setCursorPosition(el.x + cursorWindowCol + 1, el.y + cursorWindowRow + 1, true)
+    } else if (ownsHostCursor.current) {
+      ownsHostCursor.current = false
+      renderer.setCursorPosition(0, 0, false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderer, hostCursorVisible, cursorWindowCol, cursorWindowRow])
+
+  useEffect(
+    () => () => {
+      if (!ownsHostCursor.current) return
+      ownsHostCursor.current = false
+      renderer.setCursorPosition(0, 0, false)
+    },
+    [renderer],
+  )
 
   return (
     <box

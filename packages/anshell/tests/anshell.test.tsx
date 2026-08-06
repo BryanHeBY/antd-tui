@@ -204,13 +204,26 @@ describe("Anshell 流式布局", () => {
     const t = await mount()
     await t.type(String.raw`printf '\e[?1049hALT'; read answer; printf '\e[?1049lBACK\n'`)
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("alternate screen"))
-    expect(t.frame()).toContain("ALT")
+    // 全屏浮层不留 chrome：卡片头被整屏盖住即说明已提升
+    await t.waitUntil(() => t.frame().includes("ALT") && !t.frame().includes("$ printf"))
     await t.type("resume")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
-    expect(t.frame()).not.toContain("alternate screen")
+    expect(t.frame()).toContain("$ printf")
     expect(t.frame()).toContain("BACK")
+  })
+
+  test("提升为全屏后子进程拿到整屏行数，底部不留空行", async () => {
+    const t = await mount({}, { height: 20 })
+    await t.type(String.raw`printf '\e[?1049h'; read a; stty size; read b; printf '\e[?1049l'`)
+    await t.enter()
+    await t.type("go")
+    await t.enter()
+    // 测试画布 60×20：全屏若仍留一行状态提示，子进程只会看到 19 行
+    await t.waitUntil(() => t.frame().includes("20 60"), 4000)
+    await t.type("done")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
   })
 
   test("normal buffer 整屏重画留在原卡片并切换为当前 viewport", async () => {
@@ -238,7 +251,7 @@ describe("Anshell 流式布局", () => {
     const t = await mount()
     await t.type("vim -Nu NONE -i NONE -n")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("alternate screen"), 4000)
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "~"), 4000)
     await t.settle()
     await t.escape()
     await t.type(":qa!")
@@ -246,7 +259,6 @@ describe("Anshell 流式布局", () => {
     await t.enter()
     await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
     expect(t.frame()).toContain("$ vim -Nu NONE -i NONE -n")
-    expect(t.frame()).not.toContain("alternate screen")
   })
 
   test("所有普通命令组成流内 PTY 卡片并原样接收键盘", async () => {
@@ -286,7 +298,7 @@ describe("Anshell 流式布局", () => {
     const t = await mount()
     await t.type("read answer; echo got:$answer; sleep 1")
     await t.press("o", { ctrl: true })
-    await t.waitUntil(() => t.frame().includes("Ctrl-D/exit 退出"))
+    await t.waitUntil(() => !t.frame().includes("输入 Agent 提示"))
     await t.type("forced-input")
     await t.enter()
     await t.waitUntil(() => t.frame().includes("got:forced-input"))

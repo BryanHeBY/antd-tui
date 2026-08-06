@@ -130,11 +130,12 @@ import { Anterm } from "@antd-tui/anterm"
 <Anterm command="bash" autoFocus style={{ flexGrow: 1 }} />
 ```
 
-六个要点:
+八个要点:
 
 - **全键捕获**。终端要收到 Tab(shell 补全)、方向键、Enter,所以它以 `kind: "capture"` 注册进焦点系统,`FocusScope` 不再替它消费任何按键。代价是焦点出不来,需按 `tuiEscapeKey`(默认 `Ctrl+]`,telnet 风格)交还。宿主若要保留少量自己的快捷键(如切换窗口大小),用 `tuiHotkeys`(键名如 `"ctrl+o"`)拦下,命中的键不透传子进程。
 - **会话可被宿主复用**。`tuiSession` 接管一个宿主自己 `createAntermSession` 建出的 PTY,组件卸载时**不**终止它——于是同一个会话能在流内卡片与浮层视图之间搬移而不重启子进程(`tuiResizeSession` 决定该视图的尺寸是否同步回 PTY)。配套开关:`tuiKeyboardDisabled`(宿主统一接管输入)、`tuiReadOnly`(退出后只读展示,不再注册焦点)、`tuiBackgroundColor`(与宿主卡片底色融合)。
 - **flow 平铺渲染**。`tuiFlow` 改用 normal buffer 从首行平铺,卡片高度随实际输出行数自然增长(而非固定视口),让命令输出能嵌进宿主的滚动历史流;若会话曾整屏重画、append-only 历史已不可还原,用 `tuiFlowViewport` 退化为只冻结当前视口。这是 anshell 把每条命令跑成流内 PTY 卡片的基础。
+- **光标分两条路**。视口模式(浮层/全屏)把子进程的光标交给**宿主终端的真光标**(`setCursorPosition`):自带闪烁与用户的光标样式,也不会像涂色单元格那样在分页器反复重画后留下白块。flow 卡片仍把光标涂进单元格——真光标不受 scrollbox 视口裁剪,卡片滚出视口后它会飘在别的位置。
 - **会话暴露行为读面**。`normalScreen`(即便已切到 alternate screen 仍可读流式历史)、`alternateScreen`、`screenTakeover`、`normalContentRows` / `normalOutputRows`、`cursorVisible` —— 宿主据此按**程序的实际行为**而非命令名决定呈现(如切 alternate screen 就把会话升格成浮层)。
 - **自建控制终端**。Bun 的 `spawn({ terminal })` 不给子进程建立控制终端(`ps` 里 TT 是 `?`),于是 pty 的 ISIG 找不到前台进程组——Ctrl-C 只回显 `^C`,不产生 SIGINT,作业控制也不工作。Linux 上用 util-linux 的 `setsid --ctty` 补上这一步;其他平台降级为直接运行(显示与输入照常,信号键失效)。
 - **鼠标按协商级别透传**。子进程经 DECSET 1000/1002/1003 声明追踪级别,组件据此过滤事件种类,并按 1006 决定用 SGR 还是 X10 编码。注意 DECSET 允许合并参数(htop 发的是 `\x1b[?1006;1000h`),必须按参数拆开判断,否则会退化成 X10 而让子进程把坐标字节读成按键。子进程没要鼠标时,滚轮用来翻组件自己的回看缓冲。
@@ -145,7 +146,7 @@ import { Anterm } from "@antd-tui/anterm"
 `@antd-tui/anshell`(CLI `ansh`)不是传统 shell,而是一个**流式对话框**(仿 CC/codex/bash):历史自上而下流动、各条成卡片。流尾是一张可编辑的草稿输入卡:识别为 Shell 时显示 `<cwd> $ …`,否则显示 `<cwd> ◆ …`;`Ctrl+T` 可覆盖当前草稿的路由,提交后恢复自动判断。输入卡与较暗的输出卡紧贴排列,没有独立底部输入框。
 
 - **命令**:首词能在 PATH/builtin 解析,或整行含 Shell 结构(`| > & ; $` …)→ 经配置的 Shell 在流内 PTY 卡片中运行,键盘直接交给原生命令;卡片按 normal buffer 的实际内容自然增长,进程退出后保留最终画面并恢复下一条输入。输入区支持语义高亮、异步 `bash/zsh -n` 诊断和命令/环境变量/文件路径 Tab 补全。
-- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出 alternate screen 后回到列表。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则显式强制把当前整行放进浮层,同样默认全屏。
+- **全屏行为**:不再维护 `bash`/`zsh`/`vim` 等命令名特判。所有命令先进入自然流;PTY 切换到 alternate screen 时,同一个会话自动提升为**全屏**浮层(贴近这些程序在真终端里的原生体验),退出 alternate screen 后回到列表。全屏不留任何 chrome——alternate screen 程序按整屏行数排版,浮层多占一行状态提示就会让子进程少一行、底部露出空行,因此提示只出现在弹窗那一档(弹窗有边框承载标题)。浮层内 `Ctrl+O` 在全屏↔居中弹窗之间切换;在草稿里按 `Ctrl+O` 则显式强制把当前整行放进浮层,同样默认全屏。
 - **内嵌交互**:`inlineCommands`(可配,默认空)只作为显式执行覆盖,同样使用自然高度的流内 PTY。
 - **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。
 
