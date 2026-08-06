@@ -21,9 +21,10 @@ function TerminalOverlayFrame({
   const token = useToken()
   const dims = useTerminalDimensions()
   const fullscreen = mode === "fullscreen"
-  const width = fullscreen ? dims.width : Math.max(40, Math.floor(dims.width * 0.85))
+  // 两档同宽：cols 恒定，reflow 不会发生，tuiResizeSession 才能安全 resize 共享 shell
+  const width = dims.width
   const height = fullscreen ? dims.height : Math.max(6, Math.floor(dims.height * 0.8))
-  const left = fullscreen ? 0 : Math.max(0, Math.floor((dims.width - width) / 2))
+  const left = 0
   const top = fullscreen ? 0 : Math.max(0, Math.floor((dims.height - height) / 2))
 
   return (
@@ -72,8 +73,7 @@ export function PromotedTerminalWindow({
       status={`Ctrl+O ${fullscreen ? "弹窗" : "全屏"}`}
     >
       <Anterm
-        command={terminal.command}
-        args={terminal.args}
+        command="shell"
         cwd={terminal.cwd}
         autoFocus
         tuiSession={terminal.session}

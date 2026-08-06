@@ -1,43 +1,23 @@
 import { describe, expect, test } from "bun:test"
-import { classifyInput, DEFAULT_OVERLAY_COMMANDS } from "../src/index"
+import { classifyInput } from "../src/index"
 
-const overlay = new Set(DEFAULT_OVERLAY_COMMANDS)
-const inline = new Set(["fzf", "gitui"])
-
-/** 传桩 which：只认这几个「存在的可执行」。 */
+/** 传桩 which：只认这几个「存在的命令」。 */
 const which = (cmd: string) => [
   "ls", "git", "echo", "cat", "grep", "npm", "rm", "sudo", "bash", "zsh", "vim", "htop", "ssh",
 ].includes(cmd)
 
 function triage(line: string) {
-  return classifyInput(line, { which, overlay, inline })
+  return classifyInput(line, { which })
 }
 
 describe("classifyInput", () => {
-  test("默认不按命令名特判，显式 overlay 配置仍可覆盖", () => {
-    expect(DEFAULT_OVERLAY_COMMANDS).toEqual([])
+  test("不按命令名特判：bash/vim 都是普通命令，浮层由 alternate screen 自动判定", () => {
     expect(triage("bash")).toMatchObject({ kind: "command" })
     expect(triage("zsh")).toMatchObject({ kind: "command" })
     expect(triage("vim foo.txt")).toMatchObject({ kind: "command" })
-    const explicit = classifyInput("bash", { which, overlay: new Set(["bash"]), inline: new Set() })
-    expect(explicit).toMatchObject({ kind: "interactive", surface: "overlay" })
   })
 
-  test("inline 集合 → interactive/inline", () => {
-    expect(triage("fzf")).toMatchObject({ kind: "interactive", surface: "inline" })
-    expect(triage("gitui")).toMatchObject({ kind: "interactive", surface: "inline" })
-  })
-
-  test("inline 优先于 overlay（同名时取 inline）", () => {
-    const t = classifyInput("bash", {
-      which,
-      overlay: new Set(["bash"]),
-      inline: new Set(["bash"]),
-    })
-    expect(t.surface).toBe("inline")
-  })
-
-  test("所有普通命令都保留 command 路径，由流内 PTY 提供 stdin", () => {
+  test("已知命令一律 command，交给长驻 shell", () => {
     expect(triage("cat")).toMatchObject({ kind: "command" })
     expect(triage("cat -")).toMatchObject({ kind: "command" })
     expect(triage("cat -n")).toMatchObject({ kind: "command" })

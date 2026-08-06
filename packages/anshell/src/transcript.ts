@@ -1,17 +1,13 @@
 import { useCallback, useRef, useState } from "react"
+import type { StyledText } from "@opentui/core"
 import type { Block, CommandRow } from "./types"
 
 const BLOCK_LIMIT = 200
 
 export interface TranscriptApi {
   blocks: Block[]
-  /** 开一张内嵌 PTY 卡片，返回其 id */
-  addTerminal: (
-    command: string,
-    args: string[],
-    cwd: string,
-    options?: { label?: string; prompt?: "shell" | "terminal"; fullscreen?: boolean },
-  ) => number
+  /** 开一张 shell 命令卡片（running），返回其 id */
+  addShell: (label: string, cwd: string, options?: { requestedOverlay?: boolean }) => number
   /** 记录一条交给 agent 的用户输入。 */
   addPrompt: (text: string, cwd: string) => void
   /** 按 ACP toolCallId 建/更新工具卡片；content 与 status 都是整体替换 */
@@ -36,8 +32,8 @@ export interface TranscriptApi {
   addCommand: (name: string, input: string, cwd: string, rows?: CommandRow[]) => number
   /** 补齐命令结果 */
   setCommandRows: (id: number, rows: CommandRow[]) => void
-  /** 内嵌终端结束：标记退出并保留最终画面 */
-  closeTerminal: (id: number, exitCode: number) => void
+  /** 命令结束：落定退出码与不可变输出快照 */
+  closeShell: (id: number, result: { exitCode: number; lines: StyledText[]; degraded?: boolean }) => void
   /** 往当前 agent 卡片聚合流式片段（自动开卡片） */
   appendAgentChunk: (text: string) => void
   /** 结束当前 agent 卡片（下一轮另起） */
@@ -67,25 +63,17 @@ export function useTranscript(): TranscriptApi {
     setBlocks((prev) => prev.map((b) => (b.id === id ? fn(b) : b)))
   }, [])
 
-  const addTerminal = useCallback(
-    (
-      command: string,
-      args: string[],
-      cwd: string,
-      options?: { label?: string; prompt?: "shell" | "terminal"; fullscreen?: boolean },
-    ) => {
+  const addShell = useCallback(
+    (label: string, cwd: string, options?: { requestedOverlay?: boolean }) => {
       agentId.current = null
       const id = nextId.current++
       push({
         id,
-        kind: "terminal",
-        command,
-        args,
-        label: options?.label ?? [command, ...args].join(" "),
+        kind: "shell",
+        label,
         cwd,
-        prompt: options?.prompt ?? "terminal",
-        fullscreen: options?.fullscreen ?? false,
         state: "running",
+        requestedOverlay: options?.requestedOverlay ?? false,
       })
       return id
     },
@@ -177,9 +165,13 @@ export function useTranscript(): TranscriptApi {
     [patch],
   )
 
-  const closeTerminal = useCallback(
-    (id: number, exitCode: number) => {
-      patch(id, (b) => (b.kind === "terminal" ? { ...b, state: "exited", exitCode } : b))
+  const closeShell = useCallback(
+    (id: number, result: { exitCode: number; lines: StyledText[]; degraded?: boolean }) => {
+      patch(id, (b) =>
+        b.kind === "shell"
+          ? { ...b, state: "exited", exitCode: result.exitCode, lines: result.lines, degraded: result.degraded }
+          : b,
+      )
     },
     [patch],
   )
@@ -217,14 +209,14 @@ export function useTranscript(): TranscriptApi {
 
   return {
     blocks,
-    addTerminal,
+    addShell,
     addPrompt,
     upsertTool,
     addPermission,
     resolvePermission,
     addCommand,
     setCommandRows,
-    closeTerminal,
+    closeShell,
     appendAgentChunk,
     flushAgent,
     addNote,

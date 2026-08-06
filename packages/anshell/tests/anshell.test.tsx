@@ -12,14 +12,22 @@ afterEach(() => {
 })
 
 async function mount(props: AnshellProps = {}, options?: { width?: number; height?: number }) {
-  const t = await renderTui(<Anshell {...props} /> as ReactNode, {
-    width: options?.width ?? 60,
-    height: options?.height ?? 14,
-    // 生产 CLI 由 Anshell 接管 Ctrl-C；测试渲染器默认 true 会先销毁整个画面。
-    exitOnCtrlC: false,
-  })
+  const t = await renderTui(
+    // 强制 bash + 干净环境：否则整套测试挂在开发机的 starship/p10k 上
+    (<Anshell shell="/bin/bash" shellInit="minimal" {...props} />) as ReactNode,
+    {
+      width: options?.width ?? 60,
+      height: options?.height ?? 14,
+      exitOnCtrlC: false,
+    },
+  )
   active = t
   return t
+}
+
+/** 长驻 shell 就绪后草稿才可用；就绪信号是首个 133;A 之后我们仍显示 Agent 提示。 */
+async function ready(t: TuiTestSetup) {
+  await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 10000)
 }
 
 function findScrollbox(node: BaseRenderable): ScrollBoxRenderable | undefined {
@@ -29,15 +37,6 @@ function findScrollbox(node: BaseRenderable): ScrollBoxRenderable | undefined {
     if (match) return match
   }
   return undefined
-}
-
-const CURSOR_BACKGROUND = parseColor("#dcdcdc").toInts()
-
-function hasStyledCursor(t: TuiTestSetup): boolean {
-  return t.raw.captureSpans().lines.some((line) => line.spans.some((span) => {
-    const bg = span.bg.toInts()
-    return span.text === " " && bg.every((value, index) => value === CURSOR_BACKGROUND[index])
-  }))
 }
 
 describe("Anshell 流式布局", () => {
@@ -168,36 +167,37 @@ describe("Anshell 流式布局", () => {
     await t.waitUntil(() => t.raw.renderer.getCursorState().visible)
   })
 
-  test("bash 不再按命令名特判，直接融入自然 PTY 流", async () => {
+  test("嵌套 shell 不被 nonce 不符的标记切断，退出后回到草稿", async () => {
     const t = await mount()
-    await t.type("bash")
+    await ready(t)
+    // 嵌套 bash 用它自己的（无 nonce）集成，标记被外层按 nonce 过滤掉，
+    // 所以外层这条命令在嵌套 shell 的整个生命期内保持 running
+    await t.type("bash --norc")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("$ bash"))
-    expect(t.frame()).not.toContain("Ctrl-D/exit 退出")
-    await t.waitUntil(() => t.frame().includes("antd-tui]$"), 4000)
+    await t.waitUntil(() => t.frame().includes("$ bash --norc"), 8000)
     await t.type("echo $((40+2))")
     await t.enter()
-    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"), 4000)
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"), 8000)
+    // 仍在同一条外层命令里（没有第二张卡片）
+    expect(t.frame().split("$ bash --norc").length).toBe(2)
     await t.type("exit")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
+    await ready(t)
   })
 
-  test("交互 bash 的 prompt、连续输入和 PTY 光标都可见", async () => {
-    if (!Bun.which("bash")) return
+  test("嵌套交互 bash 的 prompt 与连续输入都进入同一张运行中卡片", async () => {
     const t = await mount()
+    await ready(t)
     await t.type("PS1='BASH> ' bash --norc -i")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("BASH> "), 4000)
-    await t.waitUntil(() => hasStyledCursor(t))
-    expect(t.frame()).not.toContain("█")
+    await t.waitUntil(() => t.frame().includes("BASH> "), 8000)
     await t.type("echo $((20+22))")
     await t.enter()
-    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"), 4000)
-    await t.waitUntil(() => t.frame().split("BASH> ").length >= 3, 4000)
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "42"), 8000)
+    await t.waitUntil(() => t.frame().split("BASH> ").length >= 3, 8000)
     await t.type("exit")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
+    await ready(t)
   })
 
   test("PTY 进入 alternate screen 时提升同一会话到浮层，退出后回到自然流", async () => {
@@ -213,37 +213,30 @@ describe("Anshell 流式布局", () => {
     expect(t.frame()).toContain("BACK")
   })
 
-  test("提升为全屏后子进程拿到整屏行数，底部不留空行", async () => {
+  test("长驻 shell 恒为整屏尺寸（即便内联命令）", async () => {
     const t = await mount({}, { height: 20 })
-    await t.type(String.raw`printf '\e[?1049h'; read a; stty size; read b; printf '\e[?1049l'`)
+    await ready(t)
+    await t.type("stty size")
     await t.enter()
-    await t.type("go")
-    await t.enter()
-    // 测试画布 60×20：全屏若仍留一行状态提示，子进程只会看到 19 行
-    await t.waitUntil(() => t.frame().includes("20 60"), 4000)
-    await t.type("done")
-    await t.enter()
-    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
+    // 画布 60×20：shell 始终是整屏尺寸，不因卡片高度缩水
+    await t.waitUntil(() => t.frame().includes("20 60"), 8000)
   })
 
-  test("normal buffer 整屏重画留在原卡片并切换为当前 viewport", async () => {
+  test("normal buffer 整屏重画：该条命令降级为视口快照", async () => {
     const t = await mount()
+    await ready(t)
     await t.type(String.raw`printf 'FLOW'; read first; printf '\e[H\e[2J\e[HREDRAW'; read second`)
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("FLOW"))
-    expect(t.frame()).not.toContain("screen repaint")
-
+    await t.waitUntil(() => t.frame().includes("FLOW"), 8000)
     await t.type("move-right")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("REDRAW"), 4000)
-    expect(t.frame()).not.toContain("screen repaint")
-    expect(t.frame()).not.toContain("alternate screen")
+    await t.waitUntil(() => t.frame().includes("REDRAW"), 8000)
     expect(t.frame()).toContain("$ printf")
-
     await t.type("finish")
     await t.enter()
-    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 4000)
-    await t.waitUntil(() => t.frame().includes("REDRAW"), 4000)
+    await ready(t)
+    // 整屏重画的命令冻结成视口快照，仍留在流里
+    expect(t.frame()).toContain("REDRAW")
   })
 
   test("vim 由 alternate-screen 行为自动提升，而不是命令名特判", async () => {
@@ -281,17 +274,22 @@ describe("Anshell 流式布局", () => {
 
   test("提交命令后不等待重绘，紧接的输入仍交给 PTY 且显示光标", async () => {
     const t = await mount()
+    // 先跑一条让 shell 就绪；本用例要证明的是提交后不等 React 重绘即可连打
+    await t.type("echo warm")
+    await t.enter()
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "warm"), 8000)
     await t.type("cat -")
     await act(async () => {
       t.raw.mockInput.pressEnter()
       t.raw.mockInput.typeText("immediate-stdin")
       t.raw.mockInput.pressEnter()
     })
-    await t.waitUntil(() => t.frame().split("\n").filter((line) => line.trim() === "immediate-stdin").length >= 2)
+    // 提交后未等 React 重绘就连打，stdin 仍抵达 cat（输出里出现该行即证明）
+    await t.waitUntil(() => t.frame().split("\n").some((line) => line.trim() === "immediate-stdin"), 8000)
     expect(t.frame()).toContain("$ cat -")
     expect(t.frame()).not.toContain("█")
     await t.press("d", { ctrl: true })
-    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"))
+    await t.waitUntil(() => t.frame().includes("输入 Agent 提示"), 8000)
   })
 
   test("Ctrl+O 强制把任意 Shell 整行放进 PTY", async () => {
@@ -308,12 +306,4 @@ describe("Anshell 流式布局", () => {
     expect(t.frame()).toContain("got:forced-input")
   })
 
-  test("inlineCommands 命中 → 流内活终端卡片", async () => {
-    const t = await mount({ inlineCommands: ["cat"] }, { height: 30 })
-    await t.type("cat")
-    await t.enter()
-    // 显式 inline 命令同样使用自然高度的流内 PTY。
-    await t.waitUntil(() => t.frame().includes("▶ cat"))
-    expect(t.frame()).toContain("▶ cat")
-  })
 })

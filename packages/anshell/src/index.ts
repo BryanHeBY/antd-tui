@@ -1,8 +1,9 @@
 export type {
   InputKind,
-  InteractiveSurface,
   Triage,
   Block,
+  CommandRow,
+  PromotedTerminal,
   AnshellProps,
 } from "./types"
 export { classifyInput, DEFAULT_OVERLAY_COMMANDS, type ClassifyOptions } from "./triage"
@@ -26,7 +27,6 @@ export {
   type RememberedDecision,
 } from "./permissions"
 export { toolLines } from "./tool-content"
-export { runBuiltin, isBuiltin, type BuiltinEffect } from "./builtins"
 export { useTranscript, type TranscriptApi } from "./transcript"
 export { cardTint } from "./theme"
 export {
@@ -35,10 +35,16 @@ export {
   completeShellInput,
   commonPrefix,
   resolveShell,
+  resolveShellDialect,
+  unsupportedShellMessage,
+  createShellSession,
+  type ShellDialect,
+  type ShellSession,
   type ShellToken,
   type ShellTokenKind,
   type SyntaxDiagnostic,
   type CompletionItem,
   type CompletionResult,
 } from "./shell"
+export { useShellSession } from "./useShellSession"
 export { Anshell } from "./Anshell"

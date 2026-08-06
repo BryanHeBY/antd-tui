@@ -7,20 +7,17 @@ export const DEFAULT_OVERLAY_COMMANDS: readonly string[] = []
 const BUILTINS = new Set<string>(SHELL_BUILTINS)
 
 export interface ClassifyOptions {
-  /** 判断某命令是否可在 PATH 中解析（通常注入 Bun.which） */
+  /** 命令是否已知（PATH 可执行 / builtin / shell 自报的函数别名）。 */
   which: (cmd: string) => boolean
-  /** 浮层交互式程序集合（弹窗/全屏） */
-  overlay: ReadonlySet<string>
-  /** 内嵌活终端卡片的交互命令集合（流内） */
-  inline: ReadonlySet<string>
 }
 
 /**
- * 启发式分诊（无前缀）：
- *   1. 首词属于 inline 集合 → interactive/inline（流内活终端卡片）
- *   2. 首词属于 overlay 集合 → interactive/overlay（弹窗/全屏）
- *   3. 含 shell 结构，或首词能在 PATH/builtin 解析 → command
- *   4. 否则 → agent（自然语言，交给 agent）
+ * shell / agent 二选一分诊（斜杠命令在更上层已经分流）：
+ *   含 shell 结构，或首词是已知命令 → command（交给长驻 shell）
+ *   否则 → agent（自然语言）
+ *
+ * 一旦有真 shell，无法预判的命令交给 shell 报错也无妨；这里只把「像自然语言」的
+ * 输入挡在 shell 之外——因为写进 PTY 的字节收不回来。
  */
 export function classifyInput(line: string, opts: ClassifyOptions): Triage {
   const raw = line
@@ -33,12 +30,6 @@ export function classifyInput(line: string, opts: ClassifyOptions): Triage {
         .map((token) => unquoteShellWord(token.text))
     : []
 
-  if (command && opts.inline.has(command)) {
-    return { kind: "interactive", command, args, raw, surface: "inline" }
-  }
-  if (command && opts.overlay.has(command)) {
-    return { kind: "interactive", command, args, raw, surface: "overlay" }
-  }
   const hasShellSyntax =
     lexed.incomplete ||
     lexed.tokens.some(

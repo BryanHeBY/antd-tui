@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { homedir } from "node:os"
-import { useTerminalDimensions } from "@opentui/react"
+import type { StyledText } from "@opentui/core"
 import {
   Input,
   useToken,
@@ -8,10 +8,10 @@ import {
   type InputHighlight,
   type InputTabContext,
 } from "@antd-tui/components"
-import { Anterm, createAntermSession, type AntermSession } from "@antd-tui/anterm"
+import type { AntermSession } from "@antd-tui/anterm"
 import { cardTint } from "./theme"
 import { SLASH_MENU_LIMIT, type SlashCommand } from "./commands"
-import type { Block, PromotedTerminal } from "./types"
+import type { Block } from "./types"
 import {
   SHELL_BUILTINS,
   toCodePointOffset,
@@ -260,91 +260,21 @@ export function PromptCard({ block }: { block: Extract<Block, { kind: "prompt" }
   )
 }
 
-/** 内嵌 PTY 卡片：退出后保留最终终端画面，并把焦点交给下一条草稿。 */
-export function TerminalCard({
+/**
+ * 一条 shell 命令的卡片：头（`<cwd> $ <整行>  (exit N)`）+ 输出行。
+ * 运行中与冻结共用同一渲染，只是行的来源不同——lines 由调用方给。
+ */
+export function ShellCard({
   block,
-  onExit,
-  onPromote,
-  onSessionReady,
-  onSessionRelease,
+  lines,
 }: {
-  block: Extract<Block, { kind: "terminal" }>
-  onExit: (exitCode: number) => void
-  onPromote: (terminal: PromotedTerminal | null) => void
-  onSessionReady: (session: AntermSession) => void
-  onSessionRelease: (session: AntermSession) => void
+  block: Extract<Block, { kind: "shell" }>
+  lines: StyledText[]
 }) {
   const token = useToken()
-  const dims = useTerminalDimensions()
-  const shell = block.prompt === "shell"
   const running = block.state === "running"
-  const symbol = shell ? "$" : "▶"
-  const [session, setSession] = useState<AntermSession | null>(null)
-  const [promoted, setPromoted] = useState(false)
-  const latest = useRef({ onExit, onPromote, onSessionReady, onSessionRelease })
-  latest.current = { onExit, onPromote, onSessionReady, onSessionRelease }
-  const argsKey = JSON.stringify(block.args)
-
-  useEffect(() => {
-    let isPromoted = false
-    let current: AntermSession
-    current = createAntermSession({
-      command: block.command,
-      args: block.args,
-      cwd: block.cwd,
-      cols: Math.max(2, dims.width),
-      rows: Math.max(2, block.fullscreen ? dims.height : dims.height - 1),
-      onExit: (code) => {
-        latest.current.onSessionRelease(current)
-        if (isPromoted) {
-          isPromoted = false
-          setPromoted(false)
-          latest.current.onPromote(null)
-        }
-        latest.current.onExit(code)
-      },
-    })
-    setSession(current)
-    latest.current.onSessionReady(current)
-
-    const syncView = () => {
-      const nextPromoted = !current.exited && (block.fullscreen || current.alternateScreen)
-      if (nextPromoted === isPromoted) return
-      isPromoted = nextPromoted
-      setPromoted(nextPromoted)
-      latest.current.onPromote(nextPromoted ? {
-        id: block.id,
-        label: block.label,
-        command: block.command,
-        args: block.args,
-        cwd: block.cwd,
-        session: current,
-      } : null)
-    }
-    const unsubscribe = current.onFrame(syncView)
-    syncView()
-    return () => {
-      unsubscribe()
-      if (isPromoted) latest.current.onPromote(null)
-      latest.current.onSessionRelease(current)
-      current.kill()
-    }
-    // 一张 transcript block 只创建一次会话；终端尺寸变化由下面的 resize effect 处理。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block.id, block.command, argsKey, block.cwd])
-
-  useEffect(() => {
-    // normal-buffer takeover 的历史已经被破坏性重画；退出弹窗后保持最后视口的尺寸，
-    // 再 resize 会触发 xterm reflow，把冻结画面重新拆成重复/错位的碎片。
-    if (session && !promoted && !session.screenTakeover) {
-      session.resize(Math.max(2, dims.width), Math.max(2, dims.height - 1))
-    }
-  }, [session, promoted, dims.width, dims.height])
-
   return (
-    <box
-      style={{ flexDirection: "column", gap: 0, width: "100%" }}
-    >
+    <box style={{ flexDirection: "column", gap: 0, width: "100%" }}>
       <box
         style={{
           backgroundColor: cardTint.input,
@@ -355,29 +285,45 @@ export function TerminalCard({
       >
         <PromptChip cwd={block.cwd} />
         <text attributes={0}>
-          <span fg={token.colorPrimaryHover}>{` ${symbol} `}</span>
+          <span fg={token.colorPrimaryHover}>{" $ "}</span>
           <span fg={token.colorText}>{block.label}</span>
           <span fg={token.colorTextDisabled}>
-            {running ? "  (PTY)" : `  (exit ${block.exitCode ?? 0})`}
+            {running ? "  (运行中)" : `  (exit ${block.exitCode ?? 0})`}
+            {block.degraded ? "  ·降级" : ""}
           </span>
         </text>
       </box>
-      {session && !promoted ? (
-        <Anterm
-          command={block.command}
-          args={block.args}
-          cwd={block.cwd}
-          autoFocus={running}
-          tuiSession={session}
-          tuiFlow
-          tuiReadOnly={!running}
-          tuiKeyboardDisabled
-          tuiBackgroundColor={cardTint.output}
-          style={{ flexGrow: 0, flexShrink: 0 }}
-        />
+      {lines.length > 0 ? (
+        <box
+          style={{
+            backgroundColor: cardTint.output,
+            flexDirection: "column",
+            width: "100%",
+            flexShrink: 0,
+          }}
+        >
+          {lines.map((line, i) => (
+            <text key={i} attributes={0} content={line} style={{ height: 1, flexShrink: 0 }} />
+          ))}
+        </box>
       ) : null}
     </box>
   )
+}
+
+/** 运行中的 shell 卡片：订阅共享会话的帧，每帧从行区间重新派生输出。 */
+export function RunningShellCard({
+  block,
+  session,
+  derive,
+}: {
+  block: Extract<Block, { kind: "shell" }>
+  session: AntermSession
+  derive: () => StyledText[]
+}) {
+  const [, setFrame] = useState(0)
+  useEffect(() => session.onFrame(() => setFrame((v) => v + 1)), [session])
+  return <ShellCard block={block} lines={derive()} />
 }
 
 /** ACP 工具调用卡片：标题 + 状态 + 输出摘要。 */
@@ -584,28 +530,20 @@ export function NoteLine({ block }: { block: Extract<Block, { kind: "note" }> })
 /** 分发：按 block 类型渲染对应卡片。 */
 export function BlockView({
   block,
-  onTerminalExit,
-  onTerminalPromotion,
-  onTerminalSessionReady,
-  onTerminalSessionRelease,
+  runningShell,
 }: {
   block: Block
-  onTerminalExit: (id: number, exitCode: number) => void
-  onTerminalPromotion: (terminal: PromotedTerminal | null) => void
-  onTerminalSessionReady: (session: AntermSession) => void
-  onTerminalSessionRelease: (session: AntermSession) => void
+  /** 当前在飞的 shell 命令：id 匹配时该卡片改走实时派生 */
+  runningShell?: { blockId: number; session: AntermSession; derive: () => StyledText[] } | null
 }) {
   switch (block.kind) {
-    case "terminal":
-      return (
-        <TerminalCard
-          block={block}
-          onExit={(code) => onTerminalExit(block.id, code)}
-          onPromote={onTerminalPromotion}
-          onSessionReady={onTerminalSessionReady}
-          onSessionRelease={onTerminalSessionRelease}
-        />
-      )
+    case "shell":
+      if (block.state === "running" && runningShell && runningShell.blockId === block.id) {
+        return (
+          <RunningShellCard block={block} session={runningShell.session} derive={runningShell.derive} />
+        )
+      }
+      return <ShellCard block={block} lines={block.lines ?? []} />
     case "prompt":
       return <PromptCard block={block} />
     case "tool":
