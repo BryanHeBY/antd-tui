@@ -167,7 +167,7 @@ bun run ansh --agent "<agent 启动命令>"
 bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL；仅支持 bash/zsh
 bun run ansh --no-rc                # 不 source 用户 dotfiles（干净环境）
 
-# 打包成单文件可执行（dist/ansh，约 111MB，目标机无需装 bun）
+# 打包成单文件可执行（dist/ansh，约 87MB，目标机无需装 bun）
 bun run build:ansh
 ./dist/ansh
 ```
