@@ -17,8 +17,10 @@ export interface SlashCommand {
 }
 
 export interface SlashContext {
-  /** agent 已连上（未配置 --agent 时只剩 /help） */
+  /** agent 已连上（未配置 agent 时只剩 /help） */
   agentReady: boolean
+  /** pi 原生后端：/model /effort /reset 走进程内 Agent，不经 ACP 会话方法 */
+  native?: boolean
   support: AcpSupport | null
   modes: SessionModeState | null
   configOptions: SessionConfigOption[]
@@ -58,23 +60,32 @@ export function listCommands(ctx: SlashContext): SlashCommand[] {
     { name: "help", description: "列出可用命令", source: "local" },
   ]
   if (ctx.agentReady) {
-    if (ctx.support?.listSessions || ctx.support?.loadSession) {
-      local.push({
-        name: "session",
-        description: "会话：无参列出，new 新建，load <id> 切换，delete <id> 删除",
-        hint: "new | load <id> | delete <id>",
-        source: "local",
-      })
+    if (ctx.native) {
+      // pi 原生后端：运行时状态直接切，无 ACP 会话语义
+      local.push(
+        { name: "model", description: "模型：无参列出可用，带 provider/model 切换", hint: "[provider/model]", source: "local" },
+        { name: "effort", description: "推理力度：无参显示，带值切换", hint: "off|minimal|low|medium|high|xhigh|max", source: "local" },
+        { name: "reset", description: "清空内存对话，从头开始", source: "local" },
+      )
+    } else {
+      if (ctx.support?.listSessions || ctx.support?.loadSession) {
+        local.push({
+          name: "session",
+          description: "会话：无参列出，new 新建，load <id> 切换，delete <id> 删除",
+          hint: "new | load <id> | delete <id>",
+          source: "local",
+        })
+      }
+      if (ctx.support?.setMode) {
+        local.push({ name: "mode", description: "会话模式：无参列出，带 id 切换", hint: "<modeId>", source: "local" })
+      }
+      if (findModelOption(ctx.configOptions)) {
+        local.push({ name: "model", description: "模型：无参列出，带值切换", hint: "<value>", source: "local" })
+      }
+      local.push({ name: "permissions", description: "权限记忆与审计；reset 清空", hint: "reset", source: "local" })
     }
-    if (ctx.support?.setMode) {
-      local.push({ name: "mode", description: "会话模式：无参列出，带 id 切换", hint: "<modeId>", source: "local" })
-    }
-    if (findModelOption(ctx.configOptions)) {
-      local.push({ name: "model", description: "模型：无参列出，带值切换", hint: "<value>", source: "local" })
-    }
-    local.push({ name: "cancel", description: "中断 agent 当前轮次（session/cancel）", source: "local" })
+    local.push({ name: "cancel", description: "中断 agent 当前轮次", source: "local" })
     local.push({ name: "usage", description: "上下文占用与费用", source: "local" })
-    local.push({ name: "permissions", description: "权限记忆与审计；reset 清空", hint: "reset", source: "local" })
   }
   const agent: SlashCommand[] = ctx.agentCommands.map((command) => ({
     name: command.name,

@@ -3,6 +3,12 @@ import { join } from "node:path"
 import { type ReactNode } from "react"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
 import { Anshell, type AnshellProps } from "../src/index"
+import { createModels } from "@earendil-works/pi-ai"
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxText,
+} from "@earendil-works/pi-ai/providers/faux"
 
 const MOCK_AGENT = join(import.meta.dir, "mock-agent.ts")
 
@@ -15,7 +21,7 @@ afterEach(() => {
 
 async function mount(props: AnshellProps = {}, options?: { width?: number; height?: number }) {
   const t = await renderTui(
-    <Anshell agentCmd={["bun", MOCK_AGENT]} {...props} /> as ReactNode,
+    <Anshell agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} {...props} /> as ReactNode,
     {
       width: options?.width ?? 76,
       height: options?.height ?? 22,
@@ -182,5 +188,75 @@ describe("Anshell 的 agent 接入", () => {
     await t.waitUntil(() => t.frame().includes("$ /bin/echo path-not-command"))
     await t.enter()
     await t.waitUntil(() => t.frame().includes("path-not-command"), 10000)
+  }, 30000)
+})
+
+describe("Anshell 的 pi 原生后端", () => {
+  test("自然语言分诊给进程内 agent，回复落成卡片", async () => {
+    const faux = fauxProvider()
+    const models = createModels()
+    models.setProvider(faux.provider)
+    faux.setResponses([fauxAssistantMessage([fauxText("这是 pi 的回答")])])
+
+    const t = await renderTui(
+      <Anshell
+        agent={{ kind: "pi", spec: "faux/faux-1" }}
+        piModels={models}
+        shellInit="minimal"
+      />,
+      { width: 90, height: 20 },
+    )
+    active = t
+
+    await idle(t)
+    await t.type("用一句话介绍你自己")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("这是 pi 的回答"), 8000)
+
+    // 能力全关：斜杠菜单只剩 /help，不再出现 /session /mode
+    await idle(t)
+    await t.type("/")
+    await t.waitUntil(() => t.frame().includes("/help"), 8000)
+    expect(t.frame()).not.toContain("/session")
+    // 带尾随空格避免撞上原生 /model 的前缀
+    expect(t.frame()).not.toContain("/mode ")
+    await t.press("c", { ctrl: true })
+  }, 30000)
+})
+
+describe("Anshell × pi 原生 slash 命令", () => {
+  test("/model 在输入框里直接切换模型，/effort 显示当前力度", async () => {
+    const faux = fauxProvider({ models: [{ id: "faux-a" }, { id: "faux-b" }] })
+    const models = createModels()
+    models.setProvider(faux.provider)
+    faux.setResponses([fauxAssistantMessage([fauxText("收到")])])
+
+    const t = await renderTui(
+      <Anshell
+        agent={{ kind: "pi", spec: "faux/faux-a" }}
+        piModels={models}
+        shellInit="minimal"
+      />,
+      { width: 90, height: 20 },
+    )
+    active = t
+
+    await idle(t)
+    await t.type("/model faux/faux-b")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("模型已切换：faux/faux-b"), 8000)
+
+    await idle(t)
+    await t.type("/effort")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("当前力度"), 8000)
+
+    // 菜单里出现原生命令，且不再有 ACP 专属的 /session
+    await idle(t)
+    await t.type("/")
+    await t.waitUntil(() => t.frame().includes("/model"), 8000)
+    await t.waitUntil(() => t.frame().includes("/reset"), 8000)
+    expect(t.frame()).not.toContain("/session")
+    await t.press("c", { ctrl: true })
   }, 30000)
 })

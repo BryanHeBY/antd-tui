@@ -2,6 +2,8 @@ import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import { Anshell } from "./Anshell"
 import { resolveShellDialect, unsupportedShellMessage } from "./shell"
+import type { AgentBackend } from "@antd-tui/pi-agent"
+import { buildPiRuntime, PI_EFFORTS, type PiEffort } from "@antd-tui/pi-agent"
 
 if (!process.stdout.isTTY || !process.stdin.isTTY) {
   process.stderr.write("ansh 需要在真实终端（TTY）中运行\n")
@@ -15,10 +17,40 @@ function optionValue(argv: string[], name: string): string | undefined {
 }
 
 const argv = process.argv.slice(2)
-// --agent "<cmd...>"：可选接入 ACP agent，自然语言输入走它
-const agentRaw = optionValue(argv, "--agent")
-const agentCmd = agentRaw?.split(/\s+/).filter(Boolean)
-// --shell /path/to/bash：长驻交互 shell；默认 $SHELL，仅支持 bash/zsh
+// --acp "<cmd...>"：显式 ACP agent 子进程。缺省 = pi 原生后端——
+// 模型/effort/凭据来自 --config 文件（覆盖链 --model/--effort > PI_MODEL/PI_EFFORT > 配置）。
+const acpRaw = optionValue(argv, "--acp")
+const acpCmd = acpRaw?.split(/\s+/).filter(Boolean)
+const configPath = optionValue(argv, "--config")
+const modelFlag = optionValue(argv, "--model")
+const effortFlag = optionValue(argv, "--effort")
+
+function resolveAgent(): AgentBackend | undefined {
+  if (acpCmd) return { kind: "acp", cmd: acpCmd }
+  if (effortFlag !== undefined && !PI_EFFORTS.includes(effortFlag as PiEffort)) {
+    process.stderr.write(`--effort 应为 ${PI_EFFORTS.join("/")}\n`)
+    process.exit(2)
+  }
+  try {
+    return {
+      kind: "pi",
+      spec: modelFlag,
+      config: configPath,
+      effort: effortFlag as PiEffort | undefined,
+      runtime: buildPiRuntime({
+        configPath,
+        model: modelFlag,
+        effort: effortFlag as PiEffort | undefined,
+      }),
+    }
+  } catch (err) {
+    // shell 是主角：默认 pi 解析不出模型时降级为无 agent，stderr 提示一句，不进 TUI 打扰
+    process.stderr.write(`pi agent 未启用：${(err as Error).message}\n`)
+    return undefined
+  }
+}
+
+const agent = resolveAgent()
 const shell = optionValue(argv, "--shell")
 // --no-rc：不 source 用户 dotfiles（干净环境）
 const shellInit = argv.includes("--no-rc") ? "minimal" : "user"
@@ -57,5 +89,5 @@ process.on("uncaughtException", (err) => {
 })
 
 createRoot(renderer).render(
-  <Anshell agentCmd={agentCmd} shell={shell} shellInit={shellInit} onQuit={() => shutdown(0)} />,
+  <Anshell agent={agent} shell={shell} shellInit={shellInit} onQuit={() => shutdown(0)} />,
 )

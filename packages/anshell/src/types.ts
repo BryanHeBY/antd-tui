@@ -1,6 +1,8 @@
 import type { CssLikeStyle } from "@antd-tui/components"
 import type { StyledText } from "@opentui/core"
 import type { AntermSession } from "@antd-tui/anterm"
+import type { AgentBackend } from "@antd-tui/pi-agent"
+import type { Models } from "@earendil-works/pi-ai"
 
 /** 分诊结果：一行输入被判定成 shell 还是 agent。 */
 export type InputKind = "command" | "agent"
@@ -107,10 +109,13 @@ export interface AnshellProps {
   /** 显式浮层命令集合（首词命中 → 以浮层起跑）；默认空，通常交给 alternate-screen 自动检测。 */
   overlayCommands?: readonly string[]
   /**
-   * 可选 agent 接入命令（argv）。配置后，分诊为 agent 的输入经 @antd-tui/acp
-   * 的 AcpClient 走 prompt/stream 闭环；未配置则回一句系统提示。
+   * 可选 agent 后端。ACP 命令（argv）走 @antd-tui/acp 子进程闭环；
+   * { kind: "pi" } 用进程内 pi 原生后端（全内存、无默认工具的纯对话 agent）。
+   * 未配置则回一句系统提示。
    */
-  agentCmd?: string[]
+  agent?: AgentBackend
+  /** 测试注入：pi 后端的 Models（faux provider）；生产路径留空走默认 provider 集 */
+  piModels?: Models
   /** 退出回调（Ctrl-D / exit 触发）；缺省 process.exit(0) */
   onQuit?: () => void
   style?: CssLikeStyle

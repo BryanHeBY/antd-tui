@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, usePaste } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle } from "@antd-tui/components"
-import { AcpClient, type AvailableCommand, type SessionConfigOption, type SessionModeState } from "@antd-tui/acp"
+import { AcpClient, type AcpClientHandlers, type AvailableCommand, type SessionConfigOption, type SessionModeState } from "@antd-tui/acp"
+import { PiAgent } from "@antd-tui/pi-agent"
+import type { Models } from "@earendil-works/pi-ai"
 import { classifyInput } from "./triage"
 import { useTranscript } from "./ui/transcript"
 import { AgentBusyLine, BlockView, DraftCard } from "./ui/cards"
@@ -40,7 +42,8 @@ export function Anshell({
   shell,
   shellInit,
   overlayCommands,
-  agentCmd,
+  agent,
+  piModels,
   onQuit,
   style,
 }: AnshellProps) {
@@ -50,6 +53,8 @@ export function Anshell({
   const { input, routeOverride, diagnostic, completions, completionOpen, completionIndex, menuOpen, menuIndex } = draft
   const [draftCursorVisible, setDraftCursorVisible] = useState(true)
   const [agentReady, setAgentReady] = useState(false)
+  /** pi 原生后端在跑：/model /effort /reset 走运行时状态而非 ACP 会话方法 */
+  const [agentNative, setAgentNative] = useState(false)
   const [agentCommands, setAgentCommands] = useState<AvailableCommand[]>([])
   const [agentModes, setAgentModes] = useState<SessionModeState | null>(null)
   const [agentConfig, setAgentConfig] = useState<SessionConfigOption[]>([])
@@ -57,7 +62,7 @@ export function Anshell({
   const [agentBusy, setAgentBusy] = useState(false)
   const transcript = useTranscript()
 
-  const clientRef = useRef<AcpClient | null>(null)
+  const clientRef = useRef<AcpClient | PiAgent | null>(null)
   const quittingRef = useRef(false)
   const history = useRef<string[]>([])
   const historyPos = useRef<number>(-1)
@@ -110,12 +115,13 @@ export function Anshell({
   const slashContext = useMemo<SlashContext>(
     () => ({
       agentReady,
+      native: agentNative,
       support: clientRef.current?.support ?? null,
       modes: agentModes,
       configOptions: agentConfig,
       agentCommands,
     }),
-    [agentReady, agentModes, agentConfig, agentCommands],
+    [agentReady, agentNative, agentModes, agentConfig, agentCommands],
   )
   // 强制路由优先于斜杠识别：单段绝对路径（/start.sh、/tmp）既像斜杠命令也像可执行
   // 路径，Ctrl+T 让用户直接裁决，而不是靠更多猜测规则。
@@ -204,45 +210,56 @@ export function Anshell({
   )
 
   useEffect(() => {
-    if (!agentCmd || agentCmd.length === 0) return
-    const client = new AcpClient(
-      agentCmd,
-      {
-        onUpdate: (text) => latest.current.transcript.appendAgentChunk(text),
-        onTurnEnd: () => latest.current.transcript.flushAgent(),
-        onToolCall: (call) => {
-          latest.current.transcript.flushAgent()
-          latest.current.transcript.upsertTool({
-            toolCallId: call.toolCallId,
-            title: call.title ?? undefined,
-            toolKind: call.kind ?? undefined,
-            status: call.status ?? undefined,
-            lines: call.content ? toolLines(call.content) : undefined,
-          })
-        },
-        onCommands: (commands) => setAgentCommands(commands),
-        onMode: (modeId) => {
-          setAgentModes((prev) => (prev ? { ...prev, currentModeId: modeId } : prev))
-          latest.current.transcript.addNote("system", `agent 模式切换为 ${modeId}`)
-        },
-        onConfigOptions: (options) => setAgentConfig(options),
-        onUsage: (usage) => {
-          const cost = usage.cost ? `  ${usage.cost.amount} ${usage.cost.currency}` : ""
-          setAgentUsage(`${usage.used}/${usage.size}${cost}`)
-        },
-        onBusy: setAgentBusy,
-        onPermission: decidePermission,
-        onExit: (code) => {
-          latest.current.transcript.flushAgent()
-          setAgentReady(false)
-          setAgentBusy(false)
-          latest.current.transcript.addNote("system", `agent 已退出（code ${code ?? "?"}）`)
-        },
+    if (!agent) return
+    const handlers: AcpClientHandlers = {
+      onUpdate: (text) => latest.current.transcript.appendAgentChunk(text),
+      onTurnEnd: () => latest.current.transcript.flushAgent(),
+      onToolCall: (call) => {
+        latest.current.transcript.flushAgent()
+        latest.current.transcript.upsertTool({
+          toolCallId: call.toolCallId,
+          title: call.title ?? undefined,
+          toolKind: call.kind ?? undefined,
+          status: call.status ?? undefined,
+          lines: call.content ? toolLines(call.content) : undefined,
+        })
       },
+      onCommands: (commands) => setAgentCommands(commands),
+      onMode: (modeId) => {
+        setAgentModes((prev) => (prev ? { ...prev, currentModeId: modeId } : prev))
+        latest.current.transcript.addNote("system", `agent 模式切换为 ${modeId}`)
+      },
+      onConfigOptions: (options) => setAgentConfig(options),
+      onUsage: (usage) => {
+        const cost = usage.cost ? `  ${usage.cost.amount} ${usage.cost.currency}` : ""
+        setAgentUsage(`${usage.used}/${usage.size}${cost}`)
+      },
+      onBusy: setAgentBusy,
+      onPermission: decidePermission,
+      onExit: (code) => {
+        latest.current.transcript.flushAgent()
+        setAgentReady(false)
+        setAgentBusy(false)
+        latest.current.transcript.addNote("system", `agent 已退出（code ${code ?? "?"}）`)
+      },
+    }
+    let client: AcpClient | PiAgent
+    if (agent.kind === "pi") {
+      // 原生后端：进程内、全内存、无默认工具——ansh 的 agent 通道只做自然语言对话
+      client = new PiAgent({
+        spec: agent.runtime?.spec ?? agent.spec,
+        thinkingLevel: agent.runtime?.thinkingLevel,
+        systemPrompt:
+          "你是 ansh（对话式 shell）里的 agent：用简洁中文回答自然语言问题。你没有任何工具；涉及执行命令时提示用户直接输入命令。",
+        handlers,
+        models: piModels ?? agent.runtime?.models,
+      })
+    } else {
       // agent 的工作区根钉在启动 cwd；cd 不改会话，重开会话会丢对话状态
-      { ephemeral: true, cwd: startCwd },
-    )
+      client = new AcpClient(agent.cmd, handlers, { ephemeral: true, cwd: startCwd })
+    }
     clientRef.current = client
+    setAgentNative(agent.kind === "pi")
     void client
       .start()
       .then(() => {
@@ -258,9 +275,9 @@ export function Anshell({
       void client.stop()
       clientRef.current = null
       setAgentReady(false)
+      setAgentNative(false)
     }
-  }, [agentCmd, decidePermission, startCwd])
-
+  }, [agent, decidePermission, startCwd, piModels])
   // Shell 语法诊断（不参与分诊）
   useEffect(() => {
     let cancelled = false
@@ -420,7 +437,7 @@ export function Anshell({
       transcript.addPrompt(line, cwdRef.current)
       const client = clientRef.current
       if (client) client.prompt(line)
-      else transcript.addNote("system", "未配置 agent（用 ansh --agent \"<命令>\" 接入）")
+      else transcript.addNote("system", "未配置 agent（用 --config/--model 配置 pi 后端，或 --acp \"<命令>\" 接入 ACP agent）")
       return
     }
 

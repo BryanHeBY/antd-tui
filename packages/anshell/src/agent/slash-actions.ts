@@ -1,9 +1,10 @@
 import type {
-  AcpClient,
   AvailableCommand,
   SessionConfigOption,
   SessionModeState,
 } from "@antd-tui/acp"
+import type { AgentClient } from "@antd-tui/pi-agent"
+import { PiAgent, runNativeCommand } from "@antd-tui/pi-agent"
 import type { CommandRow } from "../types"
 import type { TranscriptApi } from "../ui/transcript"
 import { compileAgentCommand, findModelOption, listCommands, type SlashContext } from "./commands"
@@ -15,8 +16,8 @@ import type { PermissionPolicy } from "./permissions"
  */
 export interface SlashRunnerDeps {
   transcript: TranscriptApi
-  /** 当前 ACP 客户端；未接 agent 时为 null（本地命令给出提示） */
-  client: AcpClient | null
+  /** 当前 agent 客户端（ACP 子进程或 pi 原生后端）；未接 agent 时为 null（本地命令给出提示） */
+  client: AgentClient | null
   slashContext: SlashContext
   /** 最近一次 usage_update 的展示串 */
   usage: string | null
@@ -35,10 +36,28 @@ export interface SlashRunnerDeps {
 export function runSlashCommand(name: string, rest: string, deps: SlashRunnerDeps): void {
   const { transcript: t, client, cwd, policy } = deps
   const say = (text: string): CommandRow[] => [{ primary: text }]
+  // pi 原生命令优先：进程内 Agent 的运行时状态（model/effort/reset），
+  // 与 ACP 的会话方法同名不同路——先于 switch 拦截，ACP 后端不受影响。
+  if (client instanceof PiAgent) {
+    const native = runNativeCommand(client, name, rest)
+    if (native) {
+      t.addCommand(
+        name,
+        rest,
+        cwd,
+        native.lines.map((line) => ({
+          primary: line,
+          tone: native.ok ? undefined : ("error" as const),
+          current: native.ok ? true : undefined,
+        })),
+      )
+      return
+    }
+  }
   const requireAgent = (): boolean => {
     if (client) return true
     t.addCommand(name, rest, cwd, [
-      { primary: "未配置 agent", detail: "用 ansh --agent \"<命令>\" 接入", tone: "error" },
+      { primary: "未配置 agent", detail: "用 --config/--model 配置 pi 后端，或 --acp \"<命令>\" 接入", tone: "error" },
     ])
     return false
   }
