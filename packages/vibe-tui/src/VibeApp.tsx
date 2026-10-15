@@ -10,6 +10,8 @@ import { createEvalRepl } from "./eval"
 import { BOOT_PROMPT, EXAMPLE_REFERENCE, LIVE_GUIDE } from "./knowledge"
 import { startMcpCanvasServer, type CanvasBridge, type McpCanvasServer } from "./mcp"
 import { nativeCanvasTools } from "./canvas-tools"
+import { webTools } from "./web-tools"
+import { startMcpToolServer, toAgentTools } from "@antd-tui/pi-agent"
 import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-snapshot"
 
 /**
@@ -216,31 +218,37 @@ export function VibeApp({ agent, resumeSessionId, onQuit, piModels }: VibeAppPro
           appendMessage("system", `agent 已退出（code ${code ?? "?"}）`)
         },
       }
+      const web = webTools()
       if (agent.kind === "pi") {
         // 原生后端：画布工具进程内直调，不起 MCP HTTP，会话全内存
         const pi = new PiAgent({
           spec: agent.runtime?.spec ?? agent.spec,
           thinkingLevel: agent.runtime?.thinkingLevel,
           systemPrompt:
-            "你是 vibe-tui 的界面 agent：用 vibetui_* 工具在 $ui 活对象树上生成、操作终端界面；[page] 前缀的消息是页面事件回流。",
-          tools: nativeCanvasTools(bridge),
+            "你是 vibe-tui 的界面 agent：用 vibetui_* 工具在 $ui 活对象树上生成、操作终端界面；需要外部信息时用 web_search / web_read 搜索并阅读网页；[page] 前缀的消息是页面事件回流。",
+          tools: [...nativeCanvasTools(bridge), ...toAgentTools(web)],
           handlers,
           models: piModels ?? agent.runtime?.models,
         })
         clientRef.current = pi
         await pi.start()
       } else {
-        mcp = await startMcpCanvasServer(bridge)
+        const canvasMcp = await startMcpCanvasServer(bridge)
+        const webMcp = await startMcpToolServer("vibetui-web", web)
         const client = new AcpClient(
           agent.cmd,
           handlers,
           {
             sessionId: resumeSessionId,
-            mcpServers: [{ type: "http", name: "vibetui", url: mcp.url, headers: [] }],
+            mcpServers: [
+              { type: "http", name: "vibetui", url: canvasMcp.url, headers: [] },
+              { type: "http", name: "vibetui-web", url: webMcp.url, headers: [] },
+            ],
           },
         )
         clientRef.current = client
         await client.start()
+        mcp = { url: canvasMcp.url, close: () => { canvasMcp.close(); webMcp.close() } }
       }
       setStatus(
         resumeSessionId ? "会话已恢复（F3 查看历史），引导注入中…" : "agent 就绪，引导注入中…",
