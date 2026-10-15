@@ -11,6 +11,8 @@
     "@antd-tui/acp": "workspace:*",
     "@antd-tui/components": "workspace:*",
     "@antd-tui/live": "workspace:*",
+    "@antd-tui/pi-agent": "workspace:*",
+    "@earendil-works/pi-ai": "1.2.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@opentui/core": "^0.6.6",
     "@opentui/react": "^0.6.6",

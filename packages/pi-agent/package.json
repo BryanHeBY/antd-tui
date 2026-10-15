@@ -1,0 +1,18 @@
+{
+  "name": "@antd-tui/pi-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@antd-tui/acp": "workspace:*",
+    "@earendil-works/pi-agent-core": "1.2.0",
+    "@earendil-works/pi-ai": "1.2.0",
+    "typebox": "1.3.27"
+  },
+  "devDependencies": {
+    "@antd-tui/test-utils": "workspace:*"
+  }
+}
