@@ -27,6 +27,12 @@ export type Block =
       cwd: string
       state: "running" | "exited"
       exitCode?: number
+      /** 谁提交的这条命令：用户输入或 agent 工具（卡片头据此标 ◆） */
+      origin?: "user" | "agent"
+      /** 提交时刻（epoch ms），冻结时换算 durationMs */
+      startedAt: number
+      /** 命令耗时（ms），仅 exited */
+      durationMs?: number
       /** 用户显式要求以浮层起跑（Ctrl+O / overlayCommands） */
       requestedOverlay: boolean
       /** 退出后的不可变输出快照；运行中为空（由 RunningShellCard 每帧派生） */
@@ -119,4 +125,16 @@ export interface AnshellProps {
   /** 退出回调（Ctrl-D / exit 触发）；缺省 process.exit(0) */
   onQuit?: () => void
   style?: CssLikeStyle
+}
+
+/** agent 经共享 shell 执行一条命令的落定结果（useShellSession.exec） */
+export interface ShellExecResult {
+  id: number
+  state: "exited" | "running" | "shell-exited"
+  exitCode?: number
+  /** 冻结输出快照；exited 时有值 */
+  lines?: StyledText[]
+  degraded?: boolean
+  /** 非 exited 时的说明（超时/shell 退出） */
+  note?: string
 }

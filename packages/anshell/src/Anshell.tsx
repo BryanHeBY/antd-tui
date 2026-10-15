@@ -3,7 +3,8 @@ import type { ScrollBoxRenderable } from "@opentui/core"
 import { useKeyboard, usePaste } from "@opentui/react"
 import { ConfigProvider, FocusScope, toBoxStyle } from "@antd-tui/components"
 import { AcpClient, type AcpClientHandlers, type AvailableCommand, type SessionConfigOption, type SessionModeState } from "@antd-tui/acp"
-import { PiAgent } from "@antd-tui/pi-agent"
+import { PiAgent, toAgentTools, startMcpToolServer, type McpToolServer } from "@antd-tui/pi-agent"
+import { anshShellTools, summarizeToolResult } from "./agent/tools"
 import type { Models } from "@earendil-works/pi-ai"
 import { classifyInput } from "./triage"
 import { useTranscript } from "./ui/transcript"
@@ -102,6 +103,9 @@ export function Anshell({
   const cwd = shellCtl.cwd
   const cwdRef = useRef(cwd)
   cwdRef.current = cwd
+  // agent 工具桥用的最新 exec 引用（useCallback 随 cwd 重建，effect 闭包需透传最新）
+  const execRef = useRef(shellCtl.exec)
+  execRef.current = shellCtl.exec
 
   const overlaySet = useMemo(() => new Set(overlayCommands ?? []), [overlayCommands])
   const autoTriage = useMemo(
@@ -216,12 +220,17 @@ export function Anshell({
       onTurnEnd: () => latest.current.transcript.flushAgent(),
       onToolCall: (call) => {
         latest.current.transcript.flushAgent()
+        // ansh_exec 不开工具卡：紧邻的 ◆ 卡就是完整记录（命令/exit/耗时）。
+        // 只有工具本身失败（如空命令）才落一行错误，保证零 UI 痕迹的失败不存在。
+        if (call.title === "ansh_exec" && call.status !== "failed") return
+        // 其余宿主工具按形状出一行摘要；原始 JSON 只给模型，不上屏
+        const summary = call.content ? summarizeToolResult(call.title ?? "", call.content) : null
         latest.current.transcript.upsertTool({
           toolCallId: call.toolCallId,
           title: call.title ?? undefined,
           toolKind: call.kind ?? undefined,
           status: call.status ?? undefined,
-          lines: call.content ? toolLines(call.content) : undefined,
+          lines: summary ?? (call.content ? toolLines(call.content) : undefined),
         })
       },
       onCommands: (commands) => setAgentCommands(commands),
@@ -243,36 +252,49 @@ export function Anshell({
         latest.current.transcript.addNote("system", `agent 已退出（code ${code ?? "?"}）`)
       },
     }
-    let client: AcpClient | PiAgent
-    if (agent.kind === "pi") {
-      // 原生后端：进程内、全内存、无默认工具——ansh 的 agent 通道只做自然语言对话
-      client = new PiAgent({
-        spec: agent.runtime?.spec ?? agent.spec,
-        thinkingLevel: agent.runtime?.thinkingLevel,
-        systemPrompt:
-          "你是 ansh（对话式 shell）里的 agent：用简洁中文回答自然语言问题。你没有任何工具；涉及执行命令时提示用户直接输入命令。",
-        handlers,
-        models: piModels ?? agent.runtime?.models,
-      })
-    } else {
-      // agent 的工作区根钉在启动 cwd；cd 不改会话，重开会话会丢对话状态
-      client = new AcpClient(agent.cmd, handlers, { ephemeral: true, cwd: startCwd })
+    // 宿主工具集：共享 shell 的执行/排查能力，pi 直调、ACP 经进程内 MCP 注入
+    const toolSpecs = anshShellTools({
+      exec: (line, options) => execRef.current(line, options),
+      cwd: () => cwdRef.current,
+      blocks: () => transcriptRef.current.blocks,
+    })
+    let tools: McpToolServer | null = null
+    const boot = async () => {
+      let client: AcpClient | PiAgent
+      if (agent.kind === "pi") {
+        // 原生后端：进程内、全内存；宿主工具直调，命令卡片标 ◆
+        client = new PiAgent({
+          spec: agent.runtime?.spec ?? agent.spec,
+          thinkingLevel: agent.runtime?.thinkingLevel,
+          systemPrompt:
+            "你是 ansh（对话式 shell）里的 agent，运行在用户的长驻交互 shell 之上。回答用简洁中文。用户让你执行命令、查看某条命令的输出或排查失败原因时，用 ansh_exec / ansh_history / ansh_output 工具直接操作——它们与用户共享同一条 shell（继承实时 cwd、别名与已 export 的变量），执行结果对用户可见。ansh_exec 在前台运行且用户可直接与命令交互：用户要 REPL、分页器等交互程序时直接启动（传 timeoutMs: 0 不限时），批量任务用非交互形式。长输出先看尾部再按需分页。",
+          tools: toAgentTools(toolSpecs),
+          handlers,
+          models: piModels ?? agent.runtime?.models,
+        })
+      } else {
+        // ACP 后端：同一套工具经进程内 MCP 注入外部 agent，执行仍在本进程的共享 shell
+        tools = await startMcpToolServer("ansh", toolSpecs)
+        client = new AcpClient(agent.cmd, handlers, {
+          ephemeral: true,
+          cwd: startCwd,
+          mcpServers: [{ type: "http", name: "ansh", url: tools.url, headers: [] }],
+        })
+      }
+      clientRef.current = client
+      setAgentNative(agent.kind === "pi")
+      await client.start()
+      setAgentReady(true)
+      setAgentModes(client.modes)
+      setAgentConfig(client.configOptions)
+      setAgentCommands(client.availableCommands)
     }
-    clientRef.current = client
-    setAgentNative(agent.kind === "pi")
-    void client
-      .start()
-      .then(() => {
-        setAgentReady(true)
-        setAgentModes(client.modes)
-        setAgentConfig(client.configOptions)
-        setAgentCommands(client.availableCommands)
-      })
-      .catch((err: Error) => {
-        latest.current.transcript.addNote("error", `agent 启动失败：${err.message}`)
-      })
+    boot().catch((err: Error) => {
+      latest.current.transcript.addNote("error", `agent 启动失败：${err.message}`)
+    })
     return () => {
-      void client.stop()
+      void clientRef.current?.stop()
+      tools?.close()
       clientRef.current = null
       setAgentReady(false)
       setAgentNative(false)
@@ -636,7 +658,18 @@ export function Anshell({
               contentOptions={{ flexDirection: "column", width: "100%", minHeight: "100%", gap: 0 }}
             >
               {transcript.blocks.map((block) => (
-                <BlockView key={block.id} block={block} runningShell={runningShell} />
+                <BlockView
+                  key={block.id}
+                  block={block}
+                  runningShell={runningShell}
+                  supersededAgentShell={
+                    block.kind === "shell" &&
+                    block.origin === "agent" &&
+                    transcript.blocks.some(
+                      (other) => other.kind === "shell" && other.origin === "agent" && other.id > block.id,
+                    )
+                  }
+                />
               ))}
               {agentBusy && !permissionPending && !running ? <AgentBusyLine /> : null}
               {/* 命令在飞、权限待决策或 agent 轮次在途时键盘归它们，草稿不渲染 */}

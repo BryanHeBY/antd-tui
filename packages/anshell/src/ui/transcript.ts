@@ -7,7 +7,7 @@ const BLOCK_LIMIT = 200
 export interface TranscriptApi {
   blocks: Block[]
   /** 开一张 shell 命令卡片（running），返回其 id */
-  addShell: (label: string, cwd: string, options?: { requestedOverlay?: boolean }) => number
+  addShell: (label: string, cwd: string, options?: { requestedOverlay?: boolean; origin?: "user" | "agent" }) => number
   /** 记录一条交给 agent 的用户输入。 */
   addPrompt: (text: string, cwd: string) => void
   /** 按 ACP toolCallId 建/更新工具卡片；content 与 status 都是整体替换 */
@@ -64,7 +64,7 @@ export function useTranscript(): TranscriptApi {
   }, [])
 
   const addShell = useCallback(
-    (label: string, cwd: string, options?: { requestedOverlay?: boolean }) => {
+    (label: string, cwd: string, options?: { requestedOverlay?: boolean; origin?: "user" | "agent" }) => {
       agentId.current = null
       const id = nextId.current++
       push({
@@ -73,6 +73,8 @@ export function useTranscript(): TranscriptApi {
         label,
         cwd,
         state: "running",
+        startedAt: Date.now(),
+        origin: options?.origin ?? "user",
         requestedOverlay: options?.requestedOverlay ?? false,
       })
       return id
@@ -169,7 +171,14 @@ export function useTranscript(): TranscriptApi {
     (id: number, result: { exitCode: number; lines: StyledText[]; degraded?: boolean }) => {
       patch(id, (b) =>
         b.kind === "shell"
-          ? { ...b, state: "exited", exitCode: result.exitCode, lines: result.lines, degraded: result.degraded }
+          ? {
+              ...b,
+              state: "exited",
+              exitCode: result.exitCode,
+              lines: result.lines,
+              degraded: result.degraded,
+              durationMs: Date.now() - b.startedAt,
+            }
           : b,
       )
     },

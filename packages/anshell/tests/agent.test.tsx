@@ -3,14 +3,30 @@ import { join } from "node:path"
 import { type ReactNode } from "react"
 import { renderTui, type TuiTestSetup } from "@antd-tui/test-utils"
 import { Anshell, type AnshellProps } from "../src/index"
+import { displayWidth } from "@antd-tui/components"
 import { createModels } from "@earendil-works/pi-ai"
 import {
   fauxAssistantMessage,
   fauxProvider,
   fauxText,
+  fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux"
 
 const MOCK_AGENT = join(import.meta.dir, "mock-agent.ts")
+
+
+/** 帧内定位文本的中心坐标，供 mockMouse 点击 */
+function locate(frame: string, target: string): { x: number; y: number } {
+  const lines = frame.split("\n")
+  for (let y = 0; y < lines.length; y++) {
+    const idx = lines[y]!.indexOf(target)
+    if (idx >= 0) {
+      const x = displayWidth(lines[y]!.slice(0, idx))
+      return { x: x + Math.floor(displayWidth(target) / 2), y }
+    }
+  }
+  throw new Error(`帧中找不到 "${target}"`)
+}
 
 let active: TuiTestSetup | null = null
 
@@ -259,4 +275,71 @@ describe("Anshell × pi 原生 slash 命令", () => {
     expect(t.frame()).not.toContain("/session")
     await t.press("c", { ctrl: true })
   }, 30000)
+})
+
+describe("Anshell × agent 宿主工具", () => {
+  test("agent 命令渐进披露：短输出保留、长输出折叠、旧卡被超越后收头；结果回给 agent", async () => {
+    const faux = fauxProvider()
+    const models = createModels()
+    models.setProvider(faux.provider)
+    // 三次 exec：短成功（old-$((40+2)) → 输出 42，label 不含 42）→ 长成功（seq 50 60）→ history
+    faux.setResponses([
+      fauxAssistantMessage([fauxToolCall("ansh_exec", { command: "echo old-$((40+2))" })], {
+        stopReason: "toolUse",
+      }),
+      fauxAssistantMessage([fauxText("第一条完成")]),
+      fauxAssistantMessage([fauxToolCall("ansh_exec", { command: "seq 50 60" })], {
+        stopReason: "toolUse",
+      }),
+      fauxAssistantMessage([fauxText("第二条完成")]),
+      fauxAssistantMessage([fauxToolCall("ansh_history", {})], { stopReason: "toolUse" }),
+      fauxAssistantMessage([fauxText("历史已读")]),
+    ])
+
+    const t = await renderTui(
+      <Anshell agent={{ kind: "pi", spec: "faux/faux-1" }} piModels={models} shellInit="minimal" />,
+      { width: 96, height: 22 },
+    )
+    active = t
+
+    await idle(t)
+    await t.type("跑第一条")
+    await t.enter()
+
+    // 第一条：短输出（1 行）全量保留——「42」只见于输出体，label 不含它
+    await t.waitUntil(() => t.frame().includes("第一条完成"), 15000)
+    expect(t.frame()).toContain("42")
+    expect(t.frame()).toContain("◆")
+    // 工具卡与原始 JSON 不上屏
+    expect(t.frame()).not.toContain("ansh_exec")
+    expect(t.frame()).not.toContain('"exitCode"')
+
+    await idle(t)
+    await t.type("跑第二条")
+    await t.enter()
+
+    // 第二条：长输出（11 行 > 5）折叠为头部 ▸ 计数；输出行「54」只在折叠体内
+    await t.waitUntil(() => t.frame().includes("第二条完成"), 15000)
+    expect(t.frame()).toContain("seq 50 60")
+    expect(t.frame()).toContain("▸ 11 行已交给 agent")
+    expect(t.frame()).not.toContain("54")
+    // 第一条被超越：短输出也收成头部一行
+    expect(t.frame()).not.toContain("42")
+
+    // 点击折叠卡：展开全量（54 可见、▾ 标记），再点收起（54 消失、▸ 回来）
+    const header = locate(t.frame(), "seq 50 60")
+    await t.click(header.x, header.y)
+    await t.waitUntil(() => t.frame().includes("54"), 8000)
+    expect(t.frame()).toContain("▾ 11 行")
+    await t.click(header.x, header.y)
+    await t.waitUntil(() => !t.frame().includes("54"), 8000)
+    expect(t.frame()).toContain("▸ 11 行")
+
+    // ansh_history：单行摘要（第三问触发）
+    await idle(t)
+    await t.type("看看历史")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("↺ 历史"), 15000)
+    expect(faux.state.callCount).toBeGreaterThanOrEqual(6)
+  }, 40000)
 })

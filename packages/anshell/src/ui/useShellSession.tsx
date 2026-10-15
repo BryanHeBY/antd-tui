@@ -15,7 +15,7 @@ import {
   type ShellDialect,
   type ShellSession,
 } from "../shell"
-import type { PromotedTerminal } from "../types"
+import type { PromotedTerminal, ShellExecResult } from "../types"
 import { cardTint } from "./theme"
 
 export interface ShellSessionController {
@@ -29,6 +29,8 @@ export interface ShellSessionController {
   promotedMode: "popup" | "fullscreen"
   togglePromotedMode: () => void
   submit: (line: string, options?: { requestedOverlay?: boolean }) => void
+  /** agent 用的可等待执行：卡片标 ◆，归位/超时/shell 退出时落定 */
+  exec: (line: string, options?: { timeoutMs?: number }) => Promise<ShellExecResult>
   writeKey: ShellSession["writeKey"]
   writePaste: ShellSession["writePaste"]
   interrupt: () => void
@@ -40,12 +42,11 @@ export interface ShellSessionController {
   /** 运行中的活动输出：每帧调用 */
   deriveRunning: (start: CommandStart | null) => StyledText[]
 }
-
 interface Events {
   onSubmitStart: () => void
   onCwd: (cwd: string) => void
   onShellExit: (code: number | null) => void
-  addShell: (label: string, cwd: string, options?: { requestedOverlay?: boolean }) => number
+  addShell: (label: string, cwd: string, options?: { requestedOverlay?: boolean; origin?: "user" | "agent" }) => number
   closeShell: (id: number, result: { exitCode: number; lines: StyledText[]; degraded?: boolean }) => void
 }
 
@@ -76,7 +77,8 @@ export function useShellSession(opts: {
   const highWater = useRef(0)
   const latest = useRef(opts.events)
   latest.current = opts.events
-
+  // agent exec 的在途落定表：blockId → resolve；归位/超时/会话销毁时弹出
+  const execResults = useRef(new Map<number, (result: ShellExecResult) => void>())
   const defaultFg = useMemo(() => parseColor(token.colorText) as unknown as RGBA, [token.colorText])
   const defaultBg = useMemo(() => parseColor(cardTint.output) as unknown as RGBA, [])
   const palette = useMemo(() => toAnsiPalette(), [])
@@ -185,6 +187,14 @@ export function useShellSession(opts: {
               lines: snapshot.lines,
               degraded: snapshot.degraded,
             })
+            execResults.current.get(run.blockId)?.({
+              id: run.blockId,
+              state: "exited",
+              exitCode: end.exitCode,
+              lines: snapshot.lines,
+              degraded: snapshot.degraded,
+            })
+            execResults.current.delete(run.blockId)
           }
         },
         onCwd: (next) => {
@@ -200,6 +210,10 @@ export function useShellSession(opts: {
     sessionRef.current = session
     return () => {
       disposed = true
+      for (const resolve of execResults.current.values()) {
+        resolve({ id: -1, state: "shell-exited", note: "shell 会话已结束" })
+      }
+      execResults.current.clear()
       session.kill()
       sessionRef.current = null
     }
@@ -243,6 +257,41 @@ export function useShellSession(opts: {
     [cwd],
   )
 
+  /** agent 用的可等待执行：与用户提交同一条共享 shell（串行排队），卡片标 ◆ */
+  const exec = useCallback(
+    (line: string, options?: { timeoutMs?: number }) => {
+      const session = sessionRef.current
+      if (!session) {
+        return Promise.resolve({ id: -1, state: "shell-exited", note: "shell 尚未就绪" } as ShellExecResult)
+      }
+      const blockId = latest.current.addShell(line, cwd, { origin: "agent" })
+      pendingBlock.current = { blockId, label: line, requestedOverlay: false }
+      busyRef.current = true
+      setRunning({ blockId, start: null })
+      latest.current.onSubmitStart()
+      session.submit(line)
+      const timeoutMs = options?.timeoutMs ?? 120_000
+      return new Promise<ShellExecResult>((resolve) => {
+        let settled = false
+        const finish = (result: ShellExecResult) => {
+          if (settled) return
+          settled = true
+          execResults.current.delete(blockId)
+          resolve(result)
+        }
+        execResults.current.set(blockId, finish)
+        // 超时不杀命令（那是用户的 shell）：返回 running，agent 可经 ansh_output 轮询。
+        // timeoutMs = 0 表示不限时——交互式命令（REPL/分页器）等用户自然退出。
+        if (timeoutMs > 0) {
+          setTimeout(() => {
+            finish({ id: blockId, state: "running", note: `超时未归位（>${timeoutMs}ms）` })
+          }, timeoutMs)
+        }
+      })
+    },
+    [cwd],
+  )
+
   return {
     ready,
     cwd,
@@ -252,6 +301,7 @@ export function useShellSession(opts: {
     promotedMode,
     togglePromotedMode: () => setPromotedMode((m) => (m === "popup" ? "fullscreen" : "popup")),
     submit,
+    exec,
     writeKey: (key) => sessionRef.current?.writeKey(key),
     writePaste: (text) => sessionRef.current?.writePaste(text),
     interrupt: () => sessionRef.current?.interrupt(),

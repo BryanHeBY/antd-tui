@@ -21,6 +21,8 @@ import {
   type SyntaxDiagnostic,
 } from "../shell"
 
+/** agent 命令成功输出的保留阈值：≤ 此行数全量展示，超出折叠为头部计数 */
+const SHELL_SHORT_LINES = 5
 /** home 缩写成 ~ */
 export function shortCwd(cwd: string): string {
   const home = homedir()
@@ -281,17 +283,44 @@ export function PromptCard({ block }: { block: Extract<Block, { kind: "prompt" }
 export function ShellCard({
   block,
   lines,
+  superseded = false,
 }: {
   block: Extract<Block, { kind: "shell" }>
   lines: StyledText[]
+  /** 本卡之后还有更新的 agent 命令卡：输出体收成头部一行 */
+  superseded?: boolean
 }) {
   const token = useToken()
+  const [expanded, setExpanded] = useState(false)
   const running = block.state === "running"
+  // agent 命令输出的渐进披露：执行中全量；冻结后——
+  //   失败 → 尾部 ≤10 行（错误是排查信号）
+  //   成功且短(≤5 行) → 全量保留，人可一眼扫过
+  //   成功且长 → 头部 + 计数（输出已交给 agent）
+  //   被更新的 agent 命令超越(superseded) → 一律只留头部（一轮 loop 只展开最新）
+  // 点击卡片可手工展开/收起被折叠的输出（全量一直在 transcript 里）。
+  // 用户命令不受影响。
+  const agentFrozen = block.origin === "agent" && !running
+  const failed = (block.exitCode ?? 0) !== 0
+  const collapsed =
+    agentFrozen && (superseded || (!failed && lines.length > SHELL_SHORT_LINES))
+  const manual = expanded && (collapsed || (failed && !superseded))
+  const shown = manual
+    ? lines
+    : agentFrozen && failed && !superseded
+      ? lines.slice(-10)
+      : collapsed
+        ? []
+        : lines
+  const clickable = agentFrozen && (collapsed || (failed && !superseded))
   return (
-    <box style={{ flexDirection: "column", gap: 0, width: "100%" }}>
+    <box
+      style={{ flexDirection: "column", gap: 0, width: "100%" }}
+      onMouseDown={clickable ? () => setExpanded((v) => !v) : undefined}
+    >
       <box
         style={{
-          backgroundColor: cardTint.input,
+          backgroundColor: block.origin === "agent" ? cardTint.agentInput : cardTint.input,
           flexDirection: "row",
           paddingRight: 1,
           width: "100%",
@@ -299,24 +328,43 @@ export function ShellCard({
       >
         <PromptChip cwd={block.cwd} />
         <text attributes={0}>
+          {block.origin === "agent" ? (
+            <span fg={token.colorWarning}>{" ◆ "}</span>
+          ) : null}
           <span fg={token.colorPrimaryHover}>{" $ "}</span>
           <span fg={token.colorText}>{block.label}</span>
           <span fg={token.colorTextDisabled}>
             {running ? "  (运行中)" : `  (exit ${block.exitCode ?? 0})`}
+            {block.origin === "agent" && block.durationMs !== undefined ? `  ${block.durationMs}ms` : ""}
+            {collapsed
+              ? manual
+                ? `  ▾ ${lines.length} 行`
+                : `  ▸ ${lines.length} 行${superseded ? "" : "已交给 agent"}`
+              : ""}
+            {failed && !superseded && lines.length > 10
+              ? manual
+                ? `  ▾ 全量 ${lines.length} 行`
+                : `  ▸ 头部另有 ${lines.length - 10} 行`
+              : ""}
             {block.degraded ? "  ·降级" : ""}
           </span>
         </text>
       </box>
-      {lines.length > 0 ? (
+      {shown.length > 0 ? (
         <box
           style={{
-            backgroundColor: cardTint.output,
+            backgroundColor: block.origin === "agent" ? cardTint.agentOutput : cardTint.output,
             flexDirection: "column",
             width: "100%",
             flexShrink: 0,
           }}
         >
-          {lines.map((line, i) => (
+          {failed && !manual && lines.length > 10 ? (
+            <text attributes={0} fg={token.colorTextDisabled} style={{ height: 1, flexShrink: 0 }}>
+              {`… 另有 ${lines.length - 10} 行`}
+            </text>
+          ) : null}
+          {shown.map((line, i) => (
             <text key={i} attributes={0} content={line} style={{ height: 1, flexShrink: 0 }} />
           ))}
         </box>
@@ -545,10 +593,13 @@ export function NoteLine({ block }: { block: Extract<Block, { kind: "note" }> })
 export function BlockView({
   block,
   runningShell,
+  supersededAgentShell = false,
 }: {
   block: Block
   /** 当前在飞的 shell 命令：id 匹配时该卡片改走实时派生 */
   runningShell?: { blockId: number; session: AntermSession; derive: () => StyledText[] } | null
+  /** 本卡之后还有更新的 agent 命令卡：输出体收成头部一行（一轮 loop 只展开最新） */
+  supersededAgentShell?: boolean
 }) {
   switch (block.kind) {
     case "shell":
@@ -557,7 +608,7 @@ export function BlockView({
           <RunningShellCard block={block} session={runningShell.session} derive={runningShell.derive} />
         )
       }
-      return <ShellCard block={block} lines={block.lines ?? []} />
+      return <ShellCard block={block} lines={block.lines ?? []} superseded={supersededAgentShell} />
     case "prompt":
       return <PromptCard block={block} />
     case "tool":

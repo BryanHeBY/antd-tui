@@ -11,7 +11,10 @@ export const cardTint = {
   command: "#171717",
   /** agent 回复卡片 */
   agent: "#1a1a1a",
-  /** 内嵌活终端卡片 */
+  /** agent 执行的命令卡（◆）：暖色偏移，与用户命令的灰阶一眼可分 */
+  agentInput: "#241f18",
+  /** agent 执行命令的输出体：同暖色系再压暗一档 */
+  agentOutput: "#1a1712",
   terminal: "#141414",
   /** 浮层窗口背景 */
   overlay: "#141414",
