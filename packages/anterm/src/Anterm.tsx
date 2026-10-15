@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useKeyboard, usePaste, useRenderer } from "@opentui/react"
-import { parseColor, type MouseEvent, type StyledText } from "@opentui/core"
+import { parseColor, type KeyEvent, type MouseEvent, type StyledText } from "@opentui/core"
 import {
   toBoxStyle,
   useFocusable,
@@ -87,6 +87,12 @@ export function Anterm({
       onTitleChange: (title) => latest.current.tuiOnTitleChange?.(title),
     })
     sessionRef.current = session
+    const pending = pendingInputRef.current
+    pendingInputRef.current = []
+    for (const item of pending) {
+      if ("key" in item) deliverKey(item.key, session)
+      else session.write(encodePaste(item.paste, session.bracketedPaste))
+    }
     latest.current.tuiOnReady?.({
       write: (data) => session.write(data),
       kill: () => session.kill(),
@@ -117,9 +123,12 @@ export function Anterm({
     [tuiHotkeys],
   )
 
-  useKeyboard((key) => {
-    const session = tuiSession ?? sessionRef.current
-    if (tuiKeyboardDisabled || !focused || !session || key.eventType === "release") return
+  // 会话建立前的击键/粘贴先排队，会话就绪时按序重放——尺寸测量在 0.6 起
+  // 首帧后异步落定，就绪窗口内的输入不该被静默丢弃。
+  const pendingInputRef = useRef<Array<{ key: KeyEvent } | { paste: string }>>([])
+
+  const deliverKey = (key: KeyEvent, session: AntermSession) => {
+    if (key.eventType === "release") return
     if (matchesEscapeKey(key, escapeSpec)) {
       focusNext()
       return
@@ -139,12 +148,26 @@ export function Anterm({
       session.scrollToBottom()
     }
     session.write(bytes)
+  }
+
+  useKeyboard((key) => {
+    const session = tuiSession ?? sessionRef.current
+    if (tuiKeyboardDisabled || !focused || key.eventType === "release") return
+    if (!session) {
+      pendingInputRef.current.push({ key })
+      return
+    }
+    deliverKey(key, session)
   })
 
   usePaste((event) => {
     const session = tuiSession ?? sessionRef.current
-    if (tuiKeyboardDisabled || !focused || !session) return
     const text = new TextDecoder().decode(event.bytes)
+    if (tuiKeyboardDisabled || !focused) return
+    if (!session) {
+      pendingInputRef.current.push({ paste: text })
+      return
+    }
     session.write(encodePaste(text, session.bracketedPaste))
   })
 
