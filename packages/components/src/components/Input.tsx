@@ -102,33 +102,46 @@ export function InputBase({
     [tuiHighlights],
   )
   const styleSignature = JSON.stringify(styleKeys)
-  const syntaxStyle = useMemo(() => {
+  const styleDefs = useMemo(() => {
     if (styleKeys.length === 0) return null
-    return SyntaxStyle.fromStyles(
-      Object.fromEntries(
-        styleKeys.map((key, index) => {
-          const sample = tuiHighlights.find((highlight) => styleKey(highlight) === key)!
-          return [
-            `tui-input-${index}`,
-            {
-              fg: sample.color,
-              bg: sample.backgroundColor,
-              bold: sample.bold,
-              italic: sample.italic,
-              underline: sample.underline,
-              dim: sample.dim,
-            },
-          ]
-        }),
-      ),
+    return Object.fromEntries(
+      styleKeys.map((key, index) => {
+        const sample = tuiHighlights.find((highlight) => styleKey(highlight) === key)!
+        return [
+          `tui-input-${index}`,
+          {
+            fg: sample.color,
+            bg: sample.backgroundColor,
+            bold: sample.bold,
+            italic: sample.italic,
+            underline: sample.underline,
+            dim: sample.dim,
+          },
+        ]
+      }),
     )
     // styleSignature 已完整描述样式定义；范围变化不应重建 native SyntaxStyle。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleSignature])
+  // 0.6 起 native 资源必须归属某个 Context：在 layout effect 里以 input 所在
+  // scene 为 owner 创建，保证 setSyntaxStyle 借用发生在同一 Context；按
+  // signature 缓存，范围变化不重建。
+  const nativeStyleRef = useRef<{ signature: string; style: SyntaxStyle } | null>(null)
 
   useLayoutEffect(() => {
     const input = inputRef.current
     if (!input) return
+    let syntaxStyle: SyntaxStyle | null = null
+    if (styleDefs) {
+      if (nativeStyleRef.current?.signature !== styleSignature) {
+        nativeStyleRef.current?.style.destroy()
+        nativeStyleRef.current = {
+          signature: styleSignature,
+          style: SyntaxStyle.fromStyles(styleDefs, input.ctx.nativeScene),
+        }
+      }
+      syntaxStyle = nativeStyleRef.current.style
+    }
     input.syntaxStyle = syntaxStyle
     input.clearAllHighlights()
     if (syntaxStyle) {
@@ -144,13 +157,13 @@ export function InputBase({
       input.cursorOffset = pendingCursorRef.current
       pendingCursorRef.current = null
     }
-  }, [value, tuiHighlights, styleKeys, syntaxStyle])
+  }, [value, tuiHighlights, styleKeys, styleSignature, styleDefs])
 
   useEffect(
     () => () => {
-      syntaxStyle?.destroy()
+      nativeStyleRef.current?.style.destroy()
     },
-    [syntaxStyle],
+    [],
   )
 
   // 用户继续输入或父组件改值后，丢弃仍在途的异步补全，避免旧结果覆盖新文本。
