@@ -116,12 +116,21 @@ export async function renderTui(
     drag: async (fromX, fromY, toX, toY) => runInteraction(() => raw.mockMouse.drag(fromX, fromY, toX, toY)),
     waitUntil: async (predicate, timeoutMs = 2000) => {
       const deadline = Date.now() + timeoutMs
-      while (!predicate()) {
-        if (Date.now() > deadline) throw new Error("waitUntil 超时")
+      for (;;) {
         await act(async () => {
           await yieldMacrotask()
           await raw.flush()
         })
+        // 0.6 起 captureCharFrame 需要独占输出 lease：flush 之后新调度的渲染若
+        // 仍在途，立即取帧会撞 OutputBusy。调度器检查与谓词评估在同一同步块，
+        // 期间不会插入新的渲染；忙则回到循环头让 flush 推进它。
+        const scheduler = raw.renderer.getSchedulerState()
+        if (scheduler.isRunning || scheduler.isRendering || scheduler.hasScheduledRender) {
+          if (Date.now() > deadline) throw new Error("waitUntil 超时")
+          continue
+        }
+        if (predicate()) return
+        if (Date.now() > deadline) throw new Error("waitUntil 超时")
       }
     },
     destroy: () => {
