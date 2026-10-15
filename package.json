@@ -23,18 +23,18 @@
     "build:ansh": "bun scripts/build-ansh.ts"
   },
   "overrides": {
-    "@opentui/core": "0.4.5",
-    "@opentui/react": "0.4.5"
+    "@opentui/core": "0.6.6",
+    "@opentui/react": "0.6.6"
   },
   "devDependencies": {
     "@antd-tui/components": "workspace:*",
     "@antd-tui/live": "workspace:*",
-    "@opentui/core": "latest",
-    "@opentui/react": "latest",
-    "@types/bun": "^1.2.0",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0",
-    "typescript": "^5.7.0"
+    "@opentui/core": "^0.6.6",
+    "@opentui/react": "^0.6.6",
+    "@types/bun": "^1.4.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "typescript": "^7.0.2"
   }
 }

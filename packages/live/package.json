@@ -10,8 +10,8 @@
     "@antd-tui/components": "workspace:*",
     "@formily/reactive": "^2.3.7",
     "@formily/reactive-react": "^2.3.7",
-    "@opentui/core": "latest",
-    "@opentui/react": "latest",
+    "@opentui/core": "^0.6.6",
+    "@opentui/react": "^0.6.6",
     "react": "^19.0.0"
   },
   "devDependencies": {
