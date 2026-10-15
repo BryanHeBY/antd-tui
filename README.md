@@ -109,7 +109,7 @@ bun packages/vibe-tui/src/cli.ts --acp "qodercli --acp"
 
 配置文件自动发现:未给 `--config` 时,两个 CLI 都会采用**当前目录**的 `agent.json`(存在才用,不扫描全局)。优先级:`--model`/`--effort` > `PI_MODEL`/`PI_EFFORT` 环境变量 > 配置文件;凭据缺省回退各 provider 的环境变量(如 `ANTHROPIC_API_KEY`)。
 
-画布工具(两后端同名同语义):`vibetui_eval`(会话级 JS REPL)、`vibetui_snapshot` / `vibetui_host_snapshot`(页面/宿主截帧)、`vibetui_layout`(Row/Col 布局诊断)、`vibetui_inspect`(节点 props 与可见文本)、`vibetui_dispatch`(语义事件自测)、`vibetui_reset`(清空页面与 REPL 作用域)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码)。ACP 后端经 MCP 工具暴露;pi 后端把同一套工具直接注册成进程内 agent 工具(描述与参数共享一份事实源 `canvas-tools.ts`)。
+画布工具(两后端同名同语义):`vibetui_eval`(会话级 JS REPL)、`vibetui_snapshot` / `vibetui_host_snapshot`(页面/宿主截帧)、`vibetui_layout`(Row/Col 布局诊断)、`vibetui_inspect`(节点 props 与可见文本)、`vibetui_dispatch`(语义事件自测)、`vibetui_reset`(清空页面与 REPL 作用域)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码);另有零 key 网页工具 `web_search`(DuckDuckGo,免 key,fetch 自动走 `HTTPS_PROXY`)与 `web_read`(r.jina.ai reader 返回干净 markdown,失败回退裸抓取剥标签)——agent 搜到信息可直接画到画布上。ACP 后端经 MCP 工具暴露;pi 后端把同一套工具直接注册成进程内 agent 工具(描述与参数共享一份事实源 `canvas-tools.ts`)。
 
 会话就绪后自动注入引导:默认可直接执行完整 JS；不熟悉 API 或搭复杂壳时按需读取 guide/example；只有需要尽早展示中间结果时再分区增量构建。
 
