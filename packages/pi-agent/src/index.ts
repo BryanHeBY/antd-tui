@@ -339,3 +339,9 @@ export { loadAgentConfig, buildPiRuntime, resolveConfigPath, WORKSPACE_CONFIG, B
 export type { AgentConfigFile, CustomProviderConfig, PiEffort, PiRuntime } from "./pi-config"
 export { PI_NATIVE_COMMANDS, runNativeCommand } from "./native-commands"
 export type { NativeCommandResult, NativeCommandSpec } from "./native-commands"
+export {
+  toAgentTools,
+  startMcpToolServer,
+  type HostToolSpec,
+  type McpToolServer,
+} from "./host-tools"
