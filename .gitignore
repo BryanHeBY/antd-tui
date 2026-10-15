@@ -2,3 +2,4 @@ node_modules/
 dist/
 .buntmp/
 *.log
+agent.json

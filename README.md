@@ -19,7 +19,8 @@ Bun workspace,十个包:
 | `@antd-tui/formily` | 把 Formily `SchemaField` 映射到组件库(Schema 通路的表单引擎) |
 | `@antd-tui/live` | `$ui` 活对象树运行时:真 JS 对象 + 真函数、操作级校验、observable 自驱渲染 |
 | `@antd-tui/acp` | ACP 客户端桥:连接 agent 子进程,把 `session/update` 的各变体、权限请求、会话/模式/模型/取消都摊成宿主可用的回调与方法,纯协议、零 UI |
-| `@antd-tui/vibe-tui` | 完全由 ACP Agent 驱动的画布,经内置 MCP 工具生成/操作界面 |
+| `@antd-tui/vibe-tui` | 完全由 Agent 驱动的画布:ACP 后端经内置 MCP 工具,或 pi 原生后端进程内直调 |
+| `@antd-tui/pi-agent` | pi 原生 agent 后端:进程内嵌 `@earendil-works/pi-agent-core`,与 AcpClient 同形,全内存、无默认工具,工具由宿主注入 |
 | `@antd-tui/antop` | 可嵌入或以 CLI 运行的终端系统监控器 |
 | `@antd-tui/anterm` | 内嵌可交互子终端(能跑 `vim` / `htop` / `ssh`)+ 可被宿主复用的 PTY 会话与 flow 平铺渲染 |
 | `@antd-tui/anshell` | agent 时代的流式对话式 shell:所有命令跑在一条长驻 shell 里(OSC 133 切卡片),真实 bash 补全与斜杠命令 |
@@ -81,19 +82,38 @@ bun run build:bin   # → dist/antd-tui-engine
 
 ## vibe-tui:Agent 驱动的画布
 
-`vibe-tui` 是一块完全由 Agent 驱动的终端界面:人类在底部输入框对话,Agent 经 [ACP](https://agentclientprotocol.com/) 连入,通过内置 MCP 工具在 `$ui` 活对象树上生成、操作界面。
+`vibe-tui` 是一块完全由 Agent 驱动的终端界面:人类在底部输入框对话,Agent 在 `$ui` 活对象树上生成、操作界面。**默认 pi 原生后端**(进程内嵌 [pi](https://github.com/earendil-works/pi) 的 agent runtime,画布工具直调、全内存、无子进程无 HTTP);`--acp "<命令>"` 显式切回 ACP 子进程(经 [ACP](https://agentclientprotocol.com/) 连入外部 agent,画布工具经内置 MCP 服务注入,支持 `--resume`)。
 
 ```sh
-# 用内置 mock agent 体验
+# 默认 pi 后端:模型/effort/凭据来自 --config 文件(也可 --model / PI_MODEL 指定模型)
+bun packages/vibe-tui/src/cli.ts --config agent.json
+bun packages/vibe-tui/src/cli.ts --model anthropic/claude-sonnet-4-5 --effort high
+
+# 配置文件(JSON):auth 段与 pi 的 auth.json 凭据同构;authFile 可显式复用 pi /login 的成果
+cat > agent.json <<'JSON'
+{
+  "model": "anthropic/claude-sonnet-4-5",
+  "effort": "high",
+  "auth": { "anthropic": { "type": "api_key", "key": "sk-ant-..." } },
+  "authFile": "~/.pi/agent/auth.json",
+  "providers": { "ollama": { "baseUrl": "http://localhost:11434/v1", "wireApi": "chat" } }
+}
+JSON
+
+# 用内置 mock agent 体验 ACP 后端
 bun run vibe:mock
 
-# 接入真实 ACP agent
-bun packages/vibe-tui/src/cli.ts --agent "qodercli --acp"
+# 接入真实 ACP agent;--resume 复用/列出 agent 侧会话
+bun packages/vibe-tui/src/cli.ts --acp "qodercli --acp"
 ```
 
-MCP 工具:`vibetui_eval`(会话级 JS REPL)、`vibetui_snapshot` / `vibetui_host_snapshot`(页面/宿主截帧)、`vibetui_layout`(Row/Col 布局诊断)、`vibetui_inspect`(节点 props 与可见文本)、`vibetui_dispatch`(语义事件自测)、`vibetui_reset`(清空页面与 REPL 作用域)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码)。会话就绪后自动注入引导:默认可直接执行完整 JS；不熟悉 API 或搭复杂壳时按需读取 guide/example；只有需要尽早展示中间结果时再分区增量构建。
+配置文件自动发现:未给 `--config` 时,两个 CLI 都会采用**当前目录**的 `agent.json`(存在才用,不扫描全局)。优先级:`--model`/`--effort` > `PI_MODEL`/`PI_EFFORT` 环境变量 > 配置文件;凭据缺省回退各 provider 的环境变量(如 `ANTHROPIC_API_KEY`)。
 
-交互:输入框输入 prompt(Enter 发送);F2 进入页面模式操作画板,F3 对话记录,Esc 返回;鼠标随时可点画板。
+画布工具(两后端同名同语义):`vibetui_eval`(会话级 JS REPL)、`vibetui_snapshot` / `vibetui_host_snapshot`(页面/宿主截帧)、`vibetui_layout`(Row/Col 布局诊断)、`vibetui_inspect`(节点 props 与可见文本)、`vibetui_dispatch`(语义事件自测)、`vibetui_reset`(清空页面与 REPL 作用域)、`vibetui_guide`(编写规范)、`vibetui_example`(参考实现源码)。ACP 后端经 MCP 工具暴露;pi 后端把同一套工具直接注册成进程内 agent 工具(描述与参数共享一份事实源 `canvas-tools.ts`)。
+
+会话就绪后自动注入引导:默认可直接执行完整 JS；不熟悉 API 或搭复杂壳时按需读取 guide/example；只有需要尽早展示中间结果时再分区增量构建。
+
+交互:输入框输入 prompt(Enter 发送);pi 后端下 `/model` `/effort` `/reset` 在输入框本地消化(切模型/力度/清对话,完整输出进 F3 对话面板);F2 进入页面模式操作画板,F3 对话记录,Esc 返回;鼠标随时可点画板。
 
 ## antop:终端系统监控器
 
@@ -153,17 +173,19 @@ import { Anterm } from "@antd-tui/anterm"
 - **命令**:首词是已知命令(PATH 可执行 / builtin / shell 自报的函数别名),或整行含 Shell 结构(`| > & ; $` …)→ 写进那条长驻 shell。卡片头是 `<cwd> $ <整行>`,输出是 `133;C`→`133;D` 之间行区间的实时派生,命令结束时冻结成**不可变快照**(冻结画面与最后一帧逐格一致)。输入区支持语义高亮与异步 `bash/zsh -n` 诊断。
 - **真实补全（bash）**:`Tab` 把整行交给那条 shell 里 bash 自己的 completion spec 跑一遍(`complete -p` 取 spec → 调 `-F` 函数 → 回带 `COMPREPLY`),所以 `git checkout <Tab>` 列的是真分支、`systemctl <Tab>` 是真单元。bash-completion 多为懒加载,驱动带 **124 重试**;没有已注册 spec 的裸命令/路径/`$VAR` 回退到宿主的启发式补全(它会 stat 目录)。多个候选时草稿卡下方展开下拉框,`↑↓` 选择(抢在命令历史之前)、`Tab` 前进、`Enter` 接受、`Esc` 收起。zsh 暂用启发式。请求经 shell 的 `runHidden` 文件通道传输,不碰 PTY 引号。
 - **全屏行为**:不按命令名特判。命令切到 alternate screen(或 `Ctrl+O` 强制)时,那条共享 shell 的视图被搬进**全屏**浮层(vim/less/htop 的原生体验),退出后卡片原样留在流里(`<cwd> $ <整行>  (exit N)` + 输出块)。浮层两档**同宽**(只差高度)——这样 cols 恒定、xterm 不会 reflow,浮层才能安全 resize 共享 shell。`Ctrl+O` 在全屏↔居中弹窗间切换。整屏重画(`clear` / `\e[2J`)按 `screenTakeoverSeq` 只让**那一条**命令降级为视口快照,不像旧的 sticky 布尔那样污染整个会话。
-- **agent**:无法解析的自然语言 → 交给 agent(配置了 `--agent` 时经 `@antd-tui/acp` 走 prompt/stream;否则回一句系统提示)。agent 的流式回复、思考、工具调用、权限请求各自成卡片,与 shell 卡片同一套版式。轮次在途时**不发新的草稿卡**(仿 shell 的 prompt 未归位),流尾只有一行 `⠋ 运行中 · Esc 中断`——否则输入卡会先冒出来、agent 的文字再插到它上面;`Esc`/`Ctrl-C` 等价 `/cancel`,轮次收敛后草稿归位。
-- **斜杠命令**:`/` 开头进入第三条路由(优先于 shell/agent 分诊),草稿卡下方展开内联候选菜单——`↑↓` 选择、`Tab` 补全、`Enter` 执行(命令名没敲全且该命令带参数提示时,Enter 先补全名字等参数)、`Esc` 收起。命名空间里合流两类命令:
-  - **本地命令**映射到真正的 ACP 方法,并按 agent 声明的能力过滤(没声明就不出现在菜单里):`/session`(`session/list`·`new`·`load <id>`·`delete <id>`)、`/mode`(`session/set_mode`)、`/model`(ACP **没有** `session/set_model`,模型是 `category:"model"` 的 select 配置项,走 `session/set_config_option`)、`/cancel`(`session/cancel`)、`/usage`(`usage_update` 上报的占用与费用)、`/permissions`(权限记忆与审计,`reset` 清空)、`/help`。
+- **agent**:无法解析的自然语言 → 交给 agent(默认是 pi 原生后端,模型/凭据经 `--config`;或 `--acp "<命令>"` 走 ACP 子进程;两者都没配置时回一句系统提示)。agent 的流式回复、思考、工具调用、权限请求各自成卡片,与 shell 卡片同一套版式。轮次在途时**不发新的草稿卡**(仿 shell 的 prompt 未归位),流尾只有一行 `⠋ 运行中 · Esc 中断`——否则输入卡会先冒出来、agent 的文字再插到它上面;`Esc`/`Ctrl-C` 等价 `/cancel`,轮次收敛后草稿归位。
+- **斜杠命令**:`/` 开头进入第三条路由(优先于 shell/agent 分诊),草稿卡下方展开内联候选菜单——`↑↓` 选择、`Tab` 补全、`Enter` 执行(命令名没敲全且该命令带参数提示时,Enter 先补全名字等参数)、`Esc` 收起。命名空间里合流三类命令:
+  - **本地命令(ACP)**映射到真正的 ACP 方法,并按 agent 声明的能力过滤(没声明就不出现在菜单里):`/session`(`session/list`·`new`·`load <id>`·`delete <id>`)、`/mode`(`session/set_mode`)、`/model`(ACP **没有** `session/set_model`,模型是 `category:"model"` 的 select 配置项,走 `session/set_config_option`)、`/cancel`(`session/cancel`)、`/usage`(`usage_update` 上报的占用与费用)、`/permissions`(权限记忆与审计,`reset` 清空)、`/help`。
+  - **本地命令(pi 原生)**(pi 后端启用时):`/model`(`provider/model` 运行时切换,无参列出可用并标当前)、`/effort`(推理力度,下一轮生效)、`/reset`(清空内存对话)——直接改进程内 Agent 状态,不经 ACP 会话方法;`/cancel` 与 `/usage` 对两种后端都可用。
   - **agent 命令**来自 `available_commands_update`(全量替换、推送式,启动时为空),带 `description` 与 `input.hint`;ACP 没有 execute 方法,执行就是编译成一段 `/name args` 的 `session/prompt` 文本。
   - 判定只认「`/` 开头且首词里没有第二个 `/`」,`/usr/bin/ls`、`/tmp/x.sh` 仍然是可执行路径,照旧走 shell。**单段**绝对路径(`/tmp`、`/start.sh`)天生两义——`Ctrl+T` 在这种输入上三档轮换(斜杠命令 → Shell → Agent)让用户直接裁决,强制路由优先于斜杠识别,而不是靠更多猜测规则。
 - **权限审计**:`session/request_permission` 不再自动放行,而是开一张待决策卡片(`! <工具> 需要授权` + 编号选项);待决策期间草稿不渲染,键盘完全归卡片——数字键选项、`Esc`/`Ctrl-C` 取消。选中 `allow_always`/`reject_always` 会按工具名写进本地记忆,下次同名工具直接命中并在卡片上标「(记忆)」;`/permissions` 查看记忆与审计流水。agent 换了选项集时记忆自动失效,重新问人。
 
 ```sh
 # 需要真实 TTY
-bun run ansh
-bun run ansh --agent "<agent 启动命令>"
+bun run ansh                              # 工作区有 agent.json 时自动采用(零参数);没有则无 agent 通道
+bun run ansh --model openai-codex/gpt-6-luna  # 覆盖配置文件的模型
+bun run ansh --acp "<agent 启动命令>"    # 显式 ACP agent 子进程
 bun run ansh --shell /usr/bin/bash  # 覆盖默认 $SHELL；仅支持 bash/zsh
 bun run ansh --no-rc                # 不 source 用户 dotfiles（干净环境）
 
@@ -187,7 +209,7 @@ opentui 又静态 `await import` 了全部平台包,而本机只装了宿主那�
 ```tsx
 import { Anshell } from "@antd-tui/anshell"
 
-<Anshell shell="/usr/bin/zsh" agentCmd={["qodercli", "--acp"]} />
+<Anshell shell="/usr/bin/zsh" agent={{ kind: "acp", cmd: ["qodercli", "--acp"] }} />
 ```
 
 要点:
