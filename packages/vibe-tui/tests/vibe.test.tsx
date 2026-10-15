@@ -4,6 +4,13 @@ import { renderTui } from "@antd-tui/test-utils"
 import { displayWidth } from "@antd-tui/components"
 import { VibeApp } from "../src/VibeApp"
 import { AcpClient } from "@antd-tui/acp"
+import { createModels } from "@earendil-works/pi-ai"
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxText,
+  fauxToolCall,
+} from "@earendil-works/pi-ai/providers/faux"
 
 /**
  * vibe-tui × mock agent 的闭环 E2E：
@@ -41,7 +48,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("prompt 生成页面 → 点击回流 → agent 重渲染", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -75,7 +82,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("dispatch 自测不回流，但后续真实点击仍会回流", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -107,7 +114,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("输入行模式下画板键盘挂起，F2 后键盘归画板", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -135,7 +142,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("F3 打开滚动对话面板查看完整回复，Esc 关闭", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -157,7 +164,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("F3 日志层开启时，agent 页面快照仍等待并读取新 $ui 页面", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -179,7 +186,7 @@ describe("vibe-tui × mock agent", () => {
   }, 20000)
 
   test("流式 chunk 拼接成整行，不会一字一行", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -208,7 +215,7 @@ describe("vibe-tui × mock agent", () => {
 describe("会话复用（--resume）", () => {
   test("session/load 恢复：历史经 update 回放进对话记录，可继续对话", async () => {
     const t = await renderTui(
-      <VibeApp agentCmd={["bun", MOCK_AGENT]} resumeSessionId="mock-old" />,
+      <VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} resumeSessionId="mock-old" />,
       { width: 100, height: 24 },
     )
 
@@ -234,7 +241,7 @@ describe("全局退出（Esc×2）", () => {
   test("顶层第一次 Esc 提示，第二次触发退出回调；面板/页面模式的 Esc 不受影响", async () => {
     let quitted = false
     const t = await renderTui(
-      <VibeApp agentCmd={["bun", MOCK_AGENT]} onQuit={() => (quitted = true)} />,
+      <VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} onQuit={() => (quitted = true)} />,
       { width: 100, height: 24 },
     )
     await t.waitUntil(() => t.frame().includes("mock 就绪"), 12000)
@@ -258,7 +265,7 @@ describe("全局退出（Esc×2）", () => {
 
 describe("$ui 活对象树 REPL", () => {
   test("agent 逐步搭活树 → 真函数点击回流 → 重建时清空旧内容", async () => {
-    const t = await renderTui(<VibeApp agentCmd={["bun", MOCK_AGENT]} />, {
+    const t = await renderTui(<VibeApp agent={{ kind: "acp", cmd: ["bun", MOCK_AGENT] }} />, {
       width: 100,
       height: 24,
     })
@@ -282,6 +289,71 @@ describe("$ui 活对象树 REPL", () => {
     await t.waitUntil(() => t.frame().includes("当前计数"), 8000)
     expect(t.frame()).not.toContain("活树第二块")
 
+    t.destroy()
+  }, 20000)
+})
+
+describe("vibe-tui × pi 原生后端", () => {
+  test("faux 驱动 vibetui_eval 直调画布桥：无 MCP HTTP，页面照常生成", async () => {
+    const faux = fauxProvider()
+    const models = createModels()
+    models.setProvider(faux.provider)
+    // 引导 prompt 一到就用 vibetui_eval 在 $ui 上搭一个按钮，再收一句正文
+    faux.setResponses([
+      fauxAssistantMessage(
+        [fauxToolCall("vibetui_eval", { code: '$ui.add("Button", { content: "PI按钮" })' })],
+        { stopReason: "toolUse" },
+      ),
+      fauxAssistantMessage([fauxText("页面已就绪")]),
+    ])
+
+    const t = await renderTui(
+      <VibeApp agent={{ kind: "pi", spec: "faux/faux-1" }} piModels={models} />,
+      { width: 100, height: 24 },
+    )
+
+    await t.waitUntil(() => t.frame().includes("PI按钮"), 8000)
+    await t.waitUntil(() => t.frame().includes("页面已就绪"), 8000)
+    // 状态行回到空闲（busy 归位）
+    await t.waitUntil(() => t.frame().includes("·"), 8000)
+    t.destroy()
+  }, 20000)
+})
+
+describe("vibe-tui × pi 原生 slash 命令", () => {
+  test("输入框 /model 列出并切换模型，/effort 显示当前力度", async () => {
+    const faux = fauxProvider({ models: [{ id: "faux-a" }, { id: "faux-b" }] })
+    const models = createModels()
+    models.setProvider(faux.provider)
+    // 引导轮 + 后续可能的一轮都备好
+    faux.setResponses([fauxAssistantMessage([fauxText("就绪")])])
+
+    const t = await renderTui(
+      <VibeApp agent={{ kind: "pi", spec: "faux/faux-a" }} piModels={models} />,
+      { width: 100, height: 24 },
+    )
+    await t.waitUntil(() => t.frame().includes("就绪"), 8000)
+
+    // /model 无参：完整列表在 F3 对话面板；状态行只跟随最后一行
+    await t.type("/model")
+    await t.enter()
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("faux/faux-a  ← 当前"), 8000)
+    await t.waitUntil(() => t.frame().includes("faux/faux-b"), 8000)
+    await t.escape()
+
+    // /model 带参：切换，不发模型请求（faux 队列空置即证明未发）
+    await t.type("/model faux/faux-b")
+    await t.enter()
+    await t.waitUntil(() => t.frame().includes("模型已切换：faux/faux-b"), 8000)
+
+    // /effort 无参：显示当前
+    await t.type("/effort")
+    await t.enter()
+    await t.press("\u001bOR")
+    await t.waitUntil(() => t.frame().includes("当前力度"), 8000)
+    await t.escape()
+    expect(faux.getPendingResponseCount()).toBe(0)
     t.destroy()
   }, 20000)
 })

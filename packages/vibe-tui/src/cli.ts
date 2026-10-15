@@ -2,9 +2,11 @@
  * vibe-tui CLI：完全由 agent 驱动的 TUI 操作界面。
  *
  * 用法：
- *   vibe-tui --agent "bun path/to/acp-agent.ts"          # 新建临时会话（退出即删）
- *   vibe-tui --agent "qodercli --acp" --resume <id>      # 复用既有会话（历史回放，退出不删）
- *   vibe-tui --agent "qodercli --acp" --resume           # 列出 agent 侧会话供选择
+ *   vibe-tui [--config <json>] [--model provider/model] [--effort <level>]
+ *                                                       # 默认 pi 原生后端：进程内、全内存、无 MCP HTTP
+ *   vibe-tui --acp "bun path/to/acp-agent.ts"           # ACP 子进程后端，新建临时会话（退出即删）
+ *   vibe-tui --acp "qodercli --acp" --resume <id>       # 复用既有会话（历史回放，退出不删）
+ *   vibe-tui --acp "qodercli --acp" --resume            # 列出 agent 侧会话供选择
  *
  * 交互：下方输入框输入 prompt（Enter 发送）；F2 进入页面模式操作画板，F3 对话记录，
  * Esc 返回；鼠标随时可点画板。Ctrl+C 退出。
@@ -12,22 +14,42 @@
 import { createCliRenderer } from "@opentui/core"
 import { createRoot } from "@opentui/react"
 import React from "react"
-import { VibeApp } from "./VibeApp"
+import { VibeApp, type AgentBackend } from "./VibeApp"
 import { listAgentSessions } from "@antd-tui/acp"
+import { buildPiRuntime, PI_EFFORTS, type PiEffort } from "@antd-tui/pi-agent"
 
+const EFFORTS: readonly string[] = PI_EFFORTS
 interface CliArgs {
-  agentCmd: string[] | null
+  acpCmd: string[] | null
+  effort?: PiEffort
+  model?: string
+  config?: string
   /** undefined = 未指定；"" = 裸 --resume（列出会话）；其余为 sessionId */
   resume?: string
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { agentCmd: null }
+  const args: CliArgs = { acpCmd: null }
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case "--agent": {
+      case "--acp": {
         const raw = argv[++i]
-        if (raw) args.agentCmd = raw.split(/\s+/).filter(Boolean)
+        if (raw) args.acpCmd = raw.split(/\s+/).filter(Boolean)
+        break
+      }
+      case "--config": {
+        const raw = argv[++i]
+        if (raw) args.config = raw
+        break
+      }
+      case "--model": {
+        const raw = argv[++i]
+        if (raw) args.model = raw
+        break
+      }
+      case "--effort": {
+        const raw = argv[++i]
+        if (raw) args.effort = raw as PiEffort
         break
       }
       case "--resume": {
@@ -46,16 +68,42 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 async function main(): Promise<void> {
-  const { agentCmd, resume } = parseArgs(process.argv.slice(2))
-  if (!agentCmd || agentCmd.length === 0) {
-    process.stderr.write('用法：vibe-tui --agent "<启动 ACP agent 的命令>" [--resume [sessionId]]\n')
+  const { acpCmd, config, model, effort, resume } = parseArgs(process.argv.slice(2))
+
+  // 后端选择：缺省 = pi 原生后端（模型/effort/凭据来自 --config 文件，
+  // 覆盖链 --model/--effort > PI_MODEL/PI_EFFORT > 配置）；--acp "<命令>" = ACP 子进程。
+  if (resume !== undefined && !acpCmd) {
+    process.stderr.write('恢复会话需要 ACP 后端（--acp "<命令>" --resume）；pi 原生后端是全内存会话\n')
     process.exit(2)
   }
+  let backend: AgentBackend
+  if (acpCmd) {
+    backend = { kind: "acp", cmd: acpCmd }
+  } else {
+    if (effort !== undefined && !EFFORTS.includes(effort)) {
+      process.stderr.write(`--effort 应为 ${EFFORTS.join("/")}\n`)
+      process.exit(2)
+    }
+    try {
+      backend = {
+        kind: "pi",
+        spec: model,
+        config,
+        effort,
+        runtime: buildPiRuntime({ configPath: config, model, effort }),
+      }
+    } catch (err) {
+      process.stderr.write(`${(err as Error).message}\n`)
+      process.exit(2)
+    }
+  }
+
 
   // 裸 --resume：列出会话后退出，供用户挑 sessionId
   if (resume === "") {
     try {
-      const sessions = await listAgentSessions(agentCmd)
+      // pi+--resume 已在上面的守卫退出，这里必然是 --acp 路径
+      const sessions = await listAgentSessions(acpCmd!)
       if (sessions.length === 0) {
         process.stdout.write("agent 侧没有可恢复的会话\n")
       } else {
@@ -112,7 +160,7 @@ async function main(): Promise<void> {
 
   createRoot(renderer).render(
     React.createElement(VibeApp, {
-      agentCmd,
+      agent: backend,
       resumeSessionId: resume || undefined,
       onQuit: () => shutdown(0),
     }),

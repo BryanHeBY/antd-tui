@@ -4,9 +4,12 @@ import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import { ConfigProvider, FocusScope, Input, truncateToWidth, useToken } from "@antd-tui/components"
 import { LiveTree, LiveView } from "@antd-tui/live"
 import { AcpClient } from "@antd-tui/acp"
+import { PiAgent, runNativeCommand, type AgentBackend } from "@antd-tui/pi-agent"
+import type { Models } from "@earendil-works/pi-ai"
 import { createEvalRepl } from "./eval"
 import { BOOT_PROMPT, EXAMPLE_REFERENCE, LIVE_GUIDE } from "./knowledge"
-import { startMcpCanvasServer, type McpCanvasServer } from "./mcp"
+import { startMcpCanvasServer, type CanvasBridge, type McpCanvasServer } from "./mcp"
+import { nativeCanvasTools } from "./canvas-tools"
 import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-snapshot"
 
 /**
@@ -20,13 +23,16 @@ import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-sn
  * 人类 → agent：输入框 prompt；页面事件经 $agent.send(text, payload?) 回流为 "[page] ..."。
  * 会话就绪后自动注入硬编码引导（新建与恢复都注入：agent 必须知道自己身处 vibe-tui）。
  */
+export type { AgentBackend }
 export interface VibeAppProps {
-  /** agent 启动命令（argv 形式），如 ["bun", "mock-agent.ts"] */
-  agentCmd: string[]
-  /** 复用既有会话：经 session/load 恢复，历史回放进对话记录；此类会话退出时不删除 */
+  /** agent 后端：ACP 命令（argv 形式）或 pi 原生后端 */
+  agent: AgentBackend
+  /** 复用既有会话：经 session/load 恢复，历史回放进对话记录；此类会话退出时不删除（仅 ACP 后端） */
   resumeSessionId?: string
   /** 退出回调（Esc×2 / Ctrl+C 触发，会话清理完成后调用）；缺省 process.exit(0) */
   onQuit?: () => void
+  /** 测试注入：pi 后端的 Models（faux provider）；生产路径留空走默认 provider 集 */
+  piModels?: Models
 }
 
 const LOG_LIMIT = 300
@@ -37,7 +43,7 @@ interface ConversationEntry {
   text: string
 }
 
-export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
+export function VibeApp({ agent, resumeSessionId, onQuit, piModels }: VibeAppProps) {
   /** 画布是否已有内容：首次 $ui 变更后置真，之前显示空画板提示 */
   const [hasCanvas, setHasCanvas] = useState(false)
   const [status, setStatus] = useState("agent 启动中…")
@@ -118,7 +124,7 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     })
   }
 
-  const clientRef = useRef<AcpClient | null>(null)
+  const clientRef = useRef<AcpClient | PiAgent | null>(null)
 
   // 页面 → agent 的回流通道：$ui 的 handler 是真函数，在 eval 作用域里直接闭包捕获 $agent
   const scopeExtras = useMemo(
@@ -170,7 +176,8 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     let mcp: McpCanvasServer | null = null
     const boot = async () => {
       snapshotRendererRef.current = await createPageSnapshotRenderer(liveRef.current!)
-      mcp = await startMcpCanvasServer({
+      // 画布桥是唯一事实源：MCP（ACP 后端）与原生工具（pi 后端）都只做注册面
+      const bridge: CanvasBridge = {
         // $ui/$agent 是会话级 REPL 的宿主入口；顶层变量和闭包跨 eval 保留。
         evaluate: (code) => replRef.current!.evaluate(code),
         snapshot: capturePageFrame,
@@ -199,31 +206,48 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
             dispatchDepthRef.current -= 1
           }
         },
-      })
-      const client = new AcpClient(
-        agentCmd,
-        {
-          onUpdate: appendChunk,
-          onTurnEnd: flushPartial,
-          onBusy: setBusy,
-          onExit: (code) => {
-            flushPartial()
-            appendMessage("system", `agent 已退出（code ${code ?? "?"}）`)
+      }
+      const handlers = {
+        onUpdate: appendChunk,
+        onTurnEnd: flushPartial,
+        onBusy: setBusy,
+        onExit: (code: number | null) => {
+          flushPartial()
+          appendMessage("system", `agent 已退出（code ${code ?? "?"}）`)
+        },
+      }
+      if (agent.kind === "pi") {
+        // 原生后端：画布工具进程内直调，不起 MCP HTTP，会话全内存
+        const pi = new PiAgent({
+          spec: agent.runtime?.spec ?? agent.spec,
+          thinkingLevel: agent.runtime?.thinkingLevel,
+          systemPrompt:
+            "你是 vibe-tui 的界面 agent：用 vibetui_* 工具在 $ui 活对象树上生成、操作终端界面；[page] 前缀的消息是页面事件回流。",
+          tools: nativeCanvasTools(bridge),
+          handlers,
+          models: piModels ?? agent.runtime?.models,
+        })
+        clientRef.current = pi
+        await pi.start()
+      } else {
+        mcp = await startMcpCanvasServer(bridge)
+        const client = new AcpClient(
+          agent.cmd,
+          handlers,
+          {
+            sessionId: resumeSessionId,
+            mcpServers: [{ type: "http", name: "vibetui", url: mcp.url, headers: [] }],
           },
-        },
-        {
-          sessionId: resumeSessionId,
-          mcpServers: [{ type: "http", name: "vibetui", url: mcp.url, headers: [] }],
-        },
-      )
-      clientRef.current = client
-      await client.start()
+        )
+        clientRef.current = client
+        await client.start()
+      }
       setStatus(
         resumeSessionId ? "会话已恢复（F3 查看历史），引导注入中…" : "agent 就绪，引导注入中…",
       )
       // 硬编码引导：新建与恢复都注入——agent 必须知道自己身处 vibe-tui 并主动画初始界面
       appendMessage("system", "[已注入 vibe-tui 引导]")
-      client.prompt(BOOT_PROMPT)
+      clientRef.current!.prompt(BOOT_PROMPT)
     }
     void boot().catch((err: Error) => setStatus(`agent 启动失败：${err.message}`))
     return () => {
@@ -271,6 +295,19 @@ export function VibeApp({ agentCmd, resumeSessionId, onQuit }: VibeAppProps) {
     const text = input.trim()
     if (text === "") return
     setInput("")
+    // pi 原生 slash 命令在本地消化（/model /effort /reset），不发给模型；
+    // 其余 / 开头输入照常当 prompt——画布 agent 也许自己定义了约定
+    const client = clientRef.current
+    if (text.startsWith("/") && client instanceof PiAgent) {
+      const [name, ...rest] = text.slice(1).split(/\s+/)
+      const native = runNativeCommand(client, name ?? "", rest.join(" "))
+      if (native) {
+        // 逐行入对话：一行一个条目，F3 面板里每行独立成行
+        for (const line of native.lines) appendMessage(native.ok ? "system" : "error", line)
+        setStatus(native.lines[native.lines.length - 1] ?? "")
+        return
+      }
+    }
     // 我方发言也入对话记录，未完的 agent 流式行先冲刷
     flushPartial()
     appendMessage("user", text)
