@@ -22,9 +22,9 @@ export const CANVAS_TOOL_DESCRIPTIONS = {
   layout:
     "诊断当前页面的布局配置：返回画布字符格尺寸、Row/Col 的有效 span/flex/width/wrap/gutter，以及可确定的换行或 24 栅格溢出风险。它报告的是活树配置，不会伪造组件实际坐标；用 vibetui_snapshot 复核最终视觉结果。布局异常时先调用此工具，再修改 Row/Col。",
   snapshot:
-    "等待 $ui 页面绘制完成后，获取仅包含 agent 页面区域的字符画，用于视觉验收。它不受 F2 键盘模式、F3 对话记录、状态栏或输入框影响；若要诊断宿主当前可见画面，使用 vibetui_host_snapshot。",
+    "等待 $ui 页面绘制完成后，获取仅包含 agent 页面区域的字符画，用于视觉验收。它不受键盘模式、对话面板、状态栏或输入框影响；若要诊断宿主当前可见画面，使用 vibetui_host_snapshot。",
   hostSnapshot:
-    "获取人类当前终端所见的完整宿主画面，含 F3 对话记录、状态栏和输入框；用于诊断宿主层，不用于 $ui 页面视觉验收。",
+    "获取人类当前终端所见的完整宿主画面，含对话面板、状态栏和输入框；用于诊断宿主层，不用于 $ui 页面视觉验收。",
   guide: "获取 $ui 活对象树的编写规范与黄金样例。生成任何页面前先读它。",
   example:
     "获取可直接交给 vibetui_eval 执行的 JavaScript App Shell 参考（满幅顶栏、侧栏导航、可滚动动态主区）。搭导航壳、多区域页面、表单或列表时按需调用；简单页面可直接写 JS。",

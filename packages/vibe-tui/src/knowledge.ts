@@ -13,8 +13,8 @@ export const BOOT_PROMPT = [
   "- vibetui_guide()：$ui 活对象树的编写规范与样例；不熟悉组件或布局时先读它",
   "- vibetui_example()：可直接执行的 App Shell JavaScript 参考；搭导航壳、多区域页、表单或列表时按需取用",
   "- vibetui_eval(code)：会话级 JS REPL；可一次执行完整 JS（函数、循环、整页构建），也可分次调试；顶层变量、函数与闭包跨调用保留",
-  "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受 F2/F3、状态栏或输入框影响",
-  "- vibetui_host_snapshot()：查看人类当前完整终端画面（含 F3 对话记录），仅用于诊断宿主状态",
+  "- vibetui_snapshot()：等待绘制完成后查看 agent 页面字符画；不受键盘模式、对话面板、状态栏或输入框影响",
+  "- vibetui_host_snapshot()：查看人类当前完整终端画面（含对话面板），仅用于诊断宿主状态",
   "- vibetui_layout()：布局异常时查看画布尺寸、Row/Col 的 wrap/span/flex/width 与可确定的溢出风险",
   "- vibetui_inspect({ id? })：查看节点当前 props/content 及其可见文本槽位；更新 Alert、Card 等非纯文本组件前可先确认",
   "- vibetui_reset()：仅在明确丢弃当前页面与所有 REPL 顶层变量/闭包时调用；普通 $ui.clear() 不会重置作用域",
@@ -98,7 +98,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 只有明确要整页重建时才调用 $ui.clear()；它会清空组件树、页面元信息、$ui.data 和全部 watch，不能把它当作普通报错恢复手段。
 
 ## 视觉校验
-- \`vibetui_snapshot()\` 会等待本次页面绘制完成，只返回 $ui 页面区域；F2/F3、状态栏和输入框不会混入结果。
+- \`vibetui_snapshot()\` 会等待本次页面绘制完成，只返回 $ui 页面区域；键盘模式、对话面板、状态栏和输入框不会混入结果。
   **搭完整页后验收一次**即可；每填一个区域就截一次会让往返翻倍、明显变慢。报错或布局明显异常时才中途截。
 - snapshot 是无色字符画：type: "primary" / danger / Tag 色等颜色语义在真终端可见，
   但在 snapshot 里不可辨——不要因 snapshot 看不出颜色差异而反复改颜色 props。
@@ -108,7 +108,7 @@ export const LIVE_GUIDE = `# vibe-tui $ui 活对象树速成
 - 要确认修改会更新哪段可见文字时调 \`vibetui_inspect({ id: "..." })\`。例如 Alert 的主文案是
   \`props.message\`，\`props.description\` 是说明，\`content\` 仅作为 children；Card 的边框标题是 \`props.title\`，
   \`content\` 是内容区首行。
-- \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括 F3 对话记录），仅用于诊断宿主层问题。
+- \`vibetui_host_snapshot()\` 才返回人类当前完整终端画面（包括对话面板），仅用于诊断宿主层问题。
 - 静态页面验收后，可用 \`vibetui_dispatch({ id, event, value? })\` 验证已声明的业务回调：
   \`click\` → \`tuiOnClick\`，\`pressEnter\` → \`tuiOnPressEnter\`，\`change\` → 输入组件的 change handler（并更新 name 绑定的 $ui.data）。
   它**不是**真实鼠标坐标命中、焦点移动或键盘导航模拟；这些渲染器级行为仍应由人类操作或专用端到端 driver 验收。

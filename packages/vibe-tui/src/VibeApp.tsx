@@ -20,8 +20,9 @@ import { createPageSnapshotRenderer, type PageSnapshotRenderer } from "./page-sn
  * 布局：画板（agent 用 $ui 活对象树搭的页面）+ 状态行 + 单行输入框。
  * agent 驱动通道：MCP 工具 vibetui_eval/snapshot/guide（经 session/new 的 mcpServers 注入）。
  * vibetui_eval 在 $ui 活组件树上执行真 JS，组件/props/监听每步即时上屏。
- * 键盘分区：默认输入行模式（画板 FocusScope 挂起）；F2 进入页面模式把键盘交给画板，
- * Esc 返回输入行。鼠标在两种模式下都直达画板。
+ * 键盘分区：默认输入行模式（画板 FocusScope 挂起）；Tab 循环切换 输入 → 页面（键盘交给画板）→
+ * 对话面板 → 输入（macOS 的 F 键默认是媒体键，单一 Tab 跨平台可靠；F2/F3 仍是静默别名）。
+ * 鼠标在所有模式下都直达画板。
  * 人类 → agent：输入框 prompt；页面事件经 $agent.send(text, payload?) 回流为 "[page] ..."。
  * 会话就绪后自动注入硬编码引导（新建与恢复都注入：agent 必须知道自己身处 vibe-tui）。
  */
@@ -268,8 +269,8 @@ export function VibeApp({ agent, resumeSessionId, onQuit, piModels }: VibeAppPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 模式切换是宿主级全局键：F2 页面模式，F3 日志面板；
-  // Esc 逐层返回（日志面板 → 页面模式 → 顶层双击退出）；
+  // 模式切换是宿主级全局键：Tab 三态循环（输入 → 页面 → 对话 → 输入），F2/F3 为静默别名；
+  // Esc 逐层返回（对话面板 → 输入 · 页面模式 → 输入 · 顶层双击退出）；
   // 退出（Esc×2 / Ctrl+C）先清理临时会话（session/delete）再走 onQuit
   const lastEscRef = useRef(0)
   const quit = () => {
@@ -282,6 +283,19 @@ export function VibeApp({ agent, resumeSessionId, onQuit, piModels }: VibeAppPro
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
       quit()
+    } else if (key.name === "tab") {
+      // Tab 三态循环：输入 → 页面 → 对话 → 输入。macOS 的 F 键默认是媒体键，
+      // 单一 Tab 跨平台可靠；画布 FocusScope 以 tabNavigable=false 让出 Tab
+      //（画布内用鼠标/方向键导航）。
+      key.stopPropagation()
+      if (showLog) {
+        setShowLog(false)
+      } else if (pageMode) {
+        setPageMode(false)
+        setShowLog(true)
+      } else {
+        setPageMode(true)
+      }
     } else if (key.name === "f2") setPageMode((v) => !v)
     else if (key.name === "f3") setShowLog((v) => !v)
     else if (key.name === "escape") {
@@ -332,7 +346,7 @@ export function VibeApp({ agent, resumeSessionId, onQuit, piModels }: VibeAppPro
             {showLog ? (
               <LogPanel log={log} partial={partial} />
             ) : (
-              <FocusScope suspended={!pageMode}>
+              <FocusScope suspended={!pageMode} tabNavigable={false}>
                 {hasCanvas ? (
                   <LiveView tree={liveRef.current!} handleEscape={false} hideHint />
                 ) : (
@@ -376,7 +390,7 @@ function LogPanel({ log, partial }: { log: ConversationEntry[]; partial: Convers
         paddingLeft: 1,
         paddingRight: 1,
       }}
-      title="对话记录（F3/Esc 关闭 · 滚轮滚动）"
+      title="对话记录（Esc 关闭 · 滚轮滚动）"
     >
       <scrollbox
         style={{ flexGrow: 1 }}
@@ -452,8 +466,8 @@ function StatusLine({
   const tag = showLog
     ? "[对话记录 Esc 关闭]"
     : pageMode
-      ? "[页面模式 Esc 返回]"
-      : "[输入模式 F2 页面 · F3 对话 · Esc×2 退出]"
+      ? "[页面模式 Tab 对话 · Esc 返回]"
+      : "[输入模式 Tab 页面 · Esc×2 退出]"
   const line = truncateToWidth(
     `${indicator} ${tag} ${status.replace(/\s+/g, " ")}`,
     Math.max(1, width - 2),

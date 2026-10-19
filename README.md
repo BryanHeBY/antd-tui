@@ -113,7 +113,7 @@ bun packages/vibe-tui/src/cli.ts --acp "qodercli --acp"
 
 会话就绪后自动注入引导:默认可直接执行完整 JS；不熟悉 API 或搭复杂壳时按需读取 guide/example；只有需要尽早展示中间结果时再分区增量构建。
 
-交互:输入框输入 prompt(Enter 发送);pi 后端下 `/model` `/effort` `/reset` 在输入框本地消化(切模型/力度/清对话,完整输出进 F3 对话面板);F2 进入页面模式操作画板,F3 对话记录,Esc 返回;鼠标随时可点画板。
+交互:输入框输入 prompt(Enter 发送);pi 后端下 `/model` `/effort` `/reset` 在输入框本地消化(切模型/力度/清对话,完整输出进对话面板)。**Tab 循环切换模式:输入 → 页面(操作画板)→ 对话记录 → 输入**(macOS 的 F 键默认是媒体键,单一 Tab 跨平台可靠;F2/F3 仍是静默别名),Esc 逐层返回、双击退出;鼠标随时可点画板。
 
 ## antop:终端系统监控器
 

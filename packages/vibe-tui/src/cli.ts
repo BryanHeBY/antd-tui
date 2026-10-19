@@ -8,7 +8,7 @@
  *   vibe-tui --acp "qodercli --acp" --resume <id>       # 复用既有会话（历史回放，退出不删）
  *   vibe-tui --acp "qodercli --acp" --resume            # 列出 agent 侧会话供选择
  *
- * 交互：下方输入框输入 prompt（Enter 发送）；F2 进入页面模式操作画板，F3 对话记录，
+ * 交互：下方输入框输入 prompt（Enter 发送）；Tab 循环切换 输入 → 页面模式（操作画板）→ 对话记录 → 输入，
  * Esc 返回；鼠标随时可点画板。Ctrl+C 退出。
  */
 import { createCliRenderer } from "@opentui/core"

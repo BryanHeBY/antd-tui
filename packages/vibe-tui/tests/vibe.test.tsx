@@ -357,3 +357,38 @@ describe("vibe-tui × pi 原生 slash 命令", () => {
     t.destroy()
   }, 20000)
 })
+
+describe("vibe-tui × Tab 模式循环", () => {
+  test("Tab 循环 输入 → 页面 → 对话 → 输入；Esc 逐层返回", async () => {
+    const faux = fauxProvider()
+    const models = createModels()
+    models.setProvider(faux.provider)
+    faux.setResponses([fauxAssistantMessage([fauxText("就绪")])])
+
+    const t = await renderTui(
+      <VibeApp agent={{ kind: "pi", spec: "faux/faux-1" }} piModels={models} />,
+      { width: 100, height: 24 },
+    )
+    await t.waitUntil(() => t.frame().includes("就绪"), 8000)
+
+    // Tab 1：输入 → 页面模式（画布键盘激活）
+    await t.tab()
+    await t.waitUntil(() => t.frame().includes("页面模式"), 8000)
+
+    // Tab 2：页面 → 对话面板
+    await t.tab()
+    await t.waitUntil(() => t.frame().includes("对话记录"), 8000)
+    await t.waitUntil(() => t.frame().includes("就绪"), 8000)
+
+    // Tab 3：对话 → 输入模式
+    await t.tab()
+    await t.waitUntil(() => t.frame().includes("输入模式"), 8000)
+
+    // Esc 分层：再进页面模式后 Esc 直接回输入（不经过对话）
+    await t.tab()
+    await t.waitUntil(() => t.frame().includes("页面模式"), 8000)
+    await t.escape()
+    await t.waitUntil(() => t.frame().includes("输入模式"), 8000)
+    t.destroy()
+  }, 20000)
+})

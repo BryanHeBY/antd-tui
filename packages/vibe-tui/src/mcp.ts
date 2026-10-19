@@ -24,7 +24,7 @@ export interface CanvasBridge {
   evaluate: (code: string) => unknown
   /** agent 页面视觉快照；允许等待下一次渲染完成。 */
   snapshot: () => string | Promise<string>
-  /** 当前宿主画面，用于诊断 F3 日志层等宿主状态。 */
+  /** 当前宿主画面，用于诊断对话面板等宿主状态。 */
   hostSnapshot: () => string | Promise<string>
   guide: () => string
   /** dashboard 参考实现全文(含 vibe 适配说明) */
@@ -141,7 +141,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
     "vibetui_snapshot",
     {
       description:
-        "等待 $ui 页面绘制完成后，获取仅包含 agent 页面区域的字符画，用于视觉验收。它不受 F2 键盘模式、F3 对话记录、状态栏或输入框影响；若要诊断宿主当前可见画面，使用 vibetui_host_snapshot。",
+        "等待 $ui 页面绘制完成后，获取仅包含 agent 页面区域的字符画，用于视觉验收。它不受键盘模式、对话面板、状态栏或输入框影响；若要诊断宿主当前可见画面，使用 vibetui_host_snapshot。",
       inputSchema: {},
     },
     async () => {
@@ -156,7 +156,7 @@ function buildServer(bridge: CanvasBridge): McpServer {
   server.registerTool(
     "vibetui_host_snapshot",
     {
-      description: "获取人类当前终端所见的完整宿主画面，含 F3 对话记录、状态栏和输入框；用于诊断宿主层，不用于 $ui 页面视觉验收。",
+      description: "获取人类当前终端所见的完整宿主画面，含对话面板、状态栏和输入框；用于诊断宿主层，不用于 $ui 页面视觉验收。",
       inputSchema: {},
     },
     async () => {

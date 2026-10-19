@@ -2,7 +2,7 @@
  * 独立的页面快照渲染器。
  *
  * 它和宿主终端共用同一个 LiveTree，却拥有自己的内存 renderer。因此 agent
- * 校验 $ui 时不会受 F3 对话记录、状态栏或输入框影响，也不需要短暂替换人类的画面。
+ * 校验 \$ui 时不会受对话面板、状态栏或输入框影响，也不需要短暂替换人类的画面。
  */
 import { createTestRenderer } from "@opentui/core/testing"
 import { createRoot } from "@opentui/react"
@@ -22,7 +22,7 @@ export async function createPageSnapshotRenderer(tree: LiveTree): Promise<PageSn
   root.render(
     <ConfigProvider>
       {/* 快照是页面结构/样式验收，不能因独立 renderer 自动聚焦首个控件，
-          否则会与宿主当前 F2 键盘模式无关地出现焦点框。 */}
+          否则会与宿主键盘模式无关地出现焦点框。 */}
       <FocusScope suspended>
         <LiveView tree={tree} handleEscape={false} hideHint />
       </FocusScope>
