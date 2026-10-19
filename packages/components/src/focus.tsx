@@ -77,10 +77,15 @@ export interface FocusScopeProps {
    * 如 vibe-tui 在「输入行模式」下挂起页面画板。鼠标事件不受影响。
    */
   suspended?: boolean
+  /**
+   * Tab 是否在本作用域内做焦点导航（默认 true）。宿主要拿 Tab 做全局模式切换时
+   * 置 false：Tab 不再归作用域，方向键/Enter 的导航语义不变。
+   */
+  tabNavigable?: boolean
   children?: ReactNode
 }
 
-export function FocusScope({ suspended = false, children }: FocusScopeProps) {
+export function FocusScope({ suspended = false, tabNavigable = true, children }: FocusScopeProps) {
   const scopeId = useId()
   const depth = useContext(FocusDepthContext) + 1
   const parentRegistry = useContext(ScopeRegistryContext)
@@ -197,6 +202,7 @@ export function FocusScope({ suspended = false, children }: FocusScopeProps) {
     // capture 类组件（内嵌终端）独占全部按键：Tab 要透传给子进程做 shell 补全
     if (focused && focused.kind === "capture") return
     if (key.name === "tab") {
+      if (!tabNavigable) return
       if (focused?.captureTab) return
       move(key.shift ? -1 : 1)
       return
